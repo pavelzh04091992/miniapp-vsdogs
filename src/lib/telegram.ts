@@ -27,6 +27,8 @@ export interface TelegramWebApp {
   close?: () => void;
   expand?: () => void;
   enableClosingConfirmation?: () => void;
+  openLink?: (url: string) => void;
+  openTelegramLink?: (url: string) => void;
   HapticFeedback?: {
     impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
   };
@@ -63,9 +65,7 @@ function applyTelegramTheme(webApp: TelegramWebApp): void {
   const root = document.documentElement;
   const { themeParams } = webApp;
 
-  setCssVar(root, '--tg-bg', themeParams.bg_color);
   setCssVar(root, '--tg-surface', themeParams.secondary_bg_color);
-  setCssVar(root, '--tg-text', themeParams.text_color);
   setCssVar(root, '--tg-hint', themeParams.hint_color);
   setCssVar(root, '--tg-button', themeParams.button_color);
   setCssVar(root, '--tg-button-text', themeParams.button_text_color);

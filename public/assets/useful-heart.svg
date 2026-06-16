@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="87.284012"
+   height="88.900383"
+   viewBox="0 0 87.284012 88.900383"
+   fill="none"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="useful-heart.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="87.284012"
+       height="88.900383"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <path
+     d="M 43.642005,88.90038 C 43.642005,88.90038 3.8297664e-8,63.038451 3.8297664e-8,29.09467 3.8297664e-8,12.930964 12.930964,0 29.09467,0 c 8.081852,0 14.547335,4.849112 14.547335,4.849112 0,0 6.465482,-4.849112 14.547335,-4.849112 16.163705,0 29.09467,12.930964 29.09467,29.09467 0,33.943781 -43.642005,59.80571 -43.642005,59.80571 z"
+     fill="#ff4b4b"
+     id="path1"
+     style="stroke-width:1.61637" />
+</svg>

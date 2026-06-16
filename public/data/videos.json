@@ -1,0 +1,31 @@
+{
+  "updatedAt": "2026-06-16T01:47:08.223Z",
+  "videos": [
+    {
+      "id": "video--1003627149637-13",
+      "situationSlug": "puppy-toilet-home",
+      "telegramMessageId": 13,
+      "telegramChatId": "-1003627149637",
+      "title": "Новое видео",
+      "description": "ТЕСТ ТЕСТ ТЕСТ",
+      "durationSeconds": 17,
+      "sourceLabel": "Telegram",
+      "thumbnailUrl": "/assets/images/situations/puppy-toilet-home.webp",
+      "telegramUrl": "https://t.me/testpuppychannel/13",
+      "createdAt": "2026-06-16T01:47:08.000Z"
+    },
+    {
+      "id": "video--1001234567890-321",
+      "situationSlug": "puppy-toilet-home",
+      "telegramMessageId": 321,
+      "telegramChatId": "-1001234567890",
+      "title": "Новое видео",
+      "description": "??? ???????? ????? ? ??????? ???? ????????? ?????? ???? ??? ?????????",
+      "durationSeconds": 245,
+      "sourceLabel": "Telegram",
+      "thumbnailUrl": "/assets/images/situations/puppy-toilet-home.webp",
+      "telegramUrl": "https://t.me/test_channel/321",
+      "createdAt": "2026-05-28T20:26:40.000Z"
+    }
+  ]
+}

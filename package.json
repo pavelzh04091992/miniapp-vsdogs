@@ -8,6 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "send:channel-message": "node scripts/send-channel-message.mjs",
+    "bot:server": "node scripts/run-bot-server.mjs",
+    "bot:set-webhook": "node scripts/set-webhook.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
