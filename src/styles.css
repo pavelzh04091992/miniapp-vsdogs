@@ -815,6 +815,11 @@ img {
     filter 140ms ease;
 }
 
+.video-card--rutube {
+  margin-bottom: 14px;
+  background: #f8fafc;
+}
+
 .video-card__preview {
   width: 112px;
   height: 112px;
@@ -895,6 +900,117 @@ img {
   place-items: center;
   background: #ffffff;
   box-shadow: 0 8px 18px rgba(15, 45, 92, 0.08);
+}
+
+.rutube-player-card {
+  padding: 14px;
+  border-radius: 22px;
+  background: #f8fafc;
+}
+
+.rutube-player-card__toolbar {
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rutube-player-card__action,
+.rutube-player-card__collapse {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 80, 161, 0.1);
+  color: #1150a1;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    opacity 140ms ease,
+    background-color 140ms ease;
+}
+
+.rutube-player-card__frame {
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #e9eef5;
+  position: relative;
+}
+
+.rutube-player-card__frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.rutube-player-card__collapse {
+  opacity: 0;
+  visibility: hidden;
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 8px);
+  right: 50px;
+  z-index: 2;
+}
+
+.rutube-player-card__empty {
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.rutube-player-card__empty h2 {
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 800;
+}
+
+.rutube-player-card__empty p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.rutube-player-card--expanded {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.rutube-player-card--expanded .rutube-player-card__toolbar {
+  display: none;
+}
+
+.rutube-player-card--expanded .rutube-player-card__frame {
+  aspect-ratio: auto;
+  border-radius: 0;
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: #000000;
+}
+
+.rutube-player-card--expanded .rutube-player-card__collapse {
+  opacity: 1;
+  visibility: visible;
+}
+
+.rutube-player-card--expanded .rutube-player-card__frame iframe {
+  width: 100vw;
+  height: 100vh;
 }
 
 .video-empty-card {
@@ -1069,6 +1185,16 @@ img {
   color: #1150a1;
 }
 
+html[data-rutube-expanded='true'] .bottom-nav,
+html[data-rutube-expanded='true'] .subpage-header {
+  opacity: 0;
+  pointer-events: none;
+}
+
+html[data-rutube-expanded='true'] .screen-content {
+  padding-bottom: 0;
+}
+
 .sr-only {
   width: 1px;
   height: 1px;
@@ -1087,6 +1213,8 @@ img {
 .useful-card:active,
 .program-card:active,
 .situation-card:active,
+.rutube-player-card__action:active,
+.rutube-player-card__collapse:active,
 .unsupported-link:active,
 .bottom-nav__tab:active {
   transform: scale(0.985);

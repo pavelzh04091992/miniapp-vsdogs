@@ -38,6 +38,14 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  const rutubeExpandButton = target.closest<HTMLElement>('[data-rutube-expand]');
+
+  if (rutubeExpandButton) {
+    const shouldExpand = rutubeExpandButton.dataset.rutubeExpand === 'true';
+    setRutubeExpanded(shouldExpand);
+    return;
+  }
+
   const routeButton = target.closest<HTMLElement>('[data-route]');
 
   if (routeButton) {
@@ -91,12 +99,23 @@ document.addEventListener('click', (event) => {
   showFeedback(message);
 });
 
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') {
+    return;
+  }
+
+  if (document.documentElement.dataset.rutubeExpanded === 'true') {
+    setRutubeExpanded(false);
+  }
+});
+
 function render(): void {
   if (!webApp) {
     return;
   }
 
   root.innerHTML = createAppMarkup(getCurrentRoute(), activeFilter, videosState);
+  document.documentElement.dataset.rutubeExpanded = 'false';
   const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
 
   if (navInner) {
@@ -115,6 +134,10 @@ function getCurrentRoute(): AppRoute {
 
   if (hash === 'puppy-toilet-home') {
     return 'puppy-toilet-home';
+  }
+
+  if (hash === 'puppy-toilet-home-player') {
+    return 'puppy-toilet-home-player';
   }
 
   return 'home';
@@ -141,6 +164,12 @@ async function syncRouteState(): Promise<void> {
       };
     }
 
+    render();
+    return;
+  }
+
+  if (route === 'puppy-toilet-home-player') {
+    videosState = { status: 'idle' };
     render();
     return;
   }
@@ -210,4 +239,16 @@ function updateBottomNavIndicatorPosition(): void {
       navInner.style.setProperty('--active-indicator-left', nextIndicatorLeft);
     });
   });
+}
+
+function setRutubeExpanded(expanded: boolean): void {
+  const playerCard = document.querySelector<HTMLElement>('.rutube-player-card');
+
+  if (!playerCard) {
+    return;
+  }
+
+  playerCard.classList.toggle('rutube-player-card--expanded', expanded);
+  document.documentElement.dataset.rutubeExpanded = expanded ? 'true' : 'false';
+  document.body.style.overflow = expanded ? 'hidden' : '';
 }

@@ -1,6 +1,6 @@
 import { SituationSlug, SituationVideo } from './lib/videos';
 
-export type AppRoute = 'home' | 'puppies' | 'puppy-toilet-home';
+export type AppRoute = 'home' | 'puppies' | 'puppy-toilet-home' | 'puppy-toilet-home-player';
 export type PuppyFilter = 'all' | 'home' | 'walk' | 'behavior' | 'commands';
 export type SituationVideosState =
   | { status: 'idle' | 'loading' }
@@ -69,6 +69,10 @@ export function createAppMarkup(
 
   if (route === 'puppy-toilet-home') {
     return createSituationDetailMarkup('puppy-toilet-home', videosState);
+  }
+
+  if (route === 'puppy-toilet-home-player') {
+    return createRutubePlayerMarkup();
   }
 
   return createHomeMarkup();
@@ -285,7 +289,70 @@ function createSituationDetailMarkup(slug: SituationSlug, videosState: Situation
               <h2>Видео-разборы</h2>
             </div>
 
+            ${createTestRutubeCard()}
             ${createSituationVideoContent(videosState)}
+          </section>
+        </div>
+      </main>
+
+      ${createBottomNav('lessons')}
+    </div>
+  `;
+}
+
+function createRutubePlayerMarkup(): string {
+  const rutubeEmbedUrl = getRutubeEmbedUrl();
+
+  return `
+    <div class="app-shell">
+      <header class="subpage-header">
+        <div class="content-frame">
+          <div class="subpage-header__inner">
+            <button class="back-button" type="button" data-route="puppy-toilet-home" aria-label="Назад">
+              <span class="back-button__icon" aria-hidden="true"></span>
+            </button>
+            <h1 class="subpage-title">Тестовое видео</h1>
+          </div>
+        </div>
+      </header>
+
+      <main class="screen-content">
+        <div class="content-frame">
+          <section class="section-block section-block--detail-first">
+            <div class="rutube-player-card">
+              <div class="rutube-player-card__toolbar">
+                <button class="rutube-player-card__action" type="button" data-rutube-expand="true">
+                  Открыть в полный экран
+                </button>
+              </div>
+              <div class="rutube-player-card__frame">
+                ${
+                  rutubeEmbedUrl
+                    ? `<iframe
+                        src="${rutubeEmbedUrl}"
+                        title="Тестовое видео Rutube"
+                        frameborder="0"
+                        allow="autoplay; clipboard-write; fullscreen; picture-in-picture"
+                        allowFullScreen
+                        webkitallowfullscreen
+                        mozallowfullscreen
+                        allowfullscreen
+                      ></iframe>`
+                    : `<div class="rutube-player-card__empty">
+                        <h2>Ссылка на тестовое видео не задана</h2>
+                        <p>Добавьте VITE_TEST_RUTUBE_VIDEO_URL в .env и перезапустите приложение</p>
+                      </div>`
+                }
+                <button
+                  class="rutube-player-card__collapse"
+                  type="button"
+                  data-rutube-expand="false"
+                  aria-label="Свернуть плеер"
+                >
+                  Свернуть
+                </button>
+              </div>
+            </div>
           </section>
         </div>
       </main>
@@ -357,6 +424,34 @@ function createVideoCard(video: SituationVideo): string {
         <span class="video-card__title">${video.title}</span>
         <span class="video-card__description">${video.description}</span>
         <span class="video-card__meta">${video.durationLabel} · ${video.sourceLabel}</span>
+      </span>
+
+      <span class="video-card__arrow" aria-hidden="true">
+        <span class="program-card__arrow-icon"></span>
+      </span>
+    </button>
+  `;
+}
+
+function createTestRutubeCard(): string {
+  return `
+    <button
+      class="video-card video-card--rutube"
+      type="button"
+      data-route="puppy-toilet-home-player"
+    >
+      <span class="video-card__preview">
+        <img src="/assets/images/situations/puppy-toilet-home.webp" alt="" />
+        <span class="video-card__play" aria-hidden="true">
+          <span class="video-card__play-icon"></span>
+        </span>
+      </span>
+
+      <span class="video-card__body">
+        <span class="video-card__label">Тестовое видео</span>
+        <span class="video-card__title">Rutube-плеер</span>
+        <span class="video-card__description">Открыть встроенный плеер с тестовым видео</span>
+        <span class="video-card__meta">Rutube · embed</span>
       </span>
 
       <span class="video-card__arrow" aria-hidden="true">
@@ -522,4 +617,29 @@ function getMiniAppLink(): string {
   }
 
   return `https://t.me/${configuredLink.replace(/^https?:\/\//, '').replace(/^t\.me\//, '').replace(/^\/+/, '')}`;
+}
+
+function getRutubeEmbedUrl(): string {
+  const configuredUrl = import.meta.env.VITE_TEST_RUTUBE_VIDEO_URL?.trim();
+
+  if (!configuredUrl) {
+    return '';
+  }
+
+  if (configuredUrl.includes('/play/embed/')) {
+    return configuredUrl;
+  }
+
+  try {
+    const url = new URL(configuredUrl);
+    const videoMatch = url.pathname.match(/\/video\/([a-z0-9]+)/i);
+
+    if (videoMatch) {
+      return `https://rutube.ru/play/embed/${videoMatch[1]}${url.search}`;
+    }
+  } catch {
+    return configuredUrl;
+  }
+
+  return configuredUrl;
 }
