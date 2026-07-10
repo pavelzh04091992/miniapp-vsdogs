@@ -1,4 +1,11 @@
-import { AppRoute, PuppyFilter, SituationVideosState, createAppMarkup, createUnsupportedEnvironmentMarkup } from './app';
+import {
+  AppRoute,
+  PuppyFilter,
+  SituationVideosState,
+  createAppMarkup,
+  createUnsupportedEnvironmentMarkup,
+  getVideoSourceSlugForRoute,
+} from './app';
 import { fetchSituationVideos } from './lib/videos';
 import { getTelegramWebApp, initTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
 import './styles.css';
@@ -36,6 +43,19 @@ document.addEventListener('click', (event) => {
 
   if (!(target instanceof HTMLElement)) {
     return;
+  }
+
+  const adultMenu = document.querySelector<HTMLElement>('.adult-program-menu');
+  const adultProgramCard = target.closest<HTMLElement>('.program-grid > .program-card:nth-child(3)');
+  const clickedInsideAdultMenu = Boolean(target.closest('.adult-program-menu'));
+
+  if (adultProgramCard) {
+    toggleAdultProgramMenu(adultProgramCard);
+    return;
+  }
+
+  if (adultMenu && !clickedInsideAdultMenu) {
+    closeAdultProgramMenu();
   }
 
   const rutubeExpandButton = target.closest<HTMLElement>('[data-rutube-expand]');
@@ -116,6 +136,7 @@ function render(): void {
 
   root.innerHTML = createAppMarkup(getCurrentRoute(), activeFilter, videosState);
   document.documentElement.dataset.rutubeExpanded = 'false';
+  setupAdultProgramMenu();
   const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
 
   if (navInner) {
@@ -128,12 +149,40 @@ function render(): void {
 function getCurrentRoute(): AppRoute {
   const hash = window.location.hash.replace(/^#/, '');
 
+  if (hash === 'adult-small') {
+    return 'adult-small';
+  }
+
+  if (hash === 'adult-large') {
+    return 'adult-large';
+  }
+
   if (hash === 'puppies') {
     return 'puppies';
   }
 
-  if (hash === 'puppy-toilet-home') {
-    return 'puppy-toilet-home';
+  if (hash.startsWith('adult-large-situation:')) {
+    return hash as AppRoute;
+  }
+
+  if (hash.startsWith('adult-large-topic:')) {
+    return hash as AppRoute;
+  }
+
+  if (hash.startsWith('adult-small-situation:')) {
+    return hash as AppRoute;
+  }
+
+  if (hash.startsWith('adult-small-topic:')) {
+    return hash as AppRoute;
+  }
+
+  if (hash.startsWith('puppy-situation:')) {
+    return hash as AppRoute;
+  }
+
+  if (hash.startsWith('puppy-topic:')) {
+    return hash as AppRoute;
   }
 
   if (hash === 'puppy-toilet-home-player') {
@@ -145,22 +194,23 @@ function getCurrentRoute(): AppRoute {
 
 async function syncRouteState(): Promise<void> {
   const route = getCurrentRoute();
+  const videoSourceSlug = getVideoSourceSlugForRoute(route);
 
   if (route !== 'puppies') {
     activeFilter = 'all';
   }
 
-  if (route === 'puppy-toilet-home') {
+  if (videoSourceSlug) {
     videosState = { status: 'loading' };
     render();
 
     try {
-      const videos = await fetchSituationVideos('puppy-toilet-home');
+      const videos = await fetchSituationVideos(videoSourceSlug);
       videosState = { status: 'ready', videos };
     } catch {
       videosState = {
         status: 'error',
-        message: 'Попробуйте открыть экран чуть позже',
+        message: 'Р СџР С•Р С—РЎР‚Р С•Р В±РЎС“Р в„–РЎвЂљР Вµ Р С•РЎвЂљР С”РЎР‚РЎвЂ№РЎвЂљРЎРЉ РЎРЊР С”РЎР‚Р В°Р Р… РЎвЂЎРЎС“РЎвЂљРЎРЉ Р С—Р С•Р В·Р В¶Р Вµ',
       };
     }
 
@@ -251,4 +301,88 @@ function setRutubeExpanded(expanded: boolean): void {
   playerCard.classList.toggle('rutube-player-card--expanded', expanded);
   document.documentElement.dataset.rutubeExpanded = expanded ? 'true' : 'false';
   document.body.style.overflow = expanded ? 'hidden' : '';
+}
+
+function setupAdultProgramMenu(): void {
+  const programGrid = document.querySelector<HTMLElement>('.program-grid');
+  const adultCard = document.querySelector<HTMLElement>('.program-grid > .program-card:nth-child(3)');
+
+  if (!programGrid || !adultCard) {
+    return;
+  }
+
+  adultCard.classList.add('program-card--adult-menu-anchor');
+
+  let menu = programGrid.querySelector<HTMLElement>('.adult-program-menu');
+
+  if (menu) {
+    return;
+  }
+
+  menu = document.createElement('div');
+  menu.className = 'adult-program-menu';
+  menu.innerHTML = `
+    <button
+      class="adult-program-menu__button"
+      type="button"
+      data-adult-option="large"
+      data-route="adult-large"
+    >
+      Большие собаки
+    </button>
+    <button
+      class="adult-program-menu__button"
+      type="button"
+      data-adult-option="small"
+      data-route="adult-small"
+    >
+      Маленькие собаки
+    </button>
+  `;
+
+  programGrid.append(menu);
+}
+
+function toggleAdultProgramMenu(adultCard: HTMLElement): void {
+  const menu = document.querySelector<HTMLElement>('.adult-program-menu');
+
+  if (!menu) {
+    return;
+  }
+
+  const isOpen = menu.classList.contains('adult-program-menu--open');
+
+  if (isOpen) {
+    closeAdultProgramMenu();
+    return;
+  }
+
+  const programGrid = adultCard.closest<HTMLElement>('.program-grid');
+
+  if (!programGrid) {
+    return;
+  }
+
+  adultCard.classList.add('program-card--menu-open');
+  menu.classList.add('adult-program-menu--measuring');
+  menu.classList.add('adult-program-menu--open');
+
+  const gridRect = programGrid.getBoundingClientRect();
+  const cardRect = adultCard.getBoundingClientRect();
+  const menuTop = cardRect.top - gridRect.top + cardRect.height / 2;
+  const menuLeft = cardRect.left - gridRect.left + cardRect.width / 2;
+
+  menu.style.width = `${Math.min(168, cardRect.width)}px`;
+  menu.style.left = `${menuLeft}px`;
+  menu.style.top = `${menuTop}px`;
+  menu.classList.remove('adult-program-menu--measuring');
+}
+
+function closeAdultProgramMenu(): void {
+  const menu = document.querySelector<HTMLElement>('.adult-program-menu');
+  const adultCard = document.querySelector<HTMLElement>('.program-grid > .program-card:nth-child(3)');
+
+  menu?.classList.remove('adult-program-menu--open');
+  menu?.classList.remove('adult-program-menu--measuring');
+  adultCard?.classList.remove('program-card--menu-open');
 }
