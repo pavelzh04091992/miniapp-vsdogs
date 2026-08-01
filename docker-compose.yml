@@ -9,10 +9,19 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./letsencrypt:/letsencrypt"
     networks:
       - proxy
     restart: unless-stopped
@@ -29,8 +38,9 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=miniapp-puppys_proxy"
-      - "traefik.http.routers.miniapp.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.miniapp.entrypoints=web"
+      - "traefik.http.routers.miniapp.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.miniapp.entrypoints=websecure"
+      - "traefik.http.routers.miniapp.tls.certresolver=letsencrypt"
       - "traefik.http.services.miniapp.loadbalancer.server.port=8787"
     volumes:
       - "./data:/app/public/data"
