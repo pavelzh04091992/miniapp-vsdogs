@@ -1,0 +1,43 @@
+name: miniapp-puppys
+
+services:
+  traefik:
+    image: traefik:v3.3
+    container_name: miniapp-traefik
+    command:
+      - "--log.level=INFO"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - proxy
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      target: app
+      args:
+        VITE_MINI_APP_LINK: ${VITE_MINI_APP_LINK}
+        VITE_TEST_RUTUBE_VIDEO_URL: ${VITE_TEST_RUTUBE_VIDEO_URL}
+    env_file:
+      - .env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=miniapp-puppys_proxy"
+      - "traefik.http.routers.miniapp.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.miniapp.entrypoints=web"
+      - "traefik.http.services.miniapp.loadbalancer.server.port=8787"
+    volumes:
+      - "./data:/app/public/data"
+    networks:
+      - proxy
+    restart: unless-stopped
+
+networks:
+  proxy:
+    driver: bridge

@@ -22,6 +22,24 @@ npm run dev
 npm run build
 ```
 
+## Container deploy without a domain
+
+This branch includes a minimal Traefik setup for a clean test server without a domain.
+Traefik listens on port `80` and routes all HTTP traffic to one app container.
+The app container serves the built Mini App from `dist/` and handles `/health` plus the Telegram webhook.
+
+```bash
+cp .env.example .env
+# fill BOT_TOKEN and Mini App values in .env
+docker compose up -d --build
+curl http://SERVER_IP/health
+```
+
+Runtime video catalog data is stored in the local `./data` directory and mounted into the app container.
+
+Telegram Mini Apps and Telegram webhooks require a trusted HTTPS public URL for real Telegram usage.
+Without a domain, use this setup for server smoke-testing, or put a temporary HTTPS tunnel in front of the server.
+
 ## Channel entry message
 
 Create `.env` from `.env.example`, fill in the bot and Mini App values, then send the pinned channel message:

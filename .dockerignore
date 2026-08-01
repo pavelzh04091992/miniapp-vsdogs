@@ -1,0 +1,9 @@
+.git
+node_modules
+dist
+.env
+.idea
+.agents
+*.log
+data
+letsencrypt
