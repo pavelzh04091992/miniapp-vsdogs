@@ -366,6 +366,11 @@ img {
   padding-top: 8px;
 }
 
+.puppy-hero--adult-large .puppy-hero__content {
+  padding-top: 0;
+  padding-bottom: 15px;
+}
+
 .puppy-hero__content h2 {
   margin: 0;
   font-size: clamp(24px, 6vw, 30px);
