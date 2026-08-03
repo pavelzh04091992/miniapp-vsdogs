@@ -45,6 +45,18 @@
   font-family: Inter, "Segoe UI", Arial, sans-serif;
 }
 
+@property --glass-shift-x {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --glass-shift-y {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -58,14 +70,14 @@
 html,
 body {
   margin: 0;
+  height: 100%;
   min-height: 100%;
   background: var(--app-bg);
   color: var(--text-main);
 }
 
 body {
-  min-height: 100vh;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 button,
@@ -86,6 +98,7 @@ img {
 }
 
 #app {
+  height: 100%;
   min-height: 100vh;
 }
 
@@ -126,7 +139,12 @@ img {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  height: var(--tg-viewport-stable-height, 100dvh);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--app-bg);
 }
 
@@ -167,10 +185,12 @@ img {
 }
 
 .home-header {
+  flex: 0 0 auto;
   padding: calc(14px + env(safe-area-inset-top)) 0 0;
 }
 
 .subpage-header {
+  flex: 0 0 auto;
   padding: calc(12px + env(safe-area-inset-top)) 0 0;
 }
 
@@ -250,8 +270,12 @@ img {
 }
 
 .screen-content {
+  min-height: 0;
+  flex: 1 1 auto;
   padding: 20px 0 calc(var(--tab-bar-height) + 24px + env(safe-area-inset-bottom));
   overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 
@@ -326,7 +350,8 @@ img {
   transition:
     transform 140ms ease,
     opacity 140ms ease,
-    filter 140ms ease;
+    filter 140ms ease,
+    box-shadow 220ms ease;
 }
 
 .hero-card__cta-icon,
@@ -554,7 +579,8 @@ img {
   transition:
     transform 140ms ease,
     opacity 140ms ease,
-    filter 140ms ease;
+    filter 140ms ease,
+    box-shadow 220ms ease;
 }
 
 .useful-card--blue {
@@ -804,11 +830,11 @@ img {
 }
 
 .situation-card--blue {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(239, 247, 255, 0.66));
+  --glass-tint: 64, 145, 232;
 }
 
 .situation-card--rose {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 241, 243, 0.66));
+  --glass-tint: 239, 93, 116;
 }
 
 .situation-card__media {
@@ -895,11 +921,204 @@ img {
 }
 
 .topic-card--blue {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(239, 247, 255, 0.66));
+  --glass-tint: 133, 190, 255;
 }
 
 .topic-card--rose {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 241, 243, 0.66));
+  --glass-tint: 255, 165, 178;
+}
+
+.situation-card,
+.topic-card {
+  --glass-shift-x: 0px;
+  --glass-shift-y: 0px;
+  --glass-relief-x: 0px;
+  --glass-relief-y: 0px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(var(--glass-tint), 0.1)),
+    rgba(255, 255, 255, 0.34);
+  backdrop-filter: blur(24px) saturate(175%) contrast(105%);
+  -webkit-backdrop-filter: blur(24px) saturate(175%) contrast(105%);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.96),
+    inset 1px 0 0 rgba(255, 255, 255, 0.58),
+    inset 0 -1px 0 rgba(15, 45, 92, 0.08),
+    0 10px 26px rgba(15, 45, 92, 0.09);
+}
+
+.situation-card {
+  --glass-color-angle: 155deg;
+  --glass-focus-x: 50%;
+  --glass-focus-y: 50%;
+  --glass-color-focus: 50%;
+  background:
+    linear-gradient(
+      var(--glass-color-angle),
+      rgba(255, 255, 255, 0.74) 0%,
+      rgba(var(--glass-tint), 0.1) calc(var(--glass-color-focus) - 24%),
+      rgba(var(--glass-tint), 0.3) var(--glass-color-focus),
+      rgba(var(--glass-tint), 0.13) calc(var(--glass-color-focus) + 25%),
+      rgba(255, 255, 255, 0.22) 100%
+    ),
+    rgba(var(--glass-tint), 0.08);
+  background-size: 172% 172%, auto;
+  background-position: var(--glass-focus-x) var(--glass-focus-y), center;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 1),
+    inset 1px 0 0 rgba(255, 255, 255, 0.68),
+    inset 0 -1px 0 rgba(var(--glass-tint), 0.18),
+    0 10px 26px rgba(var(--glass-tint), 0.14);
+}
+
+.situation-card::before,
+.topic-card::before {
+  content: '';
+  border-radius: inherit;
+  position: absolute;
+  inset: -18%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      118deg,
+      transparent 12%,
+      rgba(255, 255, 255, 0.16) 28%,
+      rgba(255, 255, 255, 0.5) 42%,
+      rgba(255, 255, 255, 0.12) 56%,
+      transparent 72%
+    ),
+    linear-gradient(
+      298deg,
+      transparent 14%,
+      rgba(var(--glass-tint), 0.08) 32%,
+      rgba(var(--glass-tint), 0.24) 49%,
+      rgba(var(--glass-tint), 0.06) 61%,
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.28) 0%,
+      rgba(255, 255, 255, 0.04) 38%,
+      rgba(var(--glass-tint), 0.08) 72%,
+      rgba(15, 45, 92, 0.04) 100%
+    );
+  background-repeat: no-repeat;
+  background-size: 165% 165%, 165% 165%, 100% 100%;
+  background-position:
+    calc(50% + var(--glass-relief-x) + var(--glass-shift-x))
+      calc(50% + var(--glass-relief-y) + var(--glass-shift-y)),
+    calc(50% - var(--glass-relief-x) - var(--glass-shift-x))
+      calc(50% - var(--glass-relief-y) - var(--glass-shift-y)),
+    center;
+  opacity: 0.76;
+  transform: scale(1.01);
+  transition:
+    --glass-shift-x 150ms cubic-bezier(0.22, 1, 0.36, 1),
+    --glass-shift-y 150ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 90ms ease-out,
+    opacity 90ms ease-out;
+  will-change: transform, opacity;
+}
+
+.situation-card::after,
+.topic-card::after {
+  content: '';
+  border-radius: inherit;
+  padding: 1px;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(255, 255, 255, 0.48) 34%,
+    rgba(var(--glass-tint), 0.2) 66%,
+    rgba(15, 45, 92, 0.12) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.situation-card > *,
+.topic-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.situation-card:active::before,
+.topic-card:active::before {
+  opacity: 1;
+  transform: scale(1.07);
+}
+
+.situation-card:active,
+.topic-card:active {
+  transform: scale(0.972);
+  opacity: 0.96;
+  filter: brightness(1.025) saturate(1.08);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(15, 45, 92, 0.1),
+    0 4px 12px rgba(15, 45, 92, 0.1);
+  transition-duration: 55ms;
+}
+
+.situation-card:active {
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(var(--glass-tint), 0.22),
+    0 4px 12px rgba(var(--glass-tint), 0.16);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .situation-card:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1.5px 0 rgba(255, 255, 255, 1),
+      inset 1px 0 0 rgba(255, 255, 255, 0.72),
+      inset 0 -1px 0 rgba(var(--glass-tint), 0.2),
+      0 13px 30px rgba(var(--glass-tint), 0.18);
+  }
+
+  .topic-card:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1.5px 0 rgba(255, 255, 255, 1),
+      inset 1px 0 0 rgba(255, 255, 255, 0.66),
+      inset 0 -1px 0 rgba(15, 45, 92, 0.08),
+      0 13px 30px rgba(15, 45, 92, 0.12);
+  }
+
+  .situation-card:hover::before,
+  .topic-card:hover::before {
+    opacity: 0.9;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topic-card {
+    background: rgba(255, 255, 255, 0.94);
+  }
+
+  .situation-card {
+    background: rgba(var(--glass-tint), 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .situation-card,
+  .topic-card,
+  .situation-card::before,
+  .topic-card::before {
+    transition: none;
+  }
 }
 
 .topic-card__media {
@@ -1434,7 +1653,6 @@ html[data-rutube-expanded='true'] .screen-content {
 .filter-pill:active,
 .useful-card:active,
 .program-card:active,
-.situation-card:active,
 .rutube-player-card__expand-icon:active,
 .rutube-player-card__collapse:active,
 .unsupported-link:active,
@@ -1446,7 +1664,6 @@ html[data-rutube-expanded='true'] .screen-content {
 .hero-card__cta:active,
 .useful-card:active,
 .program-card:active,
-.situation-card:active,
 .video-card:active {
   filter: brightness(0.98);
 }
@@ -1459,6 +1676,42 @@ html[data-rutube-expanded='true'] .screen-content {
 .section-link:active::before {
   opacity: 1;
   transition-duration: 90ms;
+}
+
+.app-shell--page-enter-forward {
+  animation: page-enter-forward 210ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.app-shell--page-enter-back {
+  animation: page-enter-back 210ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.app-shell--page-enter-fade {
+  animation: page-enter-fade 180ms ease-out both;
+}
+
+@keyframes page-enter-forward {
+  from {
+    transform: translateX(10px);
+  }
+}
+
+@keyframes page-enter-back {
+  from {
+    transform: translateX(-10px);
+  }
+}
+
+@keyframes page-enter-fade {
+  from {
+    opacity: 0.94;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell--page-enter {
+    animation: none;
+  }
 }
 
 @media (max-width: 430px) {

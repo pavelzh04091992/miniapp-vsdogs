@@ -22,6 +22,10 @@ const webApp = isTelegramMiniAppLaunch() ? initTelegramWebApp() : null;
 let activeFilter: PuppyFilter = 'all';
 let videosState: SituationVideosState = { status: 'idle' };
 let lastBottomNavIndicatorLeft = '50%';
+let lastRenderedRoute: AppRoute | null = null;
+let pendingTransitionDirection: PageTransitionDirection | null = null;
+
+type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
 if (!webApp) {
   root.innerHTML = createUnsupportedEnvironmentMarkup();
@@ -62,6 +66,9 @@ document.addEventListener('click', (event) => {
       return;
     }
 
+    pendingTransitionDirection = routeButton.classList.contains('back-button')
+      ? 'back'
+      : getRouteTransitionDirection(getCurrentRoute(), route);
     navigateTo(route);
     return;
   }
@@ -121,16 +128,181 @@ function render(): void {
     return;
   }
 
-  root.innerHTML = createAppMarkup(getCurrentRoute(), activeFilter, videosState);
-  document.documentElement.dataset.rutubeExpanded = 'false';
-  document.body.style.overflow = '';
-  const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
+  const route = getCurrentRoute();
+  const routeChanged = lastRenderedRoute !== null && lastRenderedRoute !== route;
+  const direction = pendingTransitionDirection ?? getRouteTransitionDirection(lastRenderedRoute, route);
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  if (navInner) {
-    navInner.style.setProperty('--active-indicator-left', lastBottomNavIndicatorLeft);
+  const updateMarkup = (): void => {
+    updatePageMarkup(createAppMarkup(route, activeFilter, videosState));
+    document.documentElement.dataset.rutubeExpanded = 'false';
+    document.body.style.overflow = '';
+    setupLiquidGlassCards();
+    const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
+
+    if (navInner) {
+      navInner.style.setProperty('--active-indicator-left', lastBottomNavIndicatorLeft);
+    }
+
+    updateBottomNavIndicatorPosition();
+    lastRenderedRoute = route;
+  };
+
+  pendingTransitionDirection = null;
+  updateMarkup();
+
+  if (!routeChanged || reducedMotion) {
+    return;
   }
 
-  updateBottomNavIndicatorPosition();
+  const pageContent = root.querySelector<HTMLElement>('.screen-content');
+
+  if (pageContent) {
+    pageContent.classList.add('app-shell--page-enter', `app-shell--page-enter-${direction}`);
+    pageContent.addEventListener(
+      'animationend',
+      () => {
+        pageContent.classList.remove('app-shell--page-enter', `app-shell--page-enter-${direction}`);
+      },
+      { once: true },
+    );
+  }
+}
+
+function updatePageMarkup(markup: string): void {
+  const currentShell = root.querySelector<HTMLElement>(':scope > .app-shell');
+
+  if (!currentShell) {
+    root.innerHTML = markup;
+    return;
+  }
+
+  const template = document.createElement('template');
+  template.innerHTML = markup.trim();
+  const nextShell = template.content.querySelector<HTMLElement>('.app-shell');
+  const currentHeader = currentShell.querySelector<HTMLElement>(':scope > header');
+  const currentContent = currentShell.querySelector<HTMLElement>(':scope > .screen-content');
+  const currentNav = currentShell.querySelector<HTMLElement>(':scope > .bottom-nav');
+  const nextHeader = nextShell?.querySelector<HTMLElement>(':scope > header');
+  const nextContent = nextShell?.querySelector<HTMLElement>(':scope > .screen-content');
+  const nextNav = nextShell?.querySelector<HTMLElement>(':scope > .bottom-nav');
+
+  if (!nextShell || !currentHeader || !currentContent || !currentNav || !nextHeader || !nextContent || !nextNav) {
+    root.innerHTML = markup;
+    return;
+  }
+
+  currentHeader.replaceWith(nextHeader);
+  currentContent.replaceWith(nextContent);
+
+  const currentTabs = currentNav.querySelectorAll<HTMLElement>('.bottom-nav__tab');
+  const nextTabs = nextNav.querySelectorAll<HTMLElement>('.bottom-nav__tab');
+
+  currentTabs.forEach((tab, index) => {
+    tab.classList.toggle(
+      'bottom-nav__tab--active',
+      nextTabs[index]?.classList.contains('bottom-nav__tab--active') ?? false,
+    );
+  });
+}
+
+function getRouteTransitionDirection(from: AppRoute | null, to: AppRoute): PageTransitionDirection {
+  if (!from) {
+    return 'fade';
+  }
+
+  const getDepth = (route: AppRoute): number => {
+    if (route === 'home') {
+      return 0;
+    }
+
+    if (route === 'puppies' || route === 'adult-large' || route === 'adult-small') {
+      return 1;
+    }
+
+    if (route.includes('-situation:')) {
+      return 2;
+    }
+
+    if (route.includes('-topic:') || route.startsWith('puppy-topic:')) {
+      return 3;
+    }
+
+    if (route.startsWith('lesson-video:')) {
+      return 4;
+    }
+
+    return 1;
+  };
+
+  const fromDepth = getDepth(from);
+  const toDepth = getDepth(to);
+
+  if (toDepth === fromDepth) {
+    return 'fade';
+  }
+
+  return toDepth < fromDepth ? 'back' : 'forward';
+}
+
+function setupLiquidGlassCards(): void {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return;
+  }
+
+  document.querySelectorAll<HTMLElement>('.situation-card, .topic-card').forEach((card) => {
+    if (card.classList.contains('situation-card')) {
+      applyCategoryGlassVariation(card);
+    }
+
+    const updateGlassFlow = (event: PointerEvent): void => {
+      const rect = card.getBoundingClientRect();
+      const x = Math.min(1, Math.max(-1, (event.clientX - rect.left - rect.width / 2) / (rect.width / 2)));
+      const y = Math.min(1, Math.max(-1, (event.clientY - rect.top - rect.height / 2) / (rect.height / 2)));
+
+      card.style.setProperty('--glass-shift-x', `${(x * 12).toFixed(2)}px`);
+      card.style.setProperty('--glass-shift-y', `${(y * 9).toFixed(2)}px`);
+    };
+
+    const resetGlassFlow = (): void => {
+      card.style.removeProperty('--glass-shift-x');
+      card.style.removeProperty('--glass-shift-y');
+    };
+
+    card.addEventListener('pointermove', updateGlassFlow);
+    card.addEventListener('pointerdown', updateGlassFlow);
+    card.addEventListener('pointerleave', resetGlassFlow);
+    card.addEventListener('pointercancel', resetGlassFlow);
+    card.addEventListener('pointerup', (event) => {
+      if (event.pointerType !== 'mouse') {
+        resetGlassFlow();
+      }
+    });
+  });
+}
+
+function applyCategoryGlassVariation(card: HTMLElement): void {
+  const title = card.querySelector<HTMLElement>('.situation-card__title')?.textContent ?? '';
+  let hash = 2166136261;
+
+  for (const character of title) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  const focusX = 4 + (hash & 0xff) * (92 / 255);
+  const focusY = 4 + ((hash >>> 8) & 0xff) * (92 / 255);
+  const angle = 58 + ((hash >>> 16) & 0xff) * (244 / 255);
+  const colorFocus = 32 + ((hash >>> 20) & 0xff) * (36 / 255);
+  const reliefX = -14 + ((hash >>> 4) & 0xff) * (28 / 255);
+  const reliefY = -10 + ((hash >>> 12) & 0xff) * (20 / 255);
+
+  card.style.setProperty('--glass-color-angle', `${angle.toFixed(1)}deg`);
+  card.style.setProperty('--glass-focus-x', `${focusX.toFixed(1)}%`);
+  card.style.setProperty('--glass-focus-y', `${focusY.toFixed(1)}%`);
+  card.style.setProperty('--glass-color-focus', `${colorFocus.toFixed(1)}%`);
+  card.style.setProperty('--glass-relief-x', `${reliefX.toFixed(1)}px`);
+  card.style.setProperty('--glass-relief-y', `${reliefY.toFixed(1)}px`);
 }
 
 function getCurrentRoute(): AppRoute {
@@ -210,13 +382,15 @@ async function syncRouteState(): Promise<void> {
 }
 
 function navigateTo(route: AppRoute): void {
-  if (route === 'home') {
-    window.location.hash = '';
-    void syncRouteState();
+  const nextHash = route === 'home' ? '' : `#${route}`;
+
+  if (window.location.hash === nextHash) {
     return;
   }
 
-  window.location.hash = `#${route}`;
+  const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
+  window.history.pushState(null, '', nextUrl);
+  void syncRouteState();
 }
 
 function showFeedback(message: string): void {
