@@ -123,6 +123,7 @@ function render(): void {
 
   root.innerHTML = createAppMarkup(getCurrentRoute(), activeFilter, videosState);
   document.documentElement.dataset.rutubeExpanded = 'false';
+  document.body.style.overflow = '';
   const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
 
   if (navInner) {
@@ -171,8 +172,8 @@ function getCurrentRoute(): AppRoute {
     return hash as AppRoute;
   }
 
-  if (hash === 'puppy-toilet-home-player') {
-    return 'puppy-toilet-home-player';
+  if (hash.startsWith('lesson-video:')) {
+    return hash as AppRoute;
   }
 
   return 'home';
@@ -200,12 +201,6 @@ async function syncRouteState(): Promise<void> {
       };
     }
 
-    render();
-    return;
-  }
-
-  if (route === 'puppy-toilet-home-player') {
-    videosState = { status: 'idle' };
     render();
     return;
   }
