@@ -1958,7 +1958,7 @@ function createHomeMarkup(): string {
                 'Дрессировка и коррекция поведения',
                 '/assets/images/programs/adult_dog.webp',
                 'program-card--red',
-                { feedback: 'Раздел "Взрослые" пока в разработке' },
+                { route: 'adult-large' },
               )}
               ${createProgramCard(
                 'Собаки из приюта',
@@ -2615,46 +2615,8 @@ function createProgramCard(
   description: string,
   imagePath: string,
   cardClass: string,
-  action: { route?: AppRoute; feedback?: string; submenu?: 'adult-sizes' },
+  action: { route?: AppRoute; feedback?: string },
 ): string {
-  if (action.submenu === 'adult-sizes') {
-    return `
-      <div class="program-card ${cardClass} program-card--adult-menu">
-        <button class="program-card__trigger" type="button" data-adult-menu-toggle="true" aria-expanded="false">
-          <span class="program-card__media">
-            <img src="${imagePath}" alt="" />
-          </span>
-          <span class="program-card__body">
-            <span class="program-card__title">${titleMarkup}</span>
-            <span class="program-card__description">${description}</span>
-            <span class="program-card__arrow" aria-hidden="true">
-              <span class="program-card__arrow-icon"></span>
-            </span>
-          </span>
-        </button>
-
-        <div class="program-card__submenu" aria-hidden="true">
-          <button
-            class="program-card__submenu-button js-feedback"
-            type="button"
-            data-adult-option="large"
-            data-feedback="Раздел &quot;Большие собаки&quot; пока в разработке"
-          >
-            Большие собаки
-          </button>
-          <button
-            class="program-card__submenu-button js-feedback"
-            type="button"
-            data-adult-option="small"
-            data-feedback="Раздел &quot;Маленькие собаки&quot; пока в разработке"
-          >
-            Маленькие собаки
-          </button>
-        </div>
-      </div>
-    `;
-  }
-
   const cardClassAttr = action.route
     ? `class="program-card ${cardClass}"`
     : `class="program-card ${cardClass} js-feedback"`;

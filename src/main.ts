@@ -45,19 +45,6 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  const adultMenu = document.querySelector<HTMLElement>('.adult-program-menu');
-  const adultProgramCard = target.closest<HTMLElement>('.program-grid > .program-card:nth-child(3)');
-  const clickedInsideAdultMenu = Boolean(target.closest('.adult-program-menu'));
-
-  if (adultProgramCard) {
-    toggleAdultProgramMenu(adultProgramCard);
-    return;
-  }
-
-  if (adultMenu && !clickedInsideAdultMenu) {
-    closeAdultProgramMenu();
-  }
-
   const rutubeExpandButton = target.closest<HTMLElement>('[data-rutube-expand]');
 
   if (rutubeExpandButton) {
@@ -136,7 +123,6 @@ function render(): void {
 
   root.innerHTML = createAppMarkup(getCurrentRoute(), activeFilter, videosState);
   document.documentElement.dataset.rutubeExpanded = 'false';
-  setupAdultProgramMenu();
   const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
 
   if (navInner) {
@@ -301,88 +287,4 @@ function setRutubeExpanded(expanded: boolean): void {
   playerCard.classList.toggle('rutube-player-card--expanded', expanded);
   document.documentElement.dataset.rutubeExpanded = expanded ? 'true' : 'false';
   document.body.style.overflow = expanded ? 'hidden' : '';
-}
-
-function setupAdultProgramMenu(): void {
-  const programGrid = document.querySelector<HTMLElement>('.program-grid');
-  const adultCard = document.querySelector<HTMLElement>('.program-grid > .program-card:nth-child(3)');
-
-  if (!programGrid || !adultCard) {
-    return;
-  }
-
-  adultCard.classList.add('program-card--adult-menu-anchor');
-
-  let menu = programGrid.querySelector<HTMLElement>('.adult-program-menu');
-
-  if (menu) {
-    return;
-  }
-
-  menu = document.createElement('div');
-  menu.className = 'adult-program-menu';
-  menu.innerHTML = `
-    <button
-      class="adult-program-menu__button"
-      type="button"
-      data-adult-option="large"
-      data-route="adult-large"
-    >
-      Большие собаки
-    </button>
-    <button
-      class="adult-program-menu__button"
-      type="button"
-      data-adult-option="small"
-      data-route="adult-small"
-    >
-      Маленькие собаки
-    </button>
-  `;
-
-  programGrid.append(menu);
-}
-
-function toggleAdultProgramMenu(adultCard: HTMLElement): void {
-  const menu = document.querySelector<HTMLElement>('.adult-program-menu');
-
-  if (!menu) {
-    return;
-  }
-
-  const isOpen = menu.classList.contains('adult-program-menu--open');
-
-  if (isOpen) {
-    closeAdultProgramMenu();
-    return;
-  }
-
-  const programGrid = adultCard.closest<HTMLElement>('.program-grid');
-
-  if (!programGrid) {
-    return;
-  }
-
-  adultCard.classList.add('program-card--menu-open');
-  menu.classList.add('adult-program-menu--measuring');
-  menu.classList.add('adult-program-menu--open');
-
-  const gridRect = programGrid.getBoundingClientRect();
-  const cardRect = adultCard.getBoundingClientRect();
-  const menuTop = cardRect.top - gridRect.top + cardRect.height / 2;
-  const menuLeft = cardRect.left - gridRect.left + cardRect.width / 2;
-
-  menu.style.width = `${Math.min(168, cardRect.width)}px`;
-  menu.style.left = `${menuLeft}px`;
-  menu.style.top = `${menuTop}px`;
-  menu.classList.remove('adult-program-menu--measuring');
-}
-
-function closeAdultProgramMenu(): void {
-  const menu = document.querySelector<HTMLElement>('.adult-program-menu');
-  const adultCard = document.querySelector<HTMLElement>('.program-grid > .program-card:nth-child(3)');
-
-  menu?.classList.remove('adult-program-menu--open');
-  menu?.classList.remove('adult-program-menu--measuring');
-  adultCard?.classList.remove('program-card--menu-open');
 }
