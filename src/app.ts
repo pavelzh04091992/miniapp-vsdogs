@@ -214,7 +214,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Идеальная прогулка',
     description: 'Базовые навыки прогулки, контакт и спокойная работа с раздражителями',
     meta: '4 раздела',
-    imagePath: '/assets/images/situations/puppy-chews-things.webp',
+    imagePath: '/assets/icons/leash.webp',
     cardClass: 'situation-card--blue',
     category: 'walk',
     topics: [
@@ -223,7 +223,7 @@ const legacyPuppySituations: PuppySituation[] = [
         title: 'Поводок',
         description: 'Поводок, амуниция, команда рядом и контроль движения',
         meta: '4 видео',
-        imagePath: '/assets/useful-leash.svg',
+        imagePath: '/assets/icons/leash.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -313,7 +313,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Спокойный дом',
     description: 'Домашний режим, уверенность, правила и бытовые сценарии без хаоса',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-toilet-home.webp',
+    imagePath: '/assets/icons/home.webp',
     cardClass: 'situation-card--rose',
     category: 'home',
     topics: [
@@ -423,7 +423,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Агрессия и конфликты',
     description: 'Сложное поведение, охрана ресурсов и экологичная профилактика эскалации',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-bites.webp',
+    imagePath: '/assets/icons/alarm.webp',
     cardClass: 'situation-card--blue',
     category: 'behavior',
     topics: [
@@ -504,7 +504,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Страхи и тревожность',
     description: 'Постепенное привыкание, безопасность и снижение тревоги в новых сценариях',
     meta: '6 разделов',
-    imagePath: '/assets/images/situations/puppy-whines-night.webp',
+    imagePath: '/assets/icons/sad_puppy.webp',
     cardClass: 'situation-card--rose',
     category: 'behavior',
     topics: [
@@ -585,7 +585,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Уход без борьбы',
     description: 'Гигиена, лапы и груминг через согласие и предсказуемые ритуалы',
     meta: '3 раздела',
-    imagePath: '/assets/useful-heart.svg',
+    imagePath: '/assets/icons/puppy_hand.webp',
     cardClass: 'situation-card--blue',
     category: 'home',
     topics: [
@@ -638,7 +638,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Фитнес',
     description: 'Небольшие упражнения на контроль тела, координацию и совместную работу',
     meta: '6 разделов',
-    imagePath: '/assets/images/programs/puppy.webp',
+    imagePath: '/assets/icons/fitness.webp',
     cardClass: 'situation-card--rose',
     category: 'commands',
     topics: [
@@ -738,7 +738,7 @@ const puppySituations: PuppySituation[] = [
     title: 'Идеальная прогулка',
     description: 'Поводок, подзыв, контакт и спокойная прогулка без перегруза',
     meta: '4 раздела',
-    imagePath: '/assets/images/situations/puppy-chews-things.webp',
+    imagePath: '/assets/icons/leash.webp',
     cardClass: 'situation-card--blue',
     category: 'walk',
     topics: [
@@ -747,7 +747,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Поводок',
         description: 'Амуниция, движение рядом и безопасные остановки на улице',
         meta: '7 видео',
-        imagePath: '/assets/useful-leash.svg',
+        imagePath: '/assets/icons/leash.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -873,7 +873,7 @@ const puppySituations: PuppySituation[] = [
     title: 'Спокойный дом',
     description: 'Домашние сценарии, уверенность, правила и спокойный режим без хаоса',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-toilet-home.webp',
+    imagePath: '/assets/icons/home.webp',
     cardClass: 'situation-card--rose',
     category: 'home',
     topics: [
@@ -1001,9 +1001,9 @@ const puppySituations: PuppySituation[] = [
   {
     slug: 'aggression-conflicts',
     title: 'Агрессия и конфликты',
-    description: 'Сложное поведение, защита ресурсов и профилактика эскалации в быту',
+    description: 'Работа с агрессией, конфликтами и защитой ресурсов',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-bites.webp',
+    imagePath: '/assets/icons/alarm.webp',
     cardClass: 'situation-card--blue',
     category: 'behavior',
     topics: [
@@ -1082,9 +1082,9 @@ const puppySituations: PuppySituation[] = [
   {
     slug: 'fears-anxiety',
     title: 'Страхи и тревожность',
-    description: 'Постепенное привыкание, безопасность и снижение тревоги в новых сценариях',
+    description: 'Помогаем щенку справляться со страхами и тревогой',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-whines-night.webp',
+    imagePath: '/assets/icons/sad_puppy.webp',
     cardClass: 'situation-card--rose',
     category: 'behavior',
     topics: [
@@ -1187,7 +1187,7 @@ const puppySituations: PuppySituation[] = [
     title: 'Уход без борьбы',
     description: 'Гигиена, лапы и груминг через согласие, ритуалы и предсказуемость',
     meta: '3 раздела',
-    imagePath: '/assets/useful-heart.svg',
+    imagePath: '/assets/icons/puppy_hand.webp',
     cardClass: 'situation-card--blue',
     category: 'home',
     topics: [
@@ -1242,9 +1242,9 @@ const puppySituations: PuppySituation[] = [
   {
     slug: 'fitness',
     title: 'Фитнес',
-    description: 'Небольшие упражнения на координацию, контроль тела и совместную работу',
+    description: 'Упражнения на координацию, контроль тела и контакт',
     meta: '6 разделов',
-    imagePath: '/assets/images/programs/puppy.webp',
+    imagePath: '/assets/icons/fitness.webp',
     cardClass: 'situation-card--rose',
     category: 'commands',
     topics: [
@@ -1359,7 +1359,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Идеальная прогулка',
     description: 'Поводок, подзыв, контакт и спокойная работа с раздражителями на улице',
     meta: '4 раздела',
-    imagePath: '/assets/images/programs/adult_dog.webp',
+    imagePath: '/assets/icons/leash.webp',
     cardClass: 'situation-card--blue',
     topics: [
       {
@@ -1367,7 +1367,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
         title: 'Поводок',
         description: 'Поводок, команда «рядом», остановки и усложнение в обычной жизни',
         meta: '5 видео',
-        imagePath: '/assets/useful-leash.svg',
+        imagePath: '/assets/icons/leash.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           { title: 'Как отучить тянуть поводок?', description: 'Разбираем причины натяжения поводка и собираем спокойную механику прогулки' },
@@ -1429,7 +1429,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Спокойный дом',
     description: 'Домашний режим, тишина, одиночество и бытовые правила',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-toilet-home.webp',
+    imagePath: '/assets/icons/home.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-large-barking', title: 'Лай', description: 'Команда «тише» и спокойное привыкание к звукам', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
@@ -1482,7 +1482,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Агрессия и конфликты',
     description: 'Сложное поведение, реакция на объекты и охрана ресурсов',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-bites.webp',
+    imagePath: '/assets/icons/alarm.webp',
     cardClass: 'situation-card--blue',
     topics: [
       { slug: 'adult-large-overaroused-play', title: 'Перевозбуждается при игре', description: 'Работа с чрезмерным возбуждением во время совместной игры', meta: '1 видео', imagePath: '/assets/images/situations/puppy-bites.webp', cardClass: 'topic-card--blue', lessons: [
@@ -1507,7 +1507,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Страхи и тревожность',
     description: 'Пространство, хвостик, звуки, машины и новые места',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-whines-night.webp',
+    imagePath: '/assets/icons/sad_puppy.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-large-place-space', title: 'Команда «место»', description: 'Понятная и спокойная точка отдыха для собаки', meta: '1 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
@@ -1539,7 +1539,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Уход без борьбы',
     description: 'Когти, лапы и груминг через предсказуемость и согласие',
     meta: '3 раздела',
-    imagePath: '/assets/useful-heart.svg',
+    imagePath: '/assets/icons/puppy_hand.webp',
     cardClass: 'situation-card--blue',
     topics: [
       { slug: 'adult-large-claws', title: 'Когти', description: 'Спокойный и предсказуемый уход за когтями', meta: '1 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
@@ -1565,7 +1565,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Фитнес для взрослых',
     description: 'Небольшие упражнения на координацию, контроль тела и контакт',
     meta: '5 разделов',
-    imagePath: '/assets/images/programs/adult_dog.webp',
+    imagePath: '/assets/icons/fitness.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-large-eight', title: 'Восемь', description: 'Контроль движения вокруг ног человека', meta: '1 видео', imagePath: '/assets/useful-leash.svg', cardClass: 'topic-card--blue', lessons: [
@@ -1610,10 +1610,10 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Идеальная прогулка',
     description: 'Поводок, подбор, подзыв и спокойный контакт в прогулочной среде',
     meta: '7 разделов',
-    imagePath: '/assets/images/programs/teen_dog.webp',
+    imagePath: '/assets/icons/leash.webp',
     cardClass: 'situation-card--blue',
     topics: [
-      { slug: 'adult-small-leash', title: 'Поводок', description: 'Амуниция, рядом, остановки и управляемое движение на прогулке', meta: '7 видео', imagePath: '/assets/useful-leash.svg', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-small-leash', title: 'Поводок', description: 'Амуниция, рядом, остановки и управляемое движение на прогулке', meta: '7 видео', imagePath: '/assets/icons/leash.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Ошейник или шлейка?', description: 'Выбираем амуницию под формат прогулок и особенности маленькой собаки' },
         { title: 'Техника владения поводком', description: 'Собираем спокойную механику рук и длины поводка' },
         { title: 'Экстренный разворот', description: 'Быстро и мягко уводим собаку из сложной ситуации' },
@@ -1662,7 +1662,7 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Спокойный дом',
     description: 'Тишина, одиночество, бытовые правила и туалетные сценарии дома',
     meta: '6 разделов',
-    imagePath: '/assets/images/situations/puppy-toilet-home.webp',
+    imagePath: '/assets/icons/home.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-small-barking', title: 'Лай', description: 'Команда «тише» и работа со звуками', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
@@ -1703,7 +1703,7 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Агрессия и конфликты',
     description: 'Перевозбуждение, охрана ресурсов, реакция на людей и транспорт',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-bites.webp',
+    imagePath: '/assets/icons/alarm.webp',
     cardClass: 'situation-card--blue',
     topics: [
       { slug: 'adult-small-overaroused-play', title: 'Перевозбуждается при игре', description: 'Кусает руки и теряет контроль в игре', meta: '1 видео', imagePath: '/assets/images/situations/puppy-bites.webp', cardClass: 'topic-card--blue', lessons: [
@@ -1732,7 +1732,7 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Страхи и тревожность',
     description: 'Место, хвостик, звуки, машина и новые пространства',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-whines-night.webp',
+    imagePath: '/assets/icons/sad_puppy.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-small-place-space', title: 'Команда «место» и организация пространства', description: 'Точка отдыха и понятная организация домашней среды', meta: '2 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
@@ -1762,7 +1762,7 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Уход без борьбы',
     description: 'Когти, лапы и груминг через предсказуемость и согласие',
     meta: '3 раздела',
-    imagePath: '/assets/useful-heart.svg',
+    imagePath: '/assets/icons/puppy_hand.webp',
     cardClass: 'situation-card--blue',
     topics: [
       { slug: 'adult-small-claws', title: 'Когти', description: 'Анатомия когтя и базовая стрижка когтей', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
@@ -1785,7 +1785,7 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Фитнес для взрослых',
     description: 'Небольшие трюки на координацию, контакт и бытовую включённость',
     meta: '2 раздела',
-    imagePath: '/assets/images/programs/teen_dog.webp',
+    imagePath: '/assets/icons/fitness.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-small-go-around', title: 'Обойди', description: 'Движение вокруг объекта или человека по понятной траектории', meta: '1 видео', imagePath: '/assets/useful-leash.svg', cardClass: 'topic-card--blue', lessons: [
@@ -2067,7 +2067,7 @@ function createHomeMarkup(): string {
             <div class="useful-grid" role="list" aria-label="Полезные материалы">
               ${createUsefulCard('Первый день дома', '/assets/useful-home.svg', 'useful-card--blue')}
               ${createUsefulCard('Ошибки воспитания', '/assets/useful-warning.svg', 'useful-card--rose')}
-              ${createUsefulCard('Поводок', '/assets/useful-leash.svg', 'useful-card--blue')}
+              ${createUsefulCard('Поводок', '/assets/icons/leash.webp', 'useful-card--blue')}
               ${createUsefulCard('Адаптация', '/assets/useful-heart.svg', 'useful-card--rose')}
               ${createUsefulCard('ТЕСТ', '', 'useful-card--gray')}
             </div>
@@ -2710,13 +2710,18 @@ function createLessonCard(lesson: PuppyLessonItem, index: number): string {
   `;
 }
 
+function resolveCardImagePath(imagePath: string): string {
+  return imagePath === '/assets/useful-home.svg' ? '/assets/icons/home.webp' : imagePath;
+}
+
 function createUsefulCard(title: string, iconPath: string, modifierClass: string): string {
   const resolvedTitle = title === 'Ошибки воспитания' ? 'Спросить у кинолога' : title;
   const resolvedModifierClass = title === 'Ошибки воспитания' ? 'useful-card--ask' : modifierClass;
+  const resolvedIconPath = title === 'Первый день дома' ? iconPath : resolveCardImagePath(iconPath);
   const iconMarkup =
     modifierClass === 'useful-card--gray'
       ? '<span class="useful-card__test-icon" aria-hidden="true"></span>'
-      : `<img src="${iconPath}" alt="" />`;
+      : `<img src="${resolvedIconPath}" alt="" />`;
 
   return `
     <button
@@ -2856,14 +2861,17 @@ function createAdultSmallSituationCard(situation: AdultSmallSituation): string {
 }
 
 function createTopicCard(topic: PuppyTopic): string {
+  const imagePath = resolveCardImagePath(topic.imagePath);
+  const mediaClass = imagePath.startsWith('/assets/icons/') ? ' topic-card__media--transparent' : '';
+
   return `
     <button
       class="topic-card ${topic.cardClass}"
       type="button"
       data-route="puppy-topic:${topic.slug}"
     >
-      <span class="topic-card__media">
-        <img src="${topic.imagePath}" alt="" />
+      <span class="topic-card__media${mediaClass}">
+        <img src="${imagePath}" alt="" />
       </span>
 
       <span class="topic-card__body">
@@ -2880,14 +2888,17 @@ function createTopicCard(topic: PuppyTopic): string {
 }
 
 function createAdultLargeTopicCard(topic: AdultLargeTopic): string {
+  const imagePath = resolveCardImagePath(topic.imagePath);
+  const mediaClass = imagePath.startsWith('/assets/icons/') ? ' topic-card__media--transparent' : '';
+
   return `
     <button
       class="topic-card ${topic.cardClass}"
       type="button"
       data-route="adult-large-topic:${topic.slug}"
     >
-      <span class="topic-card__media">
-        <img src="${topic.imagePath}" alt="" />
+      <span class="topic-card__media${mediaClass}">
+        <img src="${imagePath}" alt="" />
       </span>
 
       <span class="topic-card__body">
@@ -2904,14 +2915,17 @@ function createAdultLargeTopicCard(topic: AdultLargeTopic): string {
 }
 
 function createAdultSmallTopicCard(topic: AdultSmallTopic): string {
+  const imagePath = resolveCardImagePath(topic.imagePath);
+  const mediaClass = imagePath.startsWith('/assets/icons/') ? ' topic-card__media--transparent' : '';
+
   return `
     <button
       class="topic-card ${topic.cardClass}"
       type="button"
       data-route="adult-small-topic:${topic.slug}"
     >
-      <span class="topic-card__media">
-        <img src="${topic.imagePath}" alt="" />
+      <span class="topic-card__media${mediaClass}">
+        <img src="${imagePath}" alt="" />
       </span>
 
       <span class="topic-card__body">

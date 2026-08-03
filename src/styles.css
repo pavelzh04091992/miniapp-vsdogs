@@ -631,6 +631,12 @@ img {
   height: var(--useful-icon-size);
 }
 
+.useful-card__icon img[src^='/assets/icons/'] {
+  width: var(--useful-icon-box);
+  height: var(--useful-icon-box);
+  max-width: none;
+}
+
 .useful-card__test-icon {
   width: 26px;
   height: 26px;
@@ -843,13 +849,14 @@ img {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.72);
-  overflow: hidden;
+  background: transparent;
+  overflow: visible;
 }
 
 .situation-card__media img {
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
+  max-width: none;
   object-fit: contain;
 }
 
@@ -950,6 +957,7 @@ img {
 }
 
 .situation-card {
+  --glass-tint: 255, 255, 255;
   --glass-color-angle: 155deg;
   --glass-focus-x: 50%;
   --glass-focus-y: 50%;
@@ -957,20 +965,20 @@ img {
   background:
     linear-gradient(
       var(--glass-color-angle),
-      rgba(255, 255, 255, 0.74) 0%,
-      rgba(var(--glass-tint), 0.1) calc(var(--glass-color-focus) - 24%),
-      rgba(var(--glass-tint), 0.3) var(--glass-color-focus),
-      rgba(var(--glass-tint), 0.13) calc(var(--glass-color-focus) + 25%),
-      rgba(255, 255, 255, 0.22) 100%
+      rgba(255, 255, 255, 0.58) 0%,
+      rgba(255, 255, 255, 0.12) calc(var(--glass-color-focus) - 24%),
+      rgba(255, 255, 255, 0.38) var(--glass-color-focus),
+      rgba(255, 255, 255, 0.14) calc(var(--glass-color-focus) + 25%),
+      rgba(255, 255, 255, 0.24) 100%
     ),
-    rgba(var(--glass-tint), 0.08);
+    rgba(255, 255, 255, 0.18);
   background-size: 172% 172%, auto;
   background-position: var(--glass-focus-x) var(--glass-focus-y), center;
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 1),
     inset 1px 0 0 rgba(255, 255, 255, 0.68),
-    inset 0 -1px 0 rgba(var(--glass-tint), 0.18),
-    0 10px 26px rgba(var(--glass-tint), 0.14);
+    inset 0 -1px 0 rgba(15, 45, 92, 0.08),
+    0 10px 26px rgba(15, 45, 92, 0.09);
 }
 
 .situation-card::before,
@@ -1073,8 +1081,8 @@ img {
 .situation-card:active {
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 1),
-    inset 0 -1px 0 rgba(var(--glass-tint), 0.22),
-    0 4px 12px rgba(var(--glass-tint), 0.16);
+    inset 0 -1px 0 rgba(15, 45, 92, 0.1),
+    0 4px 12px rgba(15, 45, 92, 0.1);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -1083,8 +1091,8 @@ img {
     box-shadow:
       inset 0 1.5px 0 rgba(255, 255, 255, 1),
       inset 1px 0 0 rgba(255, 255, 255, 0.72),
-      inset 0 -1px 0 rgba(var(--glass-tint), 0.2),
-      0 13px 30px rgba(var(--glass-tint), 0.18);
+      inset 0 -1px 0 rgba(15, 45, 92, 0.08),
+      0 13px 30px rgba(15, 45, 92, 0.12);
   }
 
   .topic-card:hover {
@@ -1108,7 +1116,7 @@ img {
   }
 
   .situation-card {
-    background: rgba(var(--glass-tint), 0.18);
+    background: rgba(255, 255, 255, 0.72);
   }
 }
 
@@ -1135,6 +1143,17 @@ img {
   width: 50px;
   height: 50px;
   object-fit: contain;
+}
+
+.topic-card__media--transparent {
+  background: transparent;
+  overflow: visible;
+}
+
+.topic-card__media--transparent img {
+  width: 64px;
+  height: 64px;
+  max-width: none;
 }
 
 .topic-card__body {
@@ -1812,8 +1831,8 @@ html[data-rutube-expanded='true'] .screen-content {
   }
 
   .situation-card__media img {
-    width: 48px;
-    height: 48px;
+    width: 64px;
+    height: 64px;
   }
 
   .situation-card__title {
@@ -1845,6 +1864,11 @@ html[data-rutube-expanded='true'] .screen-content {
   .topic-card__media img {
     width: 46px;
     height: 46px;
+  }
+
+  .topic-card__media--transparent img {
+    width: 58px;
+    height: 58px;
   }
 
   .topic-card__title {
