@@ -119,7 +119,7 @@ export type AppRoute =
   | 'puppies'
   | 'adult-large'
   | 'adult-small'
-  | 'puppy-toilet-home-player'
+  | `lesson-video:${string}`
   | `puppy-situation:${PuppySituationSlug}`
   | `puppy-topic:${PuppyTopicSlug}`
   | `adult-large-situation:${AdultLargeSituationSlug}`
@@ -137,6 +137,10 @@ export type SituationVideosState =
 interface PuppyLessonItem {
   title: string;
   description: string;
+  video?: {
+    id: string;
+    rutubeUrl: string;
+  };
   externalUrl?: string;
   feedback?: string;
   route?: AppRoute;
@@ -151,7 +155,6 @@ interface PuppyTopic {
   cardClass: string;
   lessons: PuppyLessonItem[];
   videoSourceSlug?: SituationSlug;
-  includeRutubeTest?: boolean;
 }
 
 interface PuppySituation {
@@ -211,7 +214,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Идеальная прогулка',
     description: 'Базовые навыки прогулки, контакт и спокойная работа с раздражителями',
     meta: '4 раздела',
-    imagePath: '/assets/images/situations/puppy-chews-things.webp',
+    imagePath: '/assets/icons/leash.webp',
     cardClass: 'situation-card--blue',
     category: 'walk',
     topics: [
@@ -220,7 +223,7 @@ const legacyPuppySituations: PuppySituation[] = [
         title: 'Поводок',
         description: 'Поводок, амуниция, команда рядом и контроль движения',
         meta: '4 видео',
-        imagePath: '/assets/useful-leash.svg',
+        imagePath: '/assets/icons/leash.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -310,7 +313,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Спокойный дом',
     description: 'Домашний режим, уверенность, правила и бытовые сценарии без хаоса',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-toilet-home.webp',
+    imagePath: '/assets/icons/home.webp',
     cardClass: 'situation-card--rose',
     category: 'home',
     topics: [
@@ -398,7 +401,6 @@ const legacyPuppySituations: PuppySituation[] = [
         imagePath: '/assets/images/situations/puppy-toilet-home.webp',
         cardClass: 'topic-card--rose',
         videoSourceSlug: 'puppy-toilet-home',
-        includeRutubeTest: true,
         lessons: [
           {
             title: 'Приучение к пелёнке и средства от запаха',
@@ -421,7 +423,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Агрессия и конфликты',
     description: 'Сложное поведение, охрана ресурсов и экологичная профилактика эскалации',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-bites.webp',
+    imagePath: '/assets/icons/alarm.webp',
     cardClass: 'situation-card--blue',
     category: 'behavior',
     topics: [
@@ -502,7 +504,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Страхи и тревожность',
     description: 'Постепенное привыкание, безопасность и снижение тревоги в новых сценариях',
     meta: '6 разделов',
-    imagePath: '/assets/images/situations/puppy-whines-night.webp',
+    imagePath: '/assets/icons/sad_puppy.webp',
     cardClass: 'situation-card--rose',
     category: 'behavior',
     topics: [
@@ -583,7 +585,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Уход без борьбы',
     description: 'Гигиена, лапы и груминг через согласие и предсказуемые ритуалы',
     meta: '3 раздела',
-    imagePath: '/assets/useful-heart.svg',
+    imagePath: '/assets/icons/puppy_hand.webp',
     cardClass: 'situation-card--blue',
     category: 'home',
     topics: [
@@ -636,7 +638,7 @@ const legacyPuppySituations: PuppySituation[] = [
     title: 'Фитнес',
     description: 'Небольшие упражнения на контроль тела, координацию и совместную работу',
     meta: '6 разделов',
-    imagePath: '/assets/images/programs/puppy.webp',
+    imagePath: '/assets/icons/fitness.webp',
     cardClass: 'situation-card--rose',
     category: 'commands',
     topics: [
@@ -736,7 +738,7 @@ const puppySituations: PuppySituation[] = [
     title: 'Идеальная прогулка',
     description: 'Поводок, подзыв, контакт и спокойная прогулка без перегруза',
     meta: '4 раздела',
-    imagePath: '/assets/images/situations/puppy-chews-things.webp',
+    imagePath: '/assets/icons/leash.webp',
     cardClass: 'situation-card--blue',
     category: 'walk',
     topics: [
@@ -745,20 +747,32 @@ const puppySituations: PuppySituation[] = [
         title: 'Поводок',
         description: 'Амуниция, движение рядом и безопасные остановки на улице',
         meta: '7 видео',
-        imagePath: '/assets/useful-leash.svg',
+        imagePath: '/assets/icons/leash.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Ошейник или шлейка?',
             description: 'Разбираем, какая амуниция подойдёт щенку в разных прогулочных сценариях',
+            video: {
+              id: 'puppy-leash-collar-harness',
+              rutubeUrl: 'https://rutube.ru/video/private/d443968096289bc361898c707da0ee58/?p=tsIxAoB1riBx9xb8_6iZCQ',
+            },
           },
           {
             title: 'Как отучить тянуть поводок?',
             description: 'Собираем базу для спокойного движения рядом без рывков и борьбы',
+            video: {
+              id: 'puppy-leash-stop-pulling',
+              rutubeUrl: 'https://rutube.ru/video/private/50f87645b23d81233e282e6db2ea51c3/?p=-8xq2f8b9mCJEzBaMEJHyQ',
+            },
           },
           {
             title: 'Поводок или рулетка? часть 1',
             description: 'Разбираем преимущества обычного поводка и подходящую длину для прогулки',
+            video: {
+              id: 'puppy-leash-or-retractable-part-1',
+              rutubeUrl: 'https://rutube.ru/video/private/9b59314f3a0b3d4b7fa4cade3f33d3fe/?p=oINNpDLyhvs9EDcgNJqPRw',
+            },
           },
           {
             title: 'Поводок или рулетка? часть 2',
@@ -775,6 +789,10 @@ const puppySituations: PuppySituation[] = [
           {
             title: '«Стоп» перед дорогой',
             description: 'Учим щенка останавливаться перед дорогой и не вылетать вперёд',
+            video: {
+              id: 'puppy-leash-stop-road',
+              rutubeUrl: 'https://rutube.ru/video/private/7dc91c3b638a827929fa1694ddf0ea42/?p=UvF-NSJWeRelw8ztu2-9xA',
+            },
           },
         ],
       },
@@ -825,6 +843,10 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Упражнение против отвлечений (1-2-3)',
             description: 'Используем ритмичное упражнение 1-2-3, чтобы вернуть щенка в контакт',
+            video: {
+              id: 'puppy-ignore-123',
+              rutubeUrl: 'https://rutube.ru/video/private/02dfc7ab5f4023bc92f631a204daffdb/?p=ji6fmFA9ppouxM7vLa_aVQ',
+            },
           },
           {
             title: 'Выдержка: не срываемся на всё подряд',
@@ -833,6 +855,10 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Топ интересных игр на прогулке, или как наладить контакт',
             description: 'Подбираем короткие игры, которые делают человека интереснее улицы',
+            video: {
+              id: 'puppy-ignore-walk-games',
+              rutubeUrl: 'https://rutube.ru/video/private/46783a74b756796dde6772ce8a236676/?p=qeRSB2nkWdolROO7DQBPAw',
+            },
           },
           {
             title: 'Моя собака ко всем лезет',
@@ -847,7 +873,7 @@ const puppySituations: PuppySituation[] = [
     title: 'Спокойный дом',
     description: 'Домашние сценарии, уверенность, правила и спокойный режим без хаоса',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-toilet-home.webp',
+    imagePath: '/assets/icons/home.webp',
     cardClass: 'situation-card--rose',
     category: 'home',
     topics: [
@@ -906,6 +932,10 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Прыжки на гостей',
             description: 'Показываем, как заменить прыжки на более удобный и управляемый сценарий встречи',
+            video: {
+              id: 'puppy-home-jumping-guests',
+              rutubeUrl: 'https://rutube.ru/video/private/99c4bd449c359a3a468ee8a15952a754/?p=hwkZUtVsMO7qhs5PDW4E-Q',
+            },
           },
         ],
       },
@@ -920,14 +950,26 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Команда «место»',
             description: 'Формируем удобную точку отдыха на время еды и бытовой суеты',
+            video: {
+              id: 'puppy-home-begging-place',
+              rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
+            },
           },
           {
             title: 'Топ долгоиграющих лакомств и умных девайсов',
             description: 'Подбираем конг, лизательные и нюхательные коврики под повседневный ритм',
+            video: {
+              id: 'puppy-home-begging-enrichment',
+              rutubeUrl: 'https://rutube.ru/video/private/c2313be833d702352d502ce8594a4e90/?p=RKaOJQl0742iR5Af36Gp-g',
+            },
           },
           {
             title: 'Питание',
             description: 'Смотрим, как режим и рацион влияют на бытовое поведение щенка',
+            video: {
+              id: 'puppy-home-begging-feeding',
+              rutubeUrl: 'https://rutube.ru/video/private/1dee214d6aa2ec5a35d35389e86d127f/?p=NChTWvCdLikdyEm-E47EwQ',
+            },
           },
         ],
       },
@@ -939,7 +981,6 @@ const puppySituations: PuppySituation[] = [
         imagePath: '/assets/images/situations/puppy-toilet-home.webp',
         cardClass: 'topic-card--rose',
         videoSourceSlug: 'puppy-toilet-home',
-        includeRutubeTest: true,
         lessons: [
           {
             title: 'Приучение к пелёнке и средства от запаха',
@@ -960,9 +1001,9 @@ const puppySituations: PuppySituation[] = [
   {
     slug: 'aggression-conflicts',
     title: 'Агрессия и конфликты',
-    description: 'Сложное поведение, защита ресурсов и профилактика эскалации в быту',
+    description: 'Работа с агрессией, конфликтами и защитой ресурсов',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-bites.webp',
+    imagePath: '/assets/icons/alarm.webp',
     cardClass: 'situation-card--blue',
     category: 'behavior',
     topics: [
@@ -1041,9 +1082,9 @@ const puppySituations: PuppySituation[] = [
   {
     slug: 'fears-anxiety',
     title: 'Страхи и тревожность',
-    description: 'Постепенное привыкание, безопасность и снижение тревоги в новых сценариях',
+    description: 'Помогаем щенку справляться со страхами и тревогой',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-whines-night.webp',
+    imagePath: '/assets/icons/sad_puppy.webp',
     cardClass: 'situation-card--rose',
     category: 'behavior',
     topics: [
@@ -1072,6 +1113,10 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Приучаем постепенно к машине',
             description: 'Пошагово снижаем тревогу и делаем поездки более предсказуемыми',
+            video: {
+              id: 'puppy-fears-car',
+              rutubeUrl: 'https://rutube.ru/video/private/a10fcc7797462420bc6df53b0f4e4bd3/?p=7Tb-gnfzFNrMMWlsPHk7Hg',
+            },
           },
         ],
       },
@@ -1100,6 +1145,10 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Команда «место»',
             description: 'Формируем понятное место, куда щенок может вернуться и расслабиться',
+            video: {
+              id: 'puppy-fears-place',
+              rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
+            },
           },
         ],
       },
@@ -1138,7 +1187,7 @@ const puppySituations: PuppySituation[] = [
     title: 'Уход без борьбы',
     description: 'Гигиена, лапы и груминг через согласие, ритуалы и предсказуемость',
     meta: '3 раздела',
-    imagePath: '/assets/useful-heart.svg',
+    imagePath: '/assets/icons/puppy_hand.webp',
     cardClass: 'situation-card--blue',
     category: 'home',
     topics: [
@@ -1167,6 +1216,10 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Лапы',
             description: 'Готовим пространство ванной и учим щенка больше доверять процессу ухода',
+            video: {
+              id: 'puppy-care-paws',
+              rutubeUrl: 'https://rutube.ru/video/private/8aec062db1e4fd15c437e3f4f22ea885/?p=Gu_YqW37pvxe99-67Ru10A',
+            },
           },
         ],
       },
@@ -1189,9 +1242,9 @@ const puppySituations: PuppySituation[] = [
   {
     slug: 'fitness',
     title: 'Фитнес',
-    description: 'Небольшие упражнения на координацию, контроль тела и совместную работу',
+    description: 'Упражнения на координацию, контроль тела и контакт',
     meta: '6 разделов',
-    imagePath: '/assets/images/programs/puppy.webp',
+    imagePath: '/assets/icons/fitness.webp',
     cardClass: 'situation-card--rose',
     category: 'commands',
     topics: [
@@ -1306,7 +1359,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Идеальная прогулка',
     description: 'Поводок, подзыв, контакт и спокойная работа с раздражителями на улице',
     meta: '4 раздела',
-    imagePath: '/assets/images/programs/adult_dog.webp',
+    imagePath: '/assets/icons/leash.webp',
     cardClass: 'situation-card--blue',
     topics: [
       {
@@ -1314,14 +1367,21 @@ const adultLargeSituations: AdultLargeSituation[] = [
         title: 'Поводок',
         description: 'Поводок, команда «рядом», остановки и усложнение в обычной жизни',
         meta: '5 видео',
-        imagePath: '/assets/useful-leash.svg',
+        imagePath: '/assets/icons/leash.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           { title: 'Как отучить тянуть поводок?', description: 'Разбираем причины натяжения поводка и собираем спокойную механику прогулки' },
           { title: 'Ошейник или шлейка?', description: 'Как подобрать амуницию под сценарии прогулки и особенности собаки' },
           { title: 'Поводок или рулетка?', description: 'Сравниваем варианты амуниции и выбираем подходящий формат прогулки' },
           { title: 'Команда «рядом»', description: 'Собираем базовый навык движения рядом с человеком' },
-          { title: '«Дорога» и «стоп»', description: 'Учимся останавливаться и безопасно проходить сложные участки маршрута' },
+          {
+            title: '«Дорога» и «стоп»',
+            description: 'Учимся останавливаться и безопасно проходить сложные участки маршрута',
+            video: {
+              id: 'adult-large-leash-road-stop',
+              rutubeUrl: 'https://rutube.ru/video/private/7dc91c3b638a827929fa1694ddf0ea42/?p=UvF-NSJWeRelw8ztu2-9xA',
+            },
+          },
         ],
       },
       {
@@ -1369,7 +1429,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Спокойный дом',
     description: 'Домашний режим, тишина, одиночество и бытовые правила',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-toilet-home.webp',
+    imagePath: '/assets/icons/home.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-large-barking', title: 'Лай', description: 'Команда «тише» и спокойное привыкание к звукам', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
@@ -1383,11 +1443,32 @@ const adultLargeSituations: AdultLargeSituation[] = [
       ]},
       { slug: 'adult-large-jumping-on-guests', title: 'Прыжки на гостей', description: 'Спокойная встреча гостей и понятный сценарий прихода домой', meta: '2 видео', imagePath: '/assets/images/programs/teen_dog.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Правильный приход/выход из дома', description: 'Формируем предсказуемый сценарий входа и выхода без лишнего возбуждения' },
-        { title: 'Прыжки на гостей', description: 'Заменяем прыжки на более спокойный и управляемый сценарий встречи' },
+        {
+          title: 'Прыжки на гостей',
+          description: 'Заменяем прыжки на более спокойный и управляемый сценарий встречи',
+          video: {
+            id: 'adult-large-jumping-guests',
+            rutubeUrl: 'https://rutube.ru/video/private/99c4bd449c359a3a468ee8a15952a754/?p=hwkZUtVsMO7qhs5PDW4E-Q',
+          },
+        },
       ]},
       { slug: 'adult-large-begging', title: 'Попрошайничество', description: 'Команда «место», полезные занятия и питание', meta: '3 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Команда «место»', description: 'Формируем удобную бытовую точку отдыха во время еды' },
-        { title: 'Топ долгоиграющих лакомств и умных девайсов', description: 'Подбираем конг, лизательные и нюхательные коврики' },
+        {
+          title: 'Команда «место»',
+          description: 'Формируем удобную бытовую точку отдыха во время еды',
+          video: {
+            id: 'adult-large-begging-place',
+            rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
+          },
+        },
+        {
+          title: 'Топ долгоиграющих лакомств и умных девайсов',
+          description: 'Подбираем конг, лизательные и нюхательные коврики',
+          video: {
+            id: 'adult-large-begging-enrichment',
+            rutubeUrl: 'https://rutube.ru/video/private/c2313be833d702352d502ce8594a4e90/?p=RKaOJQl0742iR5Af36Gp-g',
+          },
+        },
         { title: 'Питание', description: 'Разбираем режим, логику выдачи еды и бытовые рамки' },
       ]},
       { slug: 'adult-large-toilet', title: 'Туалет', description: 'Улица, режим и метки дома у взрослой собаки', meta: '2 видео', imagePath: '/assets/images/situations/puppy-toilet-home.webp', cardClass: 'topic-card--rose', lessons: [
@@ -1401,7 +1482,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Агрессия и конфликты',
     description: 'Сложное поведение, реакция на объекты и охрана ресурсов',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-bites.webp',
+    imagePath: '/assets/icons/alarm.webp',
     cardClass: 'situation-card--blue',
     topics: [
       { slug: 'adult-large-overaroused-play', title: 'Перевозбуждается при игре', description: 'Работа с чрезмерным возбуждением во время совместной игры', meta: '1 видео', imagePath: '/assets/images/situations/puppy-bites.webp', cardClass: 'topic-card--blue', lessons: [
@@ -1426,11 +1507,18 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Страхи и тревожность',
     description: 'Пространство, хвостик, звуки, машины и новые места',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-whines-night.webp',
+    imagePath: '/assets/icons/sad_puppy.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-large-place-space', title: 'Команда «место»', description: 'Понятная и спокойная точка отдыха для собаки', meta: '1 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Команда «место»', description: 'Делаем точку отдыха понятной и полезной для собаки' },
+        {
+          title: 'Команда «место»',
+          description: 'Делаем точку отдыха понятной и полезной для собаки',
+          video: {
+            id: 'adult-large-fears-place',
+            rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
+          },
+        },
       ]},
       { slug: 'adult-large-follows-tail', title: 'Ходит хвостиком + Как минимизировать тревожность?', description: 'Снижаем тревожность и учим собаку оставаться отдельно', meta: '1 видео', imagePath: '/assets/images/situations/puppy-whines-night.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Ходит хвостиком + Как минимизировать тревожность?', description: 'Постепенно учим собаку выдерживать разлуку в пределах дома' },
@@ -1451,14 +1539,21 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Уход без борьбы',
     description: 'Когти, лапы и груминг через предсказуемость и согласие',
     meta: '3 раздела',
-    imagePath: '/assets/useful-heart.svg',
+    imagePath: '/assets/icons/puppy_hand.webp',
     cardClass: 'situation-card--blue',
     topics: [
       { slug: 'adult-large-claws', title: 'Когти', description: 'Спокойный и предсказуемый уход за когтями', meta: '1 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
         { title: 'Когти', description: 'Собираем аккуратную процедуру ухода шаг за шагом' },
       ]},
       { slug: 'adult-large-paws', title: 'Лапы', description: 'Спокойный уход за лапами без борьбы', meta: '1 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Лапы', description: 'Собираем понятный и комфортный сценарий ухода за лапами' },
+        {
+          title: 'Лапы',
+          description: 'Собираем понятный и комфортный сценарий ухода за лапами',
+          video: {
+            id: 'adult-large-care-paws',
+            rutubeUrl: 'https://rutube.ru/video/private/545e5a20d076a8b631fc8dd92fb0e393/?p=lfksp_Rh_AZRgkwDHOI42Q',
+          },
+        },
       ]},
       { slug: 'adult-large-grooming', title: 'Груминг', description: 'Понятный и спокойный сценарий домашнего ухода', meta: '1 видео', imagePath: '/assets/useful-heart.svg', cardClass: 'topic-card--rose', lessons: [
         { title: 'Груминг', description: 'Выстраиваем комфортный бытовой ритм ухода' },
@@ -1470,7 +1565,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Фитнес для взрослых',
     description: 'Небольшие упражнения на координацию, контроль тела и контакт',
     meta: '5 разделов',
-    imagePath: '/assets/images/programs/adult_dog.webp',
+    imagePath: '/assets/icons/fitness.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-large-eight', title: 'Восемь', description: 'Контроль движения вокруг ног человека', meta: '1 видео', imagePath: '/assets/useful-leash.svg', cardClass: 'topic-card--blue', lessons: [
@@ -1515,10 +1610,10 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Идеальная прогулка',
     description: 'Поводок, подбор, подзыв и спокойный контакт в прогулочной среде',
     meta: '7 разделов',
-    imagePath: '/assets/images/programs/teen_dog.webp',
+    imagePath: '/assets/icons/leash.webp',
     cardClass: 'situation-card--blue',
     topics: [
-      { slug: 'adult-small-leash', title: 'Поводок', description: 'Амуниция, рядом, остановки и управляемое движение на прогулке', meta: '7 видео', imagePath: '/assets/useful-leash.svg', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-small-leash', title: 'Поводок', description: 'Амуниция, рядом, остановки и управляемое движение на прогулке', meta: '7 видео', imagePath: '/assets/icons/leash.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Ошейник или шлейка?', description: 'Выбираем амуницию под формат прогулок и особенности маленькой собаки' },
         { title: 'Техника владения поводком', description: 'Собираем спокойную механику рук и длины поводка' },
         { title: 'Экстренный разворот', description: 'Быстро и мягко уводим собаку из сложной ситуации' },
@@ -1567,7 +1662,7 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Спокойный дом',
     description: 'Тишина, одиночество, бытовые правила и туалетные сценарии дома',
     meta: '6 разделов',
-    imagePath: '/assets/images/situations/puppy-toilet-home.webp',
+    imagePath: '/assets/icons/home.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-small-barking', title: 'Лай', description: 'Команда «тише» и работа со звуками', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
@@ -1608,7 +1703,7 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Агрессия и конфликты',
     description: 'Перевозбуждение, охрана ресурсов, реакция на людей и транспорт',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-bites.webp',
+    imagePath: '/assets/icons/alarm.webp',
     cardClass: 'situation-card--blue',
     topics: [
       { slug: 'adult-small-overaroused-play', title: 'Перевозбуждается при игре', description: 'Кусает руки и теряет контроль в игре', meta: '1 видео', imagePath: '/assets/images/situations/puppy-bites.webp', cardClass: 'topic-card--blue', lessons: [
@@ -1637,7 +1732,7 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Страхи и тревожность',
     description: 'Место, хвостик, звуки, машина и новые пространства',
     meta: '5 разделов',
-    imagePath: '/assets/images/situations/puppy-whines-night.webp',
+    imagePath: '/assets/icons/sad_puppy.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-small-place-space', title: 'Команда «место» и организация пространства', description: 'Точка отдыха и понятная организация домашней среды', meta: '2 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
@@ -1667,7 +1762,7 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Уход без борьбы',
     description: 'Когти, лапы и груминг через предсказуемость и согласие',
     meta: '3 раздела',
-    imagePath: '/assets/useful-heart.svg',
+    imagePath: '/assets/icons/puppy_hand.webp',
     cardClass: 'situation-card--blue',
     topics: [
       { slug: 'adult-small-claws', title: 'Когти', description: 'Анатомия когтя и базовая стрижка когтей', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
@@ -1690,7 +1785,7 @@ const adultSmallSituations: AdultSmallSituation[] = [
     title: 'Фитнес для взрослых',
     description: 'Небольшие трюки на координацию, контакт и бытовую включённость',
     meta: '2 раздела',
-    imagePath: '/assets/images/programs/teen_dog.webp',
+    imagePath: '/assets/icons/fitness.webp',
     cardClass: 'situation-card--rose',
     topics: [
       { slug: 'adult-small-go-around', title: 'Обойди', description: 'Движение вокруг объекта или человека по понятной траектории', meta: '1 видео', imagePath: '/assets/useful-leash.svg', cardClass: 'topic-card--blue', lessons: [
@@ -1721,11 +1816,63 @@ const adultSmallTopicsBySlug = new Map<
   AdultSmallTopic & { parentSlug: AdultSmallSituationSlug; parentTitle: string }
 >(adultSmallTopics.map((topic) => [topic.slug, topic]));
 
+interface LessonVideoEntry {
+  id: string;
+  title: string;
+  rutubeUrl: string;
+  backRoute: AppRoute;
+}
+
+const lessonVideosById = new Map<string, LessonVideoEntry>();
+
+function registerLessonVideo(lesson: PuppyLessonItem, backRoute: AppRoute): void {
+  if (!lesson.video) {
+    return;
+  }
+
+  if (lessonVideosById.has(lesson.video.id)) {
+    throw new Error(`Duplicate lesson video id: ${lesson.video.id}`);
+  }
+
+  lessonVideosById.set(lesson.video.id, {
+    id: lesson.video.id,
+    title: lesson.title,
+    rutubeUrl: lesson.video.rutubeUrl,
+    backRoute,
+  });
+}
+
+puppyTopics.forEach((topic) => {
+  topic.lessons.forEach((lesson) => registerLessonVideo(lesson, `puppy-topic:${topic.slug}`));
+});
+
+adultLargeTopics.forEach((topic) => {
+  topic.lessons.forEach((lesson) => registerLessonVideo(lesson, `adult-large-topic:${topic.slug}`));
+});
+
+adultSmallTopics.forEach((topic) => {
+  topic.lessons.forEach((lesson) => registerLessonVideo(lesson, `adult-small-topic:${topic.slug}`));
+});
+
+function getLessonVideoFromRoute(route: AppRoute): LessonVideoEntry | null {
+  if (!route.startsWith('lesson-video:')) {
+    return null;
+  }
+
+  return lessonVideosById.get(route.slice('lesson-video:'.length)) ?? null;
+}
+
 export function createAppMarkup(
   route: AppRoute,
   activeFilter: PuppyFilter,
   videosState: SituationVideosState,
 ): string {
+  const lessonVideo = getLessonVideoFromRoute(route);
+
+  if (lessonVideo) {
+    return createRutubePlayerMarkup(lessonVideo);
+  }
+
   if (route === 'adult-small') {
     return createAdultSmallMarkup();
   }
@@ -1784,10 +1931,6 @@ export function createAppMarkup(
     if (slug) {
       return createTopicLessonsMarkup(slug, videosState);
     }
-  }
-
-  if (route === 'puppy-toilet-home-player') {
-    return createRutubePlayerMarkup();
   }
 
   return createHomeMarkup();
@@ -1924,7 +2067,7 @@ function createHomeMarkup(): string {
             <div class="useful-grid" role="list" aria-label="Полезные материалы">
               ${createUsefulCard('Первый день дома', '/assets/useful-home.svg', 'useful-card--blue')}
               ${createUsefulCard('Ошибки воспитания', '/assets/useful-warning.svg', 'useful-card--rose')}
-              ${createUsefulCard('Поводок', '/assets/useful-leash.svg', 'useful-card--blue')}
+              ${createUsefulCard('Поводок', '/assets/icons/leash.webp', 'useful-card--blue')}
               ${createUsefulCard('Адаптация', '/assets/useful-heart.svg', 'useful-card--rose')}
               ${createUsefulCard('ТЕСТ', '', 'useful-card--gray')}
             </div>
@@ -1958,7 +2101,7 @@ function createHomeMarkup(): string {
                 'Дрессировка и коррекция поведения',
                 '/assets/images/programs/adult_dog.webp',
                 'program-card--red',
-                { feedback: 'Раздел "Взрослые" пока в разработке' },
+                { route: 'adult-large' },
               )}
               ${createProgramCard(
                 'Собаки из приюта',
@@ -2343,13 +2486,12 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
   }
 
   const extraFeedSection =
-    topic.includeRutubeTest || topic.videoSourceSlug
+    topic.videoSourceSlug
       ? `
           <section class="section-block section-block--tight">
             <div class="section-heading section-heading--solo">
               <h2>Видео и разборы</h2>
             </div>
-            ${topic.includeRutubeTest ? createTestRutubeCard() : ''}
             ${topic.videoSourceSlug ? createSituationVideoContent(videosState) : ''}
           </section>
         `
@@ -2392,47 +2534,44 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
   `;
 }
 
-function createRutubePlayerMarkup(): string {
-  const rutubeEmbedUrl = getRutubeEmbedUrl();
+function createRutubePlayerMarkup(video: LessonVideoEntry): string {
+  const rutubeEmbedUrl = getRutubeEmbedUrl(video.rutubeUrl);
+  const escapedTitle = escapeHtml(video.title);
 
   return `
     <div class="app-shell">
       <header class="subpage-header">
         <div class="content-frame">
           <div class="subpage-header__inner">
-            <button class="back-button" type="button" data-route="puppy-topic:home-toilet" aria-label="Назад">
+            <button class="back-button" type="button" data-route="${video.backRoute}" aria-label="Назад">
               <span class="back-button__icon" aria-hidden="true"></span>
             </button>
-            <h1 class="subpage-title">Тестовое видео</h1>
+            <h1 class="subpage-title">${escapedTitle}</h1>
           </div>
         </div>
       </header>
 
       <main class="screen-content">
-        <div class="content-frame">
+        <div class="content-frame content-frame--player">
           <section class="section-block section-block--detail-first">
             <div class="rutube-player-card">
-              <div class="rutube-player-card__toolbar">
-                <button class="rutube-player-card__action" type="button" data-rutube-expand="true">
-                  Открыть в полный экран
-                </button>
-              </div>
               <div class="rutube-player-card__frame">
                 ${
                   rutubeEmbedUrl
                     ? `<iframe
-                        src="${rutubeEmbedUrl}"
-                        title="Тестовое видео Rutube"
+                        src="${escapeHtml(rutubeEmbedUrl)}"
+                        title="${escapedTitle}"
                         frameborder="0"
                         allow="autoplay; clipboard-write; fullscreen; picture-in-picture"
+                        referrerpolicy="strict-origin-when-cross-origin"
                         allowFullScreen
                         webkitallowfullscreen
                         mozallowfullscreen
                         allowfullscreen
                       ></iframe>`
                     : `<div class="rutube-player-card__empty">
-                        <h2>Ссылка на тестовое видео не задана</h2>
-                        <p>Добавьте VITE_TEST_RUTUBE_VIDEO_URL в .env и перезапустите приложение</p>
+                        <h2>Видео временно недоступно</h2>
+                        <p>Не удалось подготовить безопасную ссылку на Rutube</p>
                       </div>`
                 }
                 <button
@@ -2442,6 +2581,17 @@ function createRutubePlayerMarkup(): string {
                   aria-label="Свернуть плеер"
                 >
                   Свернуть
+                </button>
+              </div>
+              <div class="rutube-player-card__details">
+                <p>Тестовый текст</p>
+                <button
+                  class="rutube-player-card__expand-icon"
+                  type="button"
+                  data-rutube-expand="true"
+                  aria-label="Открыть в полный экран"
+                >
+                  <span class="rutube-player-card__expand-symbol" aria-hidden="true"></span>
                 </button>
               </div>
             </div>
@@ -2525,41 +2675,14 @@ function createVideoCard(video: SituationVideo): string {
   `;
 }
 
-function createTestRutubeCard(): string {
-  return `
-    <button
-      class="video-card video-card--rutube"
-      type="button"
-      data-route="puppy-toilet-home-player"
-    >
-      <span class="video-card__preview">
-        <img src="/assets/images/situations/puppy-toilet-home.webp" alt="" />
-        <span class="video-card__play" aria-hidden="true">
-          <span class="video-card__play-icon"></span>
-        </span>
-      </span>
-
-      <span class="video-card__body">
-        <span class="video-card__label">Тестовое видео</span>
-        <span class="video-card__title">Rutube-плеер</span>
-        <span class="video-card__description">Открыть встроенный плеер с тестовым видео</span>
-        <span class="video-card__meta">Rutube · embed</span>
-      </span>
-
-      <span class="video-card__arrow" aria-hidden="true">
-        <span class="program-card__arrow-icon"></span>
-      </span>
-    </button>
-  `;
-}
-
 function createLessonCard(lesson: PuppyLessonItem, index: number): string {
   const label = `Видео ${index}`;
   const feedback = lesson.feedback ?? `Материал "${lesson.title}" пока без подключённого видео`;
   const externalAttr = lesson.externalUrl ? `data-external-url="${escapeHtml(lesson.externalUrl)}"` : '';
-  const routeAttr = lesson.route ? `data-route="${lesson.route}"` : '';
-  const buttonClass = lesson.externalUrl || lesson.route ? 'video-card' : 'video-card video-card--placeholder js-feedback';
-  const buttonFeedback = lesson.externalUrl || lesson.route ? '' : `data-feedback="${escapeHtml(feedback)}"`;
+  const route = lesson.video ? `lesson-video:${lesson.video.id}` : lesson.route;
+  const routeAttr = route ? `data-route="${route}"` : '';
+  const buttonClass = lesson.externalUrl || route ? 'video-card' : 'video-card video-card--placeholder js-feedback';
+  const buttonFeedback = lesson.externalUrl || route ? '' : `data-feedback="${escapeHtml(feedback)}"`;
   const metaParts = 'Черновой текст';
 
   return `
@@ -2587,13 +2710,18 @@ function createLessonCard(lesson: PuppyLessonItem, index: number): string {
   `;
 }
 
+function resolveCardImagePath(imagePath: string): string {
+  return imagePath === '/assets/useful-home.svg' ? '/assets/icons/home.webp' : imagePath;
+}
+
 function createUsefulCard(title: string, iconPath: string, modifierClass: string): string {
   const resolvedTitle = title === 'Ошибки воспитания' ? 'Спросить у кинолога' : title;
   const resolvedModifierClass = title === 'Ошибки воспитания' ? 'useful-card--ask' : modifierClass;
+  const resolvedIconPath = title === 'Первый день дома' ? iconPath : resolveCardImagePath(iconPath);
   const iconMarkup =
     modifierClass === 'useful-card--gray'
       ? '<span class="useful-card__test-icon" aria-hidden="true"></span>'
-      : `<img src="${iconPath}" alt="" />`;
+      : `<img src="${resolvedIconPath}" alt="" />`;
 
   return `
     <button
@@ -2615,46 +2743,8 @@ function createProgramCard(
   description: string,
   imagePath: string,
   cardClass: string,
-  action: { route?: AppRoute; feedback?: string; submenu?: 'adult-sizes' },
+  action: { route?: AppRoute; feedback?: string },
 ): string {
-  if (action.submenu === 'adult-sizes') {
-    return `
-      <div class="program-card ${cardClass} program-card--adult-menu">
-        <button class="program-card__trigger" type="button" data-adult-menu-toggle="true" aria-expanded="false">
-          <span class="program-card__media">
-            <img src="${imagePath}" alt="" />
-          </span>
-          <span class="program-card__body">
-            <span class="program-card__title">${titleMarkup}</span>
-            <span class="program-card__description">${description}</span>
-            <span class="program-card__arrow" aria-hidden="true">
-              <span class="program-card__arrow-icon"></span>
-            </span>
-          </span>
-        </button>
-
-        <div class="program-card__submenu" aria-hidden="true">
-          <button
-            class="program-card__submenu-button js-feedback"
-            type="button"
-            data-adult-option="large"
-            data-feedback="Раздел &quot;Большие собаки&quot; пока в разработке"
-          >
-            Большие собаки
-          </button>
-          <button
-            class="program-card__submenu-button js-feedback"
-            type="button"
-            data-adult-option="small"
-            data-feedback="Раздел &quot;Маленькие собаки&quot; пока в разработке"
-          >
-            Маленькие собаки
-          </button>
-        </div>
-      </div>
-    `;
-  }
-
   const cardClassAttr = action.route
     ? `class="program-card ${cardClass}"`
     : `class="program-card ${cardClass} js-feedback"`;
@@ -2771,14 +2861,17 @@ function createAdultSmallSituationCard(situation: AdultSmallSituation): string {
 }
 
 function createTopicCard(topic: PuppyTopic): string {
+  const imagePath = resolveCardImagePath(topic.imagePath);
+  const mediaClass = imagePath.startsWith('/assets/icons/') ? ' topic-card__media--transparent' : '';
+
   return `
     <button
       class="topic-card ${topic.cardClass}"
       type="button"
       data-route="puppy-topic:${topic.slug}"
     >
-      <span class="topic-card__media">
-        <img src="${topic.imagePath}" alt="" />
+      <span class="topic-card__media${mediaClass}">
+        <img src="${imagePath}" alt="" />
       </span>
 
       <span class="topic-card__body">
@@ -2795,14 +2888,17 @@ function createTopicCard(topic: PuppyTopic): string {
 }
 
 function createAdultLargeTopicCard(topic: AdultLargeTopic): string {
+  const imagePath = resolveCardImagePath(topic.imagePath);
+  const mediaClass = imagePath.startsWith('/assets/icons/') ? ' topic-card__media--transparent' : '';
+
   return `
     <button
       class="topic-card ${topic.cardClass}"
       type="button"
       data-route="adult-large-topic:${topic.slug}"
     >
-      <span class="topic-card__media">
-        <img src="${topic.imagePath}" alt="" />
+      <span class="topic-card__media${mediaClass}">
+        <img src="${imagePath}" alt="" />
       </span>
 
       <span class="topic-card__body">
@@ -2819,14 +2915,17 @@ function createAdultLargeTopicCard(topic: AdultLargeTopic): string {
 }
 
 function createAdultSmallTopicCard(topic: AdultSmallTopic): string {
+  const imagePath = resolveCardImagePath(topic.imagePath);
+  const mediaClass = imagePath.startsWith('/assets/icons/') ? ' topic-card__media--transparent' : '';
+
   return `
     <button
       class="topic-card ${topic.cardClass}"
       type="button"
       data-route="adult-small-topic:${topic.slug}"
     >
-      <span class="topic-card__media">
-        <img src="${topic.imagePath}" alt="" />
+      <span class="topic-card__media${mediaClass}">
+        <img src="${imagePath}" alt="" />
       </span>
 
       <span class="topic-card__body">
@@ -2898,29 +2997,33 @@ function getMiniAppLink(): string {
   return `https://t.me/${configuredLink.replace(/^https?:\/\//, '').replace(/^t\.me\//, '').replace(/^\/+/, '')}`;
 }
 
-function getRutubeEmbedUrl(): string {
-  const configuredUrl = import.meta.env.VITE_TEST_RUTUBE_VIDEO_URL?.trim();
+function getRutubeEmbedUrl(sourceUrl: string): string {
+  const configuredUrl = sourceUrl.trim();
 
   if (!configuredUrl) {
     return '';
   }
 
-  if (configuredUrl.includes('/play/embed/')) {
-    return configuredUrl;
-  }
-
   try {
     const url = new URL(configuredUrl);
-    const videoMatch = url.pathname.match(/\/video\/([a-z0-9]+)/i);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+
+    if (url.protocol !== 'https:' || hostname !== 'rutube.ru') {
+      return '';
+    }
+
+    const videoMatch = url.pathname.match(/^\/(?:play\/embed\/|video\/(?:private\/)?)([a-f0-9]{32})(?:\/|$)/i);
 
     if (videoMatch) {
-      return `https://rutube.ru/play/embed/${videoMatch[1]}${url.search}`;
+      const embedUrl = new URL(`https://rutube.ru/play/embed/${videoMatch[1]}/`);
+      embedUrl.search = url.search;
+      return embedUrl.toString();
     }
   } catch {
-    return configuredUrl;
+    return '';
   }
 
-  return configuredUrl;
+  return '';
 }
 
 function escapeHtml(value: string): string {
