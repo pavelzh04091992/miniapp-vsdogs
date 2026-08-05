@@ -137,6 +137,7 @@ export type SituationVideosState =
 interface PuppyLessonItem {
   title: string;
   description: string;
+  coverPath?: string;
   video?: {
     id: string;
     rutubeUrl: string;
@@ -753,6 +754,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Ошейник или шлейка?',
             description: 'Разбираем, какая амуниция подойдёт щенку в разных прогулочных сценариях',
+            coverPath: '/assets/covers/ideal_prog.jpg',
             video: {
               id: 'puppy-leash-collar-harness',
               rutubeUrl: 'https://rutube.ru/video/private/d443968096289bc361898c707da0ee58/?p=tsIxAoB1riBx9xb8_6iZCQ',
@@ -761,6 +763,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Как отучить тянуть поводок?',
             description: 'Собираем базу для спокойного движения рядом без рывков и борьбы',
+            coverPath: '/assets/covers/tech_vlad.jpg',
             video: {
               id: 'puppy-leash-stop-pulling',
               rutubeUrl: 'https://rutube.ru/video/private/50f87645b23d81233e282e6db2ea51c3/?p=-8xq2f8b9mCJEzBaMEJHyQ',
@@ -769,6 +772,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Поводок или рулетка? часть 1',
             description: 'Разбираем преимущества обычного поводка и подходящую длину для прогулки',
+            coverPath: '/assets/covers/povod_rulet.jpg',
             video: {
               id: 'puppy-leash-or-retractable-part-1',
               rutubeUrl: 'https://rutube.ru/video/private/9b59314f3a0b3d4b7fa4cade3f33d3fe/?p=oINNpDLyhvs9EDcgNJqPRw',
@@ -789,6 +793,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: '«Стоп» перед дорогой',
             description: 'Учим щенка останавливаться перед дорогой и не вылетать вперёд',
+            coverPath: '/assets/covers/stop_dor.jpg',
             video: {
               id: 'puppy-leash-stop-road',
               rutubeUrl: 'https://rutube.ru/video/private/7dc91c3b638a827929fa1694ddf0ea42/?p=UvF-NSJWeRelw8ztu2-9xA',
@@ -843,6 +848,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Упражнение против отвлечений (1-2-3)',
             description: 'Используем ритмичное упражнение 1-2-3, чтобы вернуть щенка в контакт',
+            coverPath: '/assets/covers/1-2-3.jpg',
             video: {
               id: 'puppy-ignore-123',
               rutubeUrl: 'https://rutube.ru/video/private/02dfc7ab5f4023bc92f631a204daffdb/?p=ji6fmFA9ppouxM7vLa_aVQ',
@@ -855,6 +861,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Топ интересных игр на прогулке, или как наладить контакт',
             description: 'Подбираем короткие игры, которые делают человека интереснее улицы',
+            coverPath: '/assets/covers/igri.jpg',
             video: {
               id: 'puppy-ignore-walk-games',
               rutubeUrl: 'https://rutube.ru/video/private/46783a74b756796dde6772ce8a236676/?p=qeRSB2nkWdolROO7DQBPAw',
@@ -932,6 +939,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Прыжки на гостей',
             description: 'Показываем, как заменить прыжки на более удобный и управляемый сценарий встречи',
+            coverPath: '/assets/covers/gosti.jpg',
             video: {
               id: 'puppy-home-jumping-guests',
               rutubeUrl: 'https://rutube.ru/video/private/99c4bd449c359a3a468ee8a15952a754/?p=hwkZUtVsMO7qhs5PDW4E-Q',
@@ -950,6 +958,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Команда «место»',
             description: 'Формируем удобную точку отдыха на время еды и бытовой суеты',
+            coverPath: '/assets/covers/mesto.jpg',
             video: {
               id: 'puppy-home-begging-place',
               rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
@@ -958,6 +967,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Топ долгоиграющих лакомств и умных девайсов',
             description: 'Подбираем конг, лизательные и нюхательные коврики под повседневный ритм',
+            coverPath: '/assets/covers/pogriz.jpg',
             video: {
               id: 'puppy-home-begging-enrichment',
               rutubeUrl: 'https://rutube.ru/video/private/c2313be833d702352d502ce8594a4e90/?p=RKaOJQl0742iR5Af36Gp-g',
@@ -966,6 +976,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Питание',
             description: 'Смотрим, как режим и рацион влияют на бытовое поведение щенка',
+            coverPath: '/assets/covers/korm.jpg',
             video: {
               id: 'puppy-home-begging-feeding',
               rutubeUrl: 'https://rutube.ru/video/private/1dee214d6aa2ec5a35d35389e86d127f/?p=NChTWvCdLikdyEm-E47EwQ',
@@ -1113,6 +1124,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Приучаем постепенно к машине',
             description: 'Пошагово снижаем тревогу и делаем поездки более предсказуемыми',
+            coverPath: '/assets/covers/maschin.jpg',
             video: {
               id: 'puppy-fears-car',
               rutubeUrl: 'https://rutube.ru/video/private/a10fcc7797462420bc6df53b0f4e4bd3/?p=7Tb-gnfzFNrMMWlsPHk7Hg',
@@ -1145,6 +1157,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Команда «место»',
             description: 'Формируем понятное место, куда щенок может вернуться и расслабиться',
+            coverPath: '/assets/covers/mesto.jpg',
             video: {
               id: 'puppy-fears-place',
               rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
@@ -1216,6 +1229,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Лапы',
             description: 'Готовим пространство ванной и учим щенка больше доверять процессу ухода',
+            coverPath: '/assets/covers/lapi-shen.jpg',
             video: {
               id: 'puppy-care-paws',
               rutubeUrl: 'https://rutube.ru/video/private/8aec062db1e4fd15c437e3f4f22ea885/?p=Gu_YqW37pvxe99-67Ru10A',
@@ -1371,12 +1385,13 @@ const adultLargeSituations: AdultLargeSituation[] = [
         cardClass: 'topic-card--blue',
         lessons: [
           { title: 'Как отучить тянуть поводок?', description: 'Разбираем причины натяжения поводка и собираем спокойную механику прогулки' },
-          { title: 'Ошейник или шлейка?', description: 'Как подобрать амуницию под сценарии прогулки и особенности собаки' },
-          { title: 'Поводок или рулетка?', description: 'Сравниваем варианты амуниции и выбираем подходящий формат прогулки' },
+          { title: 'Ошейник или шлейка?', description: 'Как подобрать амуницию под сценарии прогулки и особенности собаки', coverPath: '/assets/covers/ideal_prog.jpg' },
+          { title: 'Поводок или рулетка?', description: 'Сравниваем варианты амуниции и выбираем подходящий формат прогулки', coverPath: '/assets/covers/povod_rulet.jpg' },
           { title: 'Команда «рядом»', description: 'Собираем базовый навык движения рядом с человеком' },
           {
             title: '«Дорога» и «стоп»',
             description: 'Учимся останавливаться и безопасно проходить сложные участки маршрута',
+            coverPath: '/assets/covers/stop_dor.jpg',
             video: {
               id: 'adult-large-leash-road-stop',
               rutubeUrl: 'https://rutube.ru/video/private/7dc91c3b638a827929fa1694ddf0ea42/?p=UvF-NSJWeRelw8ztu2-9xA',
@@ -1416,9 +1431,9 @@ const adultLargeSituations: AdultLargeSituation[] = [
         imagePath: '/assets/useful-heart.svg',
         cardClass: 'topic-card--rose',
         lessons: [
-          { title: 'Упражнение против отвлечений (1-2-3)', description: 'Возвращаем собаку в понятный ритм при сильных отвлечениях' },
+          { title: 'Упражнение против отвлечений (1-2-3)', description: 'Возвращаем собаку в понятный ритм при сильных отвлечениях', coverPath: '/assets/covers/1-2-3.jpg' },
           { title: 'Выдержка: не срываемся на всё подряд', description: 'Развиваем импульс-контроль на фоне раздражителей' },
-          { title: 'Топ интересных игр на прогулке, или как наладить контакт', description: 'Подбираем игры, которые усиливают ценность человека на улице' },
+          { title: 'Топ интересных игр на прогулке, или как наладить контакт', description: 'Подбираем игры, которые усиливают ценность человека на улице', coverPath: '/assets/covers/igri.jpg' },
           { title: 'Моя собака ко всем лезет', description: 'Работаем с сильным интересом к людям, животным и движущимся объектам' },
         ],
       },
@@ -1446,6 +1461,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
         {
           title: 'Прыжки на гостей',
           description: 'Заменяем прыжки на более спокойный и управляемый сценарий встречи',
+          coverPath: '/assets/covers/gosti.jpg',
           video: {
             id: 'adult-large-jumping-guests',
             rutubeUrl: 'https://rutube.ru/video/private/99c4bd449c359a3a468ee8a15952a754/?p=hwkZUtVsMO7qhs5PDW4E-Q',
@@ -1456,6 +1472,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
         {
           title: 'Команда «место»',
           description: 'Формируем удобную бытовую точку отдыха во время еды',
+          coverPath: '/assets/covers/mesto.jpg',
           video: {
             id: 'adult-large-begging-place',
             rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
@@ -1464,12 +1481,13 @@ const adultLargeSituations: AdultLargeSituation[] = [
         {
           title: 'Топ долгоиграющих лакомств и умных девайсов',
           description: 'Подбираем конг, лизательные и нюхательные коврики',
+          coverPath: '/assets/covers/pogriz.jpg',
           video: {
             id: 'adult-large-begging-enrichment',
             rutubeUrl: 'https://rutube.ru/video/private/c2313be833d702352d502ce8594a4e90/?p=RKaOJQl0742iR5Af36Gp-g',
           },
         },
-        { title: 'Питание', description: 'Разбираем режим, логику выдачи еды и бытовые рамки' },
+        { title: 'Питание', description: 'Разбираем режим, логику выдачи еды и бытовые рамки', coverPath: '/assets/covers/korm.jpg' },
       ]},
       { slug: 'adult-large-toilet', title: 'Туалет', description: 'Улица, режим и метки дома у взрослой собаки', meta: '2 видео', imagePath: '/assets/images/situations/puppy-toilet-home.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Приучение к улице + режим', description: 'Перестраиваем туалетный сценарий на улицу и выстраиваем понятный ритм прогулок' },
@@ -1514,6 +1532,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
         {
           title: 'Команда «место»',
           description: 'Делаем точку отдыха понятной и полезной для собаки',
+          coverPath: '/assets/covers/mesto.jpg',
           video: {
             id: 'adult-large-fears-place',
             rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
@@ -1549,6 +1568,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
         {
           title: 'Лапы',
           description: 'Собираем понятный и комфортный сценарий ухода за лапами',
+          coverPath: '/assets/covers/lapi-bolsh.jpg',
           video: {
             id: 'adult-large-care-paws',
             rutubeUrl: 'https://rutube.ru/video/private/545e5a20d076a8b631fc8dd92fb0e393/?p=lfksp_Rh_AZRgkwDHOI42Q',
@@ -2300,7 +2320,7 @@ function createAdultLargeTopicLessonsMarkup(slug: AdultLargeTopicSlug): string {
               <h2>Материалы</h2>
             </div>
             <div class="lesson-list">
-              ${topic.lessons.map((lesson, index) => createLessonCard(lesson, index + 1)).join('')}
+              ${topic.lessons.map((lesson) => createLessonCard(lesson)).join('')}
             </div>
           </section>
         </div>
@@ -2429,7 +2449,7 @@ function createAdultSmallTopicLessonsMarkup(slug: AdultSmallTopicSlug): string {
               <h2>Материалы</h2>
             </div>
             <div class="lesson-list">
-              ${topic.lessons.map((lesson, index) => createLessonCard(lesson, index + 1)).join('')}
+              ${topic.lessons.map((lesson) => createLessonCard(lesson)).join('')}
             </div>
           </section>
         </div>
@@ -2522,7 +2542,7 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
               <h2>Материалы</h2>
             </div>
             <div class="lesson-list">
-              ${topic.lessons.map((lesson, index) => createLessonCard(lesson, index + 1)).join('')}
+              ${topic.lessons.map((lesson) => createLessonCard(lesson)).join('')}
             </div>
           </section>
           ${extraFeedSection}
@@ -2675,15 +2695,20 @@ function createVideoCard(video: SituationVideo): string {
   `;
 }
 
-function createLessonCard(lesson: PuppyLessonItem, index: number): string {
-  const label = `Видео ${index}`;
+function createLessonCard(lesson: PuppyLessonItem): string {
   const feedback = lesson.feedback ?? `Материал "${lesson.title}" пока без подключённого видео`;
   const externalAttr = lesson.externalUrl ? `data-external-url="${escapeHtml(lesson.externalUrl)}"` : '';
   const route = lesson.video ? `lesson-video:${lesson.video.id}` : lesson.route;
   const routeAttr = route ? `data-route="${route}"` : '';
-  const buttonClass = lesson.externalUrl || route ? 'video-card' : 'video-card video-card--placeholder js-feedback';
+  const buttonClass = lesson.externalUrl || route ? 'lesson-card' : 'lesson-card lesson-card--placeholder js-feedback';
   const buttonFeedback = lesson.externalUrl || route ? '' : `data-feedback="${escapeHtml(feedback)}"`;
-  const metaParts = 'Черновой текст';
+  const previewMarkup = lesson.coverPath
+    ? `<img src="${escapeHtml(lesson.coverPath)}" alt="" loading="lazy" />`
+    : `
+        <span class="lesson-card__preview-placeholder" aria-hidden="true">
+          <span class="lesson-card__placeholder-icon"></span>
+        </span>
+      `;
 
   return `
     <button
@@ -2693,18 +2718,17 @@ function createLessonCard(lesson: PuppyLessonItem, index: number): string {
       ${routeAttr}
       ${buttonFeedback}
     >
-      <span class="video-card__preview video-card__preview--placeholder">
-        <span class="video-card__placeholder-badge">${index}</span>
+      <span class="lesson-card__preview">
+        ${previewMarkup}
+        <span class="lesson-card__play" aria-hidden="true">
+          <span class="lesson-card__play-icon"></span>
+        </span>
       </span>
 
-      <span class="video-card__body">
-        <span class="video-card__label">${label}</span>
-        <span class="video-card__title">${escapeHtml(lesson.title)}</span>
-        <span class="video-card__meta">${escapeHtml(metaParts)}</span>
-      </span>
-
-      <span class="video-card__arrow" aria-hidden="true">
-        <span class="program-card__arrow-icon"></span>
+      <span class="lesson-card__body">
+        <span class="lesson-card__title">${escapeHtml(lesson.title)}</span>
+        <span class="lesson-card__description">${escapeHtml(lesson.description)}</span>
+        ${lesson.video || lesson.externalUrl ? '' : '<span class="lesson-card__status">Материал готовится</span>'}
       </span>
     </button>
   `;

@@ -285,9 +285,9 @@ img {
 }
 
 .hero-card {
-  padding: 16px;
+  padding: 22px 18px 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: end;
   overflow: hidden;
@@ -306,7 +306,8 @@ img {
   position: relative;
   z-index: 2;
   align-self: start;
-  margin: 0;
+  margin-top: 6px;
+  margin-left: 10px;
 }
 
 .hero-card__eyebrow {
@@ -364,9 +365,8 @@ img {
 }
 
 .hero-card__media {
-  width: 100%;
-  min-width: 0;
   min-height: 150px;
+  padding-right: 10px;
   display: flex;
   align-items: end;
   justify-content: center;
@@ -375,16 +375,14 @@ img {
 }
 
 .hero-card__dog {
-  width: 100%;
-  max-width: 190px;
-  min-width: 0;
-  height: auto;
+  width: min(100%, 190px);
+  margin-right: 0;
   position: relative;
   z-index: 1;
 }
 
 .puppy-hero {
-  padding: 22px 18px 0;
+  padding: 28px 18px 24px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 150px;
   gap: 10px;
@@ -405,8 +403,8 @@ img {
   position: relative;
   z-index: 2;
   align-self: start;
-  padding-top: 8px;
-  transform: translateY(-2px);
+  padding-top: 4px;
+  transform: none;
 }
 
 .puppy-hero--adult-large .puppy-hero__content {
@@ -901,6 +899,143 @@ img {
 .lesson-list {
   display: grid;
   gap: 12px;
+}
+
+.lesson-list {
+  gap: 18px;
+}
+
+.lesson-card {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 11px;
+  background: transparent;
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease,
+    filter 160ms ease;
+}
+
+.lesson-card__preview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(255, 255, 255, 0.84), transparent 28%),
+    linear-gradient(135deg, #e8f2ff 0%, #cfe3fb 52%, #f8e8e8 100%);
+  box-shadow:
+    0 14px 28px rgba(15, 45, 92, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.lesson-card__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lesson-card__preview-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.lesson-card__placeholder-icon {
+  width: 60px;
+  height: 60px;
+  border: 1px solid rgba(20, 84, 163, 0.12);
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.52);
+  box-shadow: 0 10px 24px rgba(20, 84, 163, 0.1);
+}
+
+.lesson-card__placeholder-icon::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 15px solid var(--primary);
+  transform: translateX(2px);
+}
+
+.lesson-card__play {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 18px rgba(15, 45, 92, 0.14);
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease;
+}
+
+.lesson-card__play-icon {
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 12px solid var(--accent);
+  transform: translateX(2px);
+}
+
+.lesson-card__body {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 0 4px;
+}
+
+.lesson-card__title {
+  color: var(--primary-dark);
+  font-size: 18px;
+  line-height: 1.14;
+  font-weight: 800;
+}
+
+.lesson-card__description {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #5d6879;
+  font-size: 13px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.lesson-card__status {
+  color: var(--primary);
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.lesson-card:hover {
+  transform: translateY(-2px);
+}
+
+.lesson-card:hover .lesson-card__play {
+  transform: scale(1.06);
+  background: #ffffff;
+}
+
+.lesson-card--placeholder {
+  opacity: 0.86;
 }
 
 .topic-card {
@@ -1787,14 +1922,14 @@ html[data-rutube-expanded='true'] .screen-content {
 
 @media (max-width: 390px) {
   .puppy-hero {
-    padding: 20px 16px 0;
+    padding: 24px 16px 20px;
     grid-template-columns: minmax(0, 1fr) 132px;
     gap: 8px;
   }
 
   .puppy-hero__content {
     max-width: none;
-    padding-top: 6px;
+    padding-top: 4px;
   }
 
   .puppy-hero__content h2 {
@@ -1906,6 +2041,22 @@ html[data-rutube-expanded='true'] .screen-content {
   .video-card__arrow {
     width: 34px;
     height: 34px;
+  }
+
+  .lesson-card {
+    gap: 10px;
+  }
+
+  .lesson-card__preview {
+    border-radius: 18px;
+  }
+
+  .lesson-card__title {
+    font-size: 16px;
+  }
+
+  .lesson-card__description {
+    font-size: 12px;
   }
 }
 
