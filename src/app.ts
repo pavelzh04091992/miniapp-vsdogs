@@ -140,7 +140,8 @@ interface PuppyLessonItem {
   coverPath?: string;
   video?: {
     id: string;
-    rutubeUrl: string;
+    rutubeUrl?: string;
+    youtubeUrl?: string;
   };
   externalUrl?: string;
   feedback?: string;
@@ -748,7 +749,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Поводок',
         description: 'Амуниция, движение рядом и безопасные остановки на улице',
         meta: '7 видео',
-        imagePath: '/assets/icons/leash.webp',
+        imagePath: '/assets/icons/povodok.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -806,7 +807,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Подбор еды',
         description: 'Профилактика подбора с земли и понятная работа через самоконтроль',
         meta: '2 видео',
-        imagePath: '/assets/useful-warning.svg',
+        imagePath: '/assets/icons/podbor_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -842,7 +843,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Игнорирование раздражителей',
         description: 'Упражнения против отвлечений, выдержка и экологичный контакт на улице',
         meta: '4 видео',
-        imagePath: '/assets/useful-home.svg',
+        imagePath: '/assets/icons/razdrazh_puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -851,7 +852,7 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/1-2-3.jpg',
             video: {
               id: 'puppy-ignore-123',
-              rutubeUrl: 'https://rutube.ru/video/private/02dfc7ab5f4023bc92f631a204daffdb/?p=ji6fmFA9ppouxM7vLa_aVQ',
+              youtubeUrl: 'https://www.youtube.com/watch?v=TKXEGLmGbqg',
             },
           },
           {
@@ -889,7 +890,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Лай',
         description: 'Снижаем перегруз от бытовых звуков и учим щенка быстрее успокаиваться',
         meta: '2 видео',
-        imagePath: '/assets/useful-warning.svg',
+        imagePath: '/assets/icons/lai_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -907,7 +908,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Одиночество',
         description: 'Уверенность в себе, безопасное пространство и постепенное увеличение дистанции',
         meta: '3 видео',
-        imagePath: '/assets/images/situations/puppy-whines-night.webp',
+        imagePath: '/assets/icons/lonely_puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -929,7 +930,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Прыжки на гостей',
         description: 'Спокойный приход домой, контроль возбуждения и более понятный сценарий встречи',
         meta: '2 видео',
-        imagePath: '/assets/images/programs/teen_dog.webp',
+        imagePath: '/assets/icons/jump_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -952,7 +953,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Попрошайничество',
         description: 'Место, ритуалы дома и полезные занятия вместо выпрашивания еды',
         meta: '3 видео',
-        imagePath: '/assets/useful-home.svg',
+        imagePath: '/assets/icons/please_puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -989,7 +990,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Туалет',
         description: 'Пелёнка, улица, режим и спокойная работа с запахом без наказаний',
         meta: '3 видео',
-        imagePath: '/assets/images/situations/puppy-toilet-home.webp',
+        imagePath: '/assets/icons/toilet_puppy.webp',
         cardClass: 'topic-card--rose',
         videoSourceSlug: 'puppy-toilet-home',
         lessons: [
@@ -1014,7 +1015,7 @@ const puppySituations: PuppySituation[] = [
     title: 'Агрессия и конфликты',
     description: 'Работа с агрессией, конфликтами и защитой ресурсов',
     meta: '5 разделов',
-    imagePath: '/assets/icons/alarm.webp',
+    imagePath: '/assets/icons/agress_puppy.webp',
     cardClass: 'situation-card--blue',
     category: 'behavior',
     topics: [
@@ -1023,7 +1024,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Грызёт руки и ноги',
         description: 'Правильная игра, снижение перегруза и более безопасный контакт со щенком',
         meta: '1 видео',
-        imagePath: '/assets/images/situations/puppy-bites.webp',
+        imagePath: '/assets/icons/kus_puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -1037,7 +1038,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Мой щенок вандалит',
         description: 'Разносит квартиру, портит вещи и не умеет сам успокаиваться',
         meta: '1 видео',
-        imagePath: '/assets/images/situations/puppy-chews-things.webp',
+        imagePath: '/assets/icons/vandal_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -1051,7 +1052,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Охраняет чашку, вещи, игрушки',
         description: 'Безопасная работа рядом с ценными объектами и профилактика ресурсной охраны',
         meta: '1 видео',
-        imagePath: '/assets/images/programs/adult_dog.webp',
+        imagePath: '/assets/icons/ohrana_puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -1065,7 +1066,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Лает на людей и собак',
         description: 'Разбираем причины поведения и первые шаги к более устойчивой реакции',
         meta: '1 видео',
-        imagePath: '/assets/useful-warning.svg',
+        imagePath: '/assets/icons/lai_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -1079,7 +1080,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Кастрировать или стерилизовать?',
         description: 'Контекст, возраст и реальные ожидания от такого решения',
         meta: '1 видео',
-        imagePath: '/assets/useful-heart.svg',
+        imagePath: '/assets/icons/voprox_puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -1104,7 +1105,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Боязнь звуков',
         description: 'Салюты, пылесос, фен и другие звуки, которые могут перегружать щенка',
         meta: '1 видео',
-        imagePath: '/assets/useful-warning.svg',
+        imagePath: '/assets/icons/earphones_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -1118,7 +1119,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Приучаем постепенно к машине',
         description: 'Постепенное привыкание к поездкам и более комфортный сценарий дороги',
         meta: '1 видео',
-        imagePath: '/assets/images/programs/teen_dog.webp',
+        imagePath: '/assets/icons/car_puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -1137,7 +1138,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Страх лестницы/лифта',
         description: 'Новые места, незнакомые поверхности и базовая техника безопасности',
         meta: '1 видео',
-        imagePath: '/assets/useful-home.svg',
+        imagePath: '/assets/icons/stair_puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -1151,7 +1152,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Команда «место»',
         description: 'Якорь спокойствия и понятная точка отдыха в домашнем пространстве',
         meta: '1 видео',
-        imagePath: '/assets/useful-home.svg',
+        imagePath: '/assets/icons/lay_puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -1170,7 +1171,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Организация пространства',
         description: 'Домашняя среда, в которой щенку проще успокаиваться и чувствовать себя безопасно',
         meta: '1 видео',
-        imagePath: '/assets/useful-home.svg',
+        imagePath: '/assets/icons/order_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -1184,7 +1185,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Ходит хвостиком + Как минимизировать тревожность?',
         description: 'Сильная привязка к человеку и трудности с тем, чтобы остаться отдельно',
         meta: '1 видео',
-        imagePath: '/assets/images/situations/puppy-whines-night.webp',
+        imagePath: '/assets/icons/tail_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -1209,7 +1210,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Когти',
         description: 'Анатомия когтя и мягкое приучение к стрижке без лишнего напряжения',
         meta: '1 видео',
-        imagePath: '/assets/useful-warning.svg',
+        imagePath: '/assets/icons/nails_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -1223,7 +1224,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Лапы',
         description: 'Пять свобод, право отказаться и спокойная организация ванной зоны',
         meta: '1 видео',
-        imagePath: '/assets/useful-home.svg',
+        imagePath: '/assets/icons/lapa__puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -1242,7 +1243,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Груминг',
         description: 'Как часто мыть, что использовать и как сделать уход понятнее для щенка',
         meta: '1 видео',
-        imagePath: '/assets/useful-heart.svg',
+        imagePath: '/assets/icons/hair_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -1267,7 +1268,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Поклон',
         description: 'Простое упражнение на контроль корпуса и концентрацию',
         meta: '1 видео',
-        imagePath: '/assets/images/programs/puppy.webp',
+        imagePath: '/assets/icons/poklon__puppy.webp.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -1281,7 +1282,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Ползи',
         description: 'Низкая позиция, координация и более внимательная работа с телом',
         meta: '1 видео',
-        imagePath: '/assets/images/programs/puppy-hero.webp',
+        imagePath: '/assets/icons/polzi_puppy.webp.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -1295,7 +1296,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Зайка',
         description: 'Баланс, аккуратное удержание позиции и контроль центра тела',
         meta: '1 видео',
-        imagePath: '/assets/useful-heart.svg',
+        imagePath: '/assets/icons/bunny_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -1309,7 +1310,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Домик',
         description: 'Координация, наведение и внимательная работа с позой',
         meta: '1 видео',
-        imagePath: '/assets/useful-home.svg',
+        imagePath: '/assets/icons/home_puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -1323,7 +1324,7 @@ const puppySituations: PuppySituation[] = [
         title: '«Дай лапу»',
         description: 'Небольшой трюк для контакта и более аккуратной работы с импульсом',
         meta: '1 видео',
-        imagePath: '/assets/images/programs/adult_dog.webp',
+        imagePath: '/assets/icons/lapa__puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -1337,7 +1338,7 @@ const puppySituations: PuppySituation[] = [
         title: '«Назад»',
         description: 'Осознанное движение назад и более точная работа с телом',
         meta: '1 видео',
-        imagePath: '/assets/useful-leash.svg',
+        imagePath: '/assets/icons/back_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
@@ -1839,7 +1840,8 @@ const adultSmallTopicsBySlug = new Map<
 interface LessonVideoEntry {
   id: string;
   title: string;
-  rutubeUrl: string;
+  rutubeUrl?: string;
+  youtubeUrl?: string;
   backRoute: AppRoute;
 }
 
@@ -1858,6 +1860,7 @@ function registerLessonVideo(lesson: PuppyLessonItem, backRoute: AppRoute): void
     id: lesson.video.id,
     title: lesson.title,
     rutubeUrl: lesson.video.rutubeUrl,
+    youtubeUrl: lesson.video.youtubeUrl,
     backRoute,
   });
 }
@@ -2555,8 +2558,11 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
 }
 
 function createRutubePlayerMarkup(video: LessonVideoEntry): string {
-  const rutubeEmbedUrl = getRutubeEmbedUrl(video.rutubeUrl);
+  const youtubeEmbedUrl = getYoutubeEmbedUrl(video.youtubeUrl);
+  const rutubeEmbedUrl = youtubeEmbedUrl ? '' : getRutubeEmbedUrl(video.rutubeUrl);
+  const embedUrl = youtubeEmbedUrl || rutubeEmbedUrl;
   const escapedTitle = escapeHtml(video.title);
+  const providerLabel = youtubeEmbedUrl ? 'YouTube' : 'Rutube';
 
   return `
     <div class="app-shell">
@@ -2577,9 +2583,9 @@ function createRutubePlayerMarkup(video: LessonVideoEntry): string {
             <div class="rutube-player-card">
               <div class="rutube-player-card__frame">
                 ${
-                  rutubeEmbedUrl
+                  embedUrl
                     ? `<iframe
-                        src="${escapeHtml(rutubeEmbedUrl)}"
+                        src="${escapeHtml(embedUrl)}"
                         title="${escapedTitle}"
                         frameborder="0"
                         allow="autoplay; clipboard-write; fullscreen; picture-in-picture"
@@ -2591,7 +2597,7 @@ function createRutubePlayerMarkup(video: LessonVideoEntry): string {
                       ></iframe>`
                     : `<div class="rutube-player-card__empty">
                         <h2>Видео временно недоступно</h2>
-                        <p>Не удалось подготовить безопасную ссылку на Rutube</p>
+                        <p>Не удалось подготовить безопасную ссылку на ${providerLabel}</p>
                       </div>`
                 }
                 <button
@@ -3021,8 +3027,8 @@ function getMiniAppLink(): string {
   return `https://t.me/${configuredLink.replace(/^https?:\/\//, '').replace(/^t\.me\//, '').replace(/^\/+/, '')}`;
 }
 
-function getRutubeEmbedUrl(sourceUrl: string): string {
-  const configuredUrl = sourceUrl.trim();
+function getRutubeEmbedUrl(sourceUrl?: string): string {
+  const configuredUrl = sourceUrl?.trim() ?? '';
 
   if (!configuredUrl) {
     return '';
@@ -3048,6 +3054,45 @@ function getRutubeEmbedUrl(sourceUrl: string): string {
   }
 
   return '';
+}
+
+function getYoutubeEmbedUrl(sourceUrl?: string): string {
+  const configuredUrl = sourceUrl?.trim() ?? '';
+
+  if (!configuredUrl) {
+    return '';
+  }
+
+  try {
+    const url = new URL(configuredUrl);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+    let videoId = '';
+
+    if (url.protocol !== 'https:') {
+      return '';
+    }
+
+    if (hostname === 'youtube.com') {
+      if (url.pathname === '/watch') {
+        videoId = url.searchParams.get('v') ?? '';
+      } else {
+        videoId = url.pathname.match(/^\/(?:embed|shorts)\/([a-zA-Z0-9_-]{11})\/?$/)?.[1] ?? '';
+      }
+    } else if (hostname === 'youtu.be') {
+      videoId = url.pathname.match(/^\/([a-zA-Z0-9_-]{11})\/?$/)?.[1] ?? '';
+    }
+
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+      return '';
+    }
+
+    const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
+    embedUrl.searchParams.set('rel', '0');
+    embedUrl.searchParams.set('playsinline', '1');
+    return embedUrl.toString();
+  } catch {
+    return '';
+  }
 }
 
 function escapeHtml(value: string): string {

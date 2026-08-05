@@ -1042,12 +1042,12 @@ img {
 
 .topic-card {
   width: 100%;
-  min-height: 110px;
+  min-height: 134px;
   border: 1px solid rgba(255, 255, 255, 0.88);
   border-radius: var(--card-radius-lg);
   padding: 14px 14px 14px 12px;
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 36px;
+  grid-template-columns: 88px minmax(0, 1fr) 36px;
   gap: 12px;
   align-items: center;
   backdrop-filter: blur(18px) saturate(140%);
@@ -1267,8 +1267,8 @@ img {
 }
 
 .topic-card__media {
-  width: 64px;
-  height: 64px;
+  width: 88px;
+  height: 88px;
   border-radius: 18px;
   display: grid;
   place-items: center;
@@ -1277,8 +1277,8 @@ img {
 }
 
 .topic-card__media img {
-  width: 50px;
-  height: 50px;
+  width: 68px;
+  height: 68px;
   object-fit: contain;
 }
 
@@ -1288,8 +1288,8 @@ img {
 }
 
 .topic-card__media--transparent img {
-  width: 64px;
-  height: 64px;
+  width: 88px;
+  height: 88px;
   max-width: none;
 }
 
@@ -1986,26 +1986,26 @@ html[data-rutube-expanded='true'] .screen-content {
   }
 
   .topic-card {
-    min-height: 118px;
-    grid-template-columns: 58px minmax(0, 1fr) 34px;
+    min-height: 140px;
+    grid-template-columns: 82px minmax(0, 1fr) 34px;
     gap: 10px;
     padding: 12px;
   }
 
   .topic-card__media {
-    width: 58px;
-    height: 58px;
+    width: 82px;
+    height: 82px;
     border-radius: 16px;
   }
 
   .topic-card__media img {
-    width: 46px;
-    height: 46px;
+    width: 64px;
+    height: 64px;
   }
 
   .topic-card__media--transparent img {
-    width: 58px;
-    height: 58px;
+    width: 82px;
+    height: 82px;
   }
 
   .topic-card__title {

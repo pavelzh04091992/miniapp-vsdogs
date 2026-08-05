@@ -24,6 +24,7 @@ let videosState: SituationVideosState = { status: 'idle' };
 let lastBottomNavIndicatorLeft = '50%';
 let lastRenderedRoute: AppRoute | null = null;
 let pendingTransitionDirection: PageTransitionDirection | null = null;
+let previousPageScroll: { route: AppRoute; scrollTop: number } | null = null;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -35,6 +36,9 @@ if (!webApp) {
   document.documentElement.dataset.tgPlatform = webApp.platform || 'unknown';
   void syncRouteState();
   window.addEventListener('hashchange', () => {
+    void syncRouteState();
+  });
+  window.addEventListener('popstate', () => {
     void syncRouteState();
   });
   window.addEventListener('resize', () => {
@@ -132,11 +136,15 @@ function render(): void {
   const routeChanged = lastRenderedRoute !== null && lastRenderedRoute !== route;
   const direction = pendingTransitionDirection ?? getRouteTransitionDirection(lastRenderedRoute, route);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const savedScrollTop = routeChanged ? getPreviousPageScrollTop(route) : getCurrentScrollTop();
+
+  rememberCurrentScrollPosition(routeChanged);
 
   const updateMarkup = (): void => {
     updatePageMarkup(createAppMarkup(route, activeFilter, videosState));
     document.documentElement.dataset.rutubeExpanded = 'false';
     document.body.style.overflow = '';
+    restoreScrollPosition(savedScrollTop);
     setupLiquidGlassCards();
     const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
 
@@ -166,6 +174,39 @@ function render(): void {
       },
       { once: true },
     );
+  }
+}
+
+function rememberCurrentScrollPosition(routeChanged: boolean): void {
+  if (!routeChanged || !lastRenderedRoute) {
+    return;
+  }
+
+  const currentContent = root.querySelector<HTMLElement>(':scope > .app-shell > .screen-content');
+
+  if (currentContent) {
+    previousPageScroll = {
+      route: lastRenderedRoute,
+      scrollTop: currentContent.scrollTop,
+    };
+  }
+}
+
+function getCurrentScrollTop(): number {
+  const currentContent = root.querySelector<HTMLElement>(':scope > .app-shell > .screen-content');
+
+  return currentContent?.scrollTop ?? 0;
+}
+
+function getPreviousPageScrollTop(route: AppRoute): number {
+  return previousPageScroll?.route === route ? previousPageScroll.scrollTop : 0;
+}
+
+function restoreScrollPosition(scrollTop: number): void {
+  const nextContent = root.querySelector<HTMLElement>(':scope > .app-shell > .screen-content');
+
+  if (nextContent) {
+    nextContent.scrollTop = scrollTop;
   }
 }
 
