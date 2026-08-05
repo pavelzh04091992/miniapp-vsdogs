@@ -23,7 +23,7 @@ RUN npm ci --omit=dev
 COPY scripts ./scripts
 COPY --from=build /app/dist ./dist
 
-RUN mkdir -p public/data
+RUN mkdir -p data
 
 EXPOSE 8787
 CMD ["node", "scripts/run-bot-server.mjs"]
