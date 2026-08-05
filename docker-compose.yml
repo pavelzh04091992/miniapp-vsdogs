@@ -3,7 +3,6 @@ name: miniapp-puppys
 services:
   traefik:
     image: traefik:v3.6
-    container_name: miniapp-traefik
     command:
       - "--log.level=INFO"
       - "--providers.docker=true"
