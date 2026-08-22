@@ -37,7 +37,10 @@ export type PuppyTopicSlug =
   | 'fitness-bunny'
   | 'fitness-house'
   | 'fitness-paw'
-  | 'fitness-back';
+  | 'fitness-back'
+  | 'fitness-wipe-muzzle'
+  | 'fitness-spin'
+  | 'fitness-left-right';
 
 export type AdultLargeSituationSlug =
   | 'adult-large-ideal-walk'
@@ -505,7 +508,7 @@ const legacyPuppySituations: PuppySituation[] = [
     slug: 'fears-anxiety',
     title: 'Страхи и тревожность',
     description: 'Постепенное привыкание, безопасность и снижение тревоги в новых сценариях',
-    meta: '6 разделов',
+    meta: '9 разделов',
     imagePath: '/assets/icons/sad_puppy.webp',
     cardClass: 'situation-card--rose',
     category: 'behavior',
@@ -748,7 +751,7 @@ const puppySituations: PuppySituation[] = [
         slug: 'walk-leash',
         title: 'Поводок',
         description: 'Амуниция, движение рядом и безопасные остановки на улице',
-        meta: '7 видео',
+        meta: '5 видео',
         imagePath: '/assets/icons/povodok.webp',
         cardClass: 'topic-card--blue',
         lessons: [
@@ -780,16 +783,8 @@ const puppySituations: PuppySituation[] = [
             },
           },
           {
-            title: 'Поводок или рулетка? часть 2',
-            description: 'Смотрим, в каких случаях рулетка подходит щенку и когда мешает обучению',
-          },
-          {
-            title: 'Команда «рядом»: часть 1',
+            title: 'Команда «рядом»',
             description: 'Закладываем понятное положение рядом и первые шаги в спокойном темпе',
-          },
-          {
-            title: 'Команда «рядом»: часть 2',
-            description: 'Закрепляем движение рядом в более сложных прогулочных сценариях',
           },
           {
             title: '«Стоп» перед дорогой',
@@ -1168,14 +1163,14 @@ const puppySituations: PuppySituation[] = [
       },
       {
         slug: 'fears-space-organization',
-        title: 'Организация пространства',
+        title: 'Щенок дома',
         description: 'Домашняя среда, в которой щенку проще успокаиваться и чувствовать себя безопасно',
         meta: '1 видео',
         imagePath: '/assets/icons/order_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
-            title: 'Организация пространства',
+            title: 'Щенок дома',
             description: 'Подстраиваем домашнюю среду так, чтобы тревожности было меньше',
           },
         ],
@@ -1347,6 +1342,60 @@ const puppySituations: PuppySituation[] = [
           },
         ],
       },
+      {
+        slug: 'fitness-wipe-muzzle',
+        title: 'Вытри морду',
+        description: 'Полезный бытовой навык через спокойную работу с мишенью',
+        meta: '1 видео',
+        imagePath: '/assets/icons/tap_puppy.webp',
+        cardClass: 'topic-card--blue',
+        lessons: [
+          {
+            title: 'Вытри морду (тач на тряпочку)',
+            description: 'Формируем спокойное касание тряпочки и переносим навык в бытовой уход',
+            video: {
+              id: 'map-puppy-fitness-wipe-muzzle',
+              rutubeUrl: 'https://rutube.ru/video/private/c9caf85e9ba8ed92e50c06cd77f1692a/?p=iz8RFE3RJuv83b-ndOnXzw',
+            },
+          },
+        ],
+      },
+      {
+        slug: 'fitness-spin',
+        title: 'Круть-верть',
+        description: 'Повороты вокруг своей оси для координации и контакта',
+        meta: '1 видео',
+        imagePath: '/assets/icons/krutvert_puppy.webp',
+        cardClass: 'topic-card--rose',
+        lessons: [
+          {
+            title: 'Круть-верть',
+            description: 'Собираем плавный поворот в обе стороны через короткие понятные шаги',
+            video: {
+              id: 'map-puppy-fitness-spin',
+              rutubeUrl: 'https://rutube.ru/video/private/29c74ef1bfdfa3b8361de0c2aec609f4/?p=XcZ34ONVjBS_bZuEJnQrKA',
+            },
+          },
+        ],
+      },
+      {
+        slug: 'fitness-left-right',
+        title: 'Влево-вправо',
+        description: 'Перенос веса и направленные движения для контроля тела',
+        meta: '1 видео',
+        imagePath: '/assets/icons/levopravo_puppy.webp',
+        cardClass: 'topic-card--blue',
+        lessons: [
+          {
+            title: 'Влево-вправо',
+            description: 'Учимся двигаться в стороны по понятному сигналу без спешки',
+            video: {
+              id: 'map-puppy-fitness-left-right',
+              rutubeUrl: 'https://rutube.ru/video/private/5bf27d649cc9f76de2164b8739bbd064/?p=gdIg22RLS7B4nJ0B_V_UXQ',
+            },
+          },
+        ],
+      },
     ],
   },
 ];
@@ -1405,7 +1454,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
         title: 'Подбор еды',
         description: 'Фокус, выдержка и импульс-контроль при еде на улице',
         meta: '2 видео',
-        imagePath: '/assets/useful-warning.svg',
+        imagePath: '/assets/icons/big_podbor_edi.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           { title: 'Импульс-контроль + Выдержка', description: 'Учимся спокойно переживать близость еды и формируем паузу перед действием' },
@@ -1417,7 +1466,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
         title: 'Подзыв',
         description: 'Контакт, команда «ко мне» и работа на фоне раздражителей',
         meta: '2 видео',
-        imagePath: '/assets/images/programs/adult_dog.webp',
+        imagePath: '/assets/icons/big_podziv.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           { title: 'Контакт', description: 'Возвращаем внимание собаки к человеку на прогулке' },
@@ -1429,7 +1478,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
         title: 'Игнорирование раздражителей',
         description: 'Протоколы внимания и самоконтроля на фоне сильных стимулов',
         meta: '4 видео',
-        imagePath: '/assets/useful-heart.svg',
+        imagePath: '/assets/icons/big_ignor.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           { title: 'Упражнение против отвлечений (1-2-3)', description: 'Возвращаем собаку в понятный ритм при сильных отвлечениях', coverPath: '/assets/covers/1-2-3.jpg' },
@@ -1448,16 +1497,16 @@ const adultLargeSituations: AdultLargeSituation[] = [
     imagePath: '/assets/icons/home.webp',
     cardClass: 'situation-card--rose',
     topics: [
-      { slug: 'adult-large-barking', title: 'Лай', description: 'Команда «тише» и спокойное привыкание к звукам', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-barking', title: 'Лай', description: 'Команда «тише» и спокойное привыкание к звукам', meta: '2 видео', imagePath: '/assets/icons/big_lai.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Команда «тише»', description: 'Формируем бытовой сигнал без давления и наказаний' },
         { title: 'Приучаем к звукам: домофон и хлопки', description: 'Постепенно снижаем реакцию на домофон, хлопки и другие бытовые шумы' },
       ]},
-      { slug: 'adult-large-loneliness', title: 'Одиночество', description: 'Уверенность, пространство и постепенное обучение оставаться одному', meta: '3 видео', imagePath: '/assets/images/situations/puppy-whines-night.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-loneliness', title: 'Одиночество', description: 'Уверенность, пространство и постепенное обучение оставаться одному', meta: '3 видео', imagePath: '/assets/icons/big_kreslo.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Убираем страх и повышаем уверенность в себе', description: 'Собираем бытовые сценарии, где собака справляется без постоянной помощи' },
         { title: 'Правильная организация пространства', description: 'Подготавливаем дома среду, в которой собаке проще расслабляться' },
         { title: 'Учим постепенно оставаться одному', description: 'Пошагово увеличиваем дистанцию и время без резких скачков' },
       ]},
-      { slug: 'adult-large-jumping-on-guests', title: 'Прыжки на гостей', description: 'Спокойная встреча гостей и понятный сценарий прихода домой', meta: '2 видео', imagePath: '/assets/images/programs/teen_dog.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-jumping-on-guests', title: 'Прыжки на гостей', description: 'Спокойная встреча гостей и понятный сценарий прихода домой', meta: '2 видео', imagePath: '/assets/icons/big_prig.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Правильный приход/выход из дома', description: 'Формируем предсказуемый сценарий входа и выхода без лишнего возбуждения' },
         {
           title: 'Прыжки на гостей',
@@ -1469,7 +1518,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
           },
         },
       ]},
-      { slug: 'adult-large-begging', title: 'Попрошайничество', description: 'Команда «место», полезные занятия и питание', meta: '3 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-begging', title: 'Попрошайничество', description: 'Команда «место», полезные занятия и питание', meta: '3 видео', imagePath: '/assets/icons/big_please.webp', cardClass: 'topic-card--blue', lessons: [
         {
           title: 'Команда «место»',
           description: 'Формируем удобную бытовую точку отдыха во время еды',
@@ -1490,7 +1539,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
         },
         { title: 'Питание', description: 'Разбираем режим, логику выдачи еды и бытовые рамки', coverPath: '/assets/covers/korm.jpg' },
       ]},
-      { slug: 'adult-large-toilet', title: 'Туалет', description: 'Улица, режим и метки дома у взрослой собаки', meta: '2 видео', imagePath: '/assets/images/situations/puppy-toilet-home.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-toilet', title: 'Туалет', description: 'Улица, режим и метки дома у взрослой собаки', meta: '2 видео', imagePath: '/assets/icons/big_toilet.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Приучение к улице + режим', description: 'Перестраиваем туалетный сценарий на улицу и выстраиваем понятный ритм прогулок' },
         { title: 'Метки дома', description: 'Разбираем причины меток и первые шаги по изменению ситуации' },
       ]},
@@ -1501,22 +1550,22 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Агрессия и конфликты',
     description: 'Сложное поведение, реакция на объекты и охрана ресурсов',
     meta: '5 разделов',
-    imagePath: '/assets/icons/alarm.webp',
+    imagePath: '/assets/icons/big_agress.webp',
     cardClass: 'situation-card--blue',
     topics: [
-      { slug: 'adult-large-overaroused-play', title: 'Перевозбуждается при игре', description: 'Работа с чрезмерным возбуждением во время совместной игры', meta: '1 видео', imagePath: '/assets/images/situations/puppy-bites.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-overaroused-play', title: 'Перевозбуждается при игре', description: 'Работа с чрезмерным возбуждением во время совместной игры', meta: '1 видео', imagePath: '/assets/icons/big_vozbud.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Перевозбуждается при игре', description: 'Учимся вовремя замечать перегруз и возвращать собаке спокойное состояние' },
       ]},
-      { slug: 'adult-large-resource-guarding', title: 'Охраняет чашку/вещи/игрушки', description: 'Безопасная работа с охраной ценных ресурсов', meta: '1 видео', imagePath: '/assets/images/programs/adult_dog.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-resource-guarding', title: 'Охраняет чашку/вещи/игрушки', description: 'Безопасная работа с охраной ценных ресурсов', meta: '1 видео', imagePath: '/assets/icons/big_ohran.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Охраняет чашку/вещи/игрушки', description: 'Снижаем напряжение вокруг еды, вещей и игрушек' },
       ]},
-      { slug: 'adult-large-barks-at-people', title: 'Лает на людей/собак', description: 'Причины поведения и работа с реакцией', meta: '1 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-barks-at-people', title: 'Лает на людей/собак', description: 'Причины поведения и работа с реакцией', meta: '1 видео', imagePath: '/assets/icons/big_bark.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Лает на людей/собак', description: 'Определяем причины реакции и собираем безопасный протокол работы' },
       ]},
-      { slug: 'adult-large-neutering', title: 'Кастрировать/стерилизовать или нет?', description: 'Реальные ожидания и ограничения такого решения', meta: '1 видео', imagePath: '/assets/useful-heart.svg', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-neutering', title: 'Кастрировать/стерилизовать или нет?', description: 'Реальные ожидания и ограничения такого решения', meta: '1 видео', imagePath: '/assets/icons/voprox_puppy.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Кастрировать/стерилизовать или нет?', description: 'Разбираем ожидания, ограничения и вопросы к специалистам' },
       ]},
-      { slug: 'adult-large-scooters-bikes', title: 'Бросается на самокаты/велосипеды', description: 'Работа со страхом, напряжением и погоней за движущимися объектами', meta: '1 видео', imagePath: '/assets/images/programs/teen_dog.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-scooters-bikes', title: 'Бросается на самокаты/велосипеды', description: 'Работа со страхом, напряжением и погоней за движущимися объектами', meta: '1 видео', imagePath: '/assets/icons/big_velo.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Бросается на самокаты/велосипеды', description: 'Учимся отличать мотивацию и выбирать корректную стратегию работы' },
       ]},
     ],
@@ -1526,10 +1575,10 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Страхи и тревожность',
     description: 'Пространство, хвостик, звуки, машины и новые места',
     meta: '5 разделов',
-    imagePath: '/assets/icons/sad_puppy.webp',
+    imagePath: '/assets/icons/big_fear.webp',
     cardClass: 'situation-card--rose',
     topics: [
-      { slug: 'adult-large-place-space', title: 'Команда «место»', description: 'Понятная и спокойная точка отдыха для собаки', meta: '1 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-place-space', title: 'Команда «место»', description: 'Понятная и спокойная точка отдыха для собаки', meta: '1 видео', imagePath: '/assets/icons/big_sidit.webp', cardClass: 'topic-card--blue', lessons: [
         {
           title: 'Команда «место»',
           description: 'Делаем точку отдыха понятной и полезной для собаки',
@@ -1540,16 +1589,16 @@ const adultLargeSituations: AdultLargeSituation[] = [
           },
         },
       ]},
-      { slug: 'adult-large-follows-tail', title: 'Ходит хвостиком + Как минимизировать тревожность?', description: 'Снижаем тревожность и учим собаку оставаться отдельно', meta: '1 видео', imagePath: '/assets/images/situations/puppy-whines-night.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-follows-tail', title: 'Ходит хвостиком + Как минимизировать тревожность?', description: 'Снижаем тревожность и учим собаку оставаться отдельно', meta: '1 видео', imagePath: '/assets/icons/big_hvost.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Ходит хвостиком + Как минимизировать тревожность?', description: 'Постепенно учим собаку выдерживать разлуку в пределах дома' },
       ]},
-      { slug: 'adult-large-sounds', title: 'Боязнь звуков', description: 'Работа с неожиданными и неприятными шумами', meta: '1 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-sounds', title: 'Боязнь звуков', description: 'Работа с неожиданными и неприятными шумами', meta: '1 видео', imagePath: '/assets/icons/big_headphones.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Боязнь звуков', description: 'Пошагово меняем эмоциональную реакцию на шумы' },
       ]},
-      { slug: 'adult-large-cars', title: 'Приучаем постепенно к машине', description: 'Постепенное знакомство с машиной и поездками', meta: '1 видео', imagePath: '/assets/images/programs/teen_dog.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-cars', title: 'Приучаем постепенно к машине', description: 'Постепенное знакомство с машиной и поездками', meta: '1 видео', imagePath: '/assets/icons/big_car.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Приучаем постепенно к машине', description: 'Двигаемся от знакомства к коротким безопасным поездкам' },
       ]},
-      { slug: 'adult-large-new-places', title: 'Страх лестницы/лифта', description: 'Постепенное знакомство с лестницей и лифтом', meta: '1 видео', imagePath: '/assets/useful-heart.svg', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-new-places', title: 'Страх лестницы/лифта', description: 'Постепенное знакомство с лестницей и лифтом', meta: '1 видео', imagePath: '/assets/icons/big_lift.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Страх лестницы/лифта', description: 'Знакомим собаку с лестницей и лифтом в комфортном темпе' },
       ]},
     ],
@@ -1559,13 +1608,13 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Уход без борьбы',
     description: 'Когти, лапы и груминг через предсказуемость и согласие',
     meta: '3 раздела',
-    imagePath: '/assets/icons/puppy_hand.webp',
+    imagePath: '/assets/icons/big_bath.webp',
     cardClass: 'situation-card--blue',
     topics: [
-      { slug: 'adult-large-claws', title: 'Когти', description: 'Спокойный и предсказуемый уход за когтями', meta: '1 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-claws', title: 'Когти', description: 'Спокойный и предсказуемый уход за когтями', meta: '1 видео', imagePath: '/assets/icons/big_kogot.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Когти', description: 'Собираем аккуратную процедуру ухода шаг за шагом' },
       ]},
-      { slug: 'adult-large-paws', title: 'Лапы', description: 'Спокойный уход за лапами без борьбы', meta: '1 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-paws', title: 'Лапы', description: 'Спокойный уход за лапами без борьбы', meta: '1 видео', imagePath: '/assets/icons/big_lapi.webp', cardClass: 'topic-card--blue', lessons: [
         {
           title: 'Лапы',
           description: 'Собираем понятный и комфортный сценарий ухода за лапами',
@@ -1576,7 +1625,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
           },
         },
       ]},
-      { slug: 'adult-large-grooming', title: 'Груминг', description: 'Понятный и спокойный сценарий домашнего ухода', meta: '1 видео', imagePath: '/assets/useful-heart.svg', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-grooming', title: 'Груминг', description: 'Понятный и спокойный сценарий домашнего ухода', meta: '1 видео', imagePath: '/assets/icons/big_grum.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Груминг', description: 'Выстраиваем комфортный бытовой ритм ухода' },
       ]},
     ],
@@ -1586,27 +1635,533 @@ const adultLargeSituations: AdultLargeSituation[] = [
     title: 'Фитнес для взрослых',
     description: 'Небольшие упражнения на координацию, контроль тела и контакт',
     meta: '5 разделов',
-    imagePath: '/assets/icons/fitness.webp',
+    imagePath: '/assets/icons/big_fitness.webp',
     cardClass: 'situation-card--rose',
     topics: [
-      { slug: 'adult-large-eight', title: 'Восемь', description: 'Контроль движения вокруг ног человека', meta: '1 видео', imagePath: '/assets/useful-leash.svg', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-eight', title: 'Восемь', description: 'Контроль движения вокруг ног человека', meta: '1 видео', imagePath: '/assets/icons/big_vosem.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Восемь', description: 'Собираем плавное движение по траектории вокруг ног без спешки' },
       ]},
-      { slug: 'adult-large-go-around', title: 'Обойди', description: 'Координация движения вокруг человека или предмета', meta: '1 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-go-around', title: 'Обойди', description: 'Координация движения вокруг человека или предмета', meta: '1 видео', imagePath: '/assets/icons/big_oboidi.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Обойди', description: 'Собираем понятное движение вокруг человека или предмета' },
       ]},
-      { slug: 'adult-large-wipe-muzzle', title: 'Вытри морду', description: 'Полезный бытовой навык через работу с мишенью', meta: '1 видео', imagePath: '/assets/useful-heart.svg', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-wipe-muzzle', title: 'Вытри морду', description: 'Полезный бытовой навык через работу с мишенью', meta: '1 видео', imagePath: '/assets/icons/big_lapananose.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Вытри морду', description: 'Формируем аккуратное касание мордой подготовленной поверхности' },
       ]},
-      { slug: 'adult-large-jump-over-leg', title: 'Прыг', description: 'Аккуратный прыжок с контролем импульса и траектории', meta: '1 видео', imagePath: '/assets/images/programs/teen_dog.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-jump-over-leg', title: 'Прыг', description: 'Аккуратный прыжок с контролем импульса и траектории', meta: '1 видео', imagePath: '/assets/icons/big_jump.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Прыг', description: 'Учимся безопасному прыжку через понятную и короткую механику' },
       ]},
-      { slug: 'adult-large-bow', title: 'Поклон', description: 'Упражнение на координацию, контроль корпуса и концентрацию', meta: '1 видео', imagePath: '/assets/images/programs/puppy.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-bow', title: 'Поклон', description: 'Упражнение на координацию, контроль корпуса и концентрацию', meta: '1 видео', imagePath: '/assets/icons/big_poklon.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Поклон', description: 'Собираем красивое и понятное упражнение через короткие шаги' },
       ]},
     ],
   },
 ];
+
+type PlannedVideoTopicSlug = PuppyTopicSlug | AdultLargeTopicSlug;
+type PlannedLessonVideo = readonly [
+  topicSlug: PlannedVideoTopicSlug,
+  lessonTitle: string,
+  videoId: string,
+  rutubeUrl: string,
+];
+
+const plannedLessonVideos = [
+  [
+    'walk-food-pickup',
+    'Намордник без драмы',
+    'map-puppy-food-pickup-muzzle',
+    'https://rutube.ru/video/private/cf5bdbbf73f7abdbff8b67d3d5368ae7/?p=QWbEYvLL8XhVbQN6hR64jw',
+  ],
+  [
+    'walk-recall',
+    'Команда «Ко мне!» и «кличка»',
+    'map-puppy-recall-name',
+    'https://rutube.ru/video/private/17278544222abdb2cc421ec860b31fc2/?p=PxpOjanY2cM-lginl8UXBA',
+  ],
+  [
+    'walk-recall',
+    'Собака слушает вас, а не улицу',
+    'map-puppy-recall-contact',
+    'https://rutube.ru/video/private/456841dcf884c73963bf8234b1a02193/?p=aqeNgR_1dUsvLQ8BtI5Xiw',
+  ],
+  [
+    'walk-ignore-triggers',
+    'Выдержка: не срываемся на всё подряд',
+    'map-puppy-ignore-impulse',
+    'https://rutube.ru/video/private/c5139d68dc7670e4f31a25a6ff764406/?p=B5tC6gDGO7q_Vt0WllN5Pw',
+  ],
+  [
+    'home-barking',
+    'Команда «тише»',
+    'map-puppy-home-quiet',
+    'https://rutube.ru/video/private/7f185fc2ff5df093277d09f300475d6b/?p=GXwDA1DO1e8vRgK5jBWk-g',
+  ],
+  [
+    'home-barking',
+    'Приучаем к звукам дома',
+    'map-puppy-home-sounds',
+    'https://rutube.ru/video/private/e501d1b145969703e3de68e2a36820d1/?p=jkE-lFhpUCp_3IFSLMABhA',
+  ],
+  [
+    'home-loneliness',
+    'Убираем страх и повышаем уверенность в себе',
+    'map-puppy-loneliness-confidence',
+    'https://rutube.ru/video/private/faa2212d0a78e8ce7090cbed1ff096c4/?p=5EQPL2Mns74gPhnftcztig',
+  ],
+  [
+    'home-loneliness',
+    'Учим постепенно оставаться одному',
+    'map-puppy-loneliness-alone',
+    'https://rutube.ru/video/private/59f6c0c6262bb1ee4ac0a2f096566e20/?p=y0PH7hQYJ6Dr80Y27cFHkA',
+  ],
+  [
+    'home-jumping-on-guests',
+    'Правильный приход/выход из дома',
+    'map-puppy-guests-arrival',
+    'https://rutube.ru/video/private/f9488776f89cf7018d117fd47c3b1f59/?p=hByo1lSHeSUT9RR1VWSLbA',
+  ],
+  [
+    'home-toilet',
+    'Приучение к пелёнке и средства от запаха',
+    'map-puppy-toilet-pad',
+    'https://rutube.ru/video/private/0a54b61a591485acf663ac90ec17b18e/?p=RNwssQk5npbDN_CatzYXcQ',
+  ],
+  [
+    'home-toilet',
+    'Приучение к улице и режим',
+    'map-puppy-toilet-outside',
+    'https://rutube.ru/video/private/f64f0e97a7d9a5a0b5eedf1d67b7b939/?p=IOgf4mSC2Pec3g82G1qSlw',
+  ],
+  [
+    'home-toilet',
+    'Метки дома',
+    'map-puppy-toilet-marking',
+    'https://rutube.ru/video/private/db97d2632ae782185a907d017575cc9c/?p=chkUlQ_NXso5dPwl-I1n3Q',
+  ],
+  [
+    'conflicts-biting-hands',
+    'Грызёт руки и ноги: спокойная и правильная игра',
+    'map-puppy-conflicts-biting',
+    'https://rutube.ru/video/private/5f9b127377cd1a043cab44b56d98df55/?p=NiyXnCpum9bLFkWAUaioRg',
+  ],
+  [
+    'conflicts-vandal',
+    'Мой щенок вандалит и разносит квартиру',
+    'map-puppy-conflicts-vandal',
+    'https://rutube.ru/video/private/c5e830c0def596d41344661ecd0e9995/?p=CoFmTZ2pALMmx2eYhWSRZA',
+  ],
+  [
+    'conflicts-resource-guarding',
+    'Охраняет чашку, вещи и игрушки',
+    'map-puppy-conflicts-guarding',
+    'https://rutube.ru/video/private/1766c0e2df0912aceebb1a0c2911cb73/?p=F1FMgnaJ4INALu2J7AsSqA',
+  ],
+  [
+    'conflicts-barks-at-people',
+    'Лает на людей и собак',
+    'map-puppy-conflicts-barking',
+    'https://rutube.ru/video/private/1a8799f89386b1025522c28b19d6206b/?p=FjyZ6bt_uMfxOSW72OLjqg',
+  ],
+  [
+    'conflicts-neutering',
+    'Кастрировать или стерилизовать?',
+    'map-puppy-conflicts-neutering',
+    'https://rutube.ru/video/private/1a9ba87049f2837eff85f2216d5504ec/?p=F-qJcAhquirvHo5hdmCS5Q',
+  ],
+  [
+    'fears-sounds',
+    'Боязнь звуков (собака боится салютов, пылесосов, лая других собак и звука фена)',
+    'map-puppy-fears-sounds',
+    'https://rutube.ru/video/private/e501d1b145969703e3de68e2a36820d1/?p=jkE-lFhpUCp_3IFSLMABhA',
+  ],
+  [
+    'fears-new-places',
+    'Страх лестницы/лифта',
+    'map-puppy-fears-stairs-lift',
+    'https://rutube.ru/video/private/9c8c48c06b6328e8a72b75f3df3ade84/?p=CQP2BUTwo0BD04P2GcFgnA',
+  ],
+  [
+    'fears-space-organization',
+    'Щенок дома',
+    'map-puppy-fears-space',
+    'https://rutube.ru/video/private/8c78568d20f5cfaa21a85680d6256caa/?p=q0gmTeAB_ZCEv0i2WHarIg',
+  ],
+  [
+    'care-claws',
+    'Когти: анатомия когтя и стрижка',
+    'map-puppy-care-claws',
+    'https://rutube.ru/video/private/fb291b9372cc8cde0b9bfe74ffb3280e/?p=v4xfRGW_V1ZRF-BYYPTZpA',
+  ],
+  [
+    'fitness-bow',
+    'Поклон',
+    'map-puppy-fitness-bow',
+    'https://rutube.ru/video/private/b67278e1b0e316cf36a9eb54ec0ccdb9/?p=t0wNGiVBZN0mG3eTWqi9_Q',
+  ],
+  [
+    'fitness-bunny',
+    'Зайка',
+    'map-puppy-fitness-bunny',
+    'https://rutube.ru/video/private/942176b07180ca6ffd4d32c7d4ab74b9/?p=M2wePflL4R7VCgAJyq3aUQ',
+  ],
+  [
+    'fitness-house',
+    'Домик',
+    'map-puppy-fitness-house',
+    'https://rutube.ru/video/private/d56219b18cc1bb2116ce3ccbf51fa09b/?p=8nsyQLKls6pIL92KCnZgqA',
+  ],
+  [
+    'fitness-paw',
+    '«Дай лапу»',
+    'map-puppy-fitness-paw',
+    'https://rutube.ru/video/private/9b92e46e194cdea5bb5d64011c27f23d/?p=e55CiwRfECm5ybbSfbB-Tg',
+  ],
+  [
+    'adult-large-leash',
+    'Как отучить тянуть поводок?',
+    'map-adult-large-leash-pulling',
+    'https://rutube.ru/video/private/f3feaa722dae449718e1d7e2df717e84/?p=lUnLrVJeTXQNguoa4yG3pQ',
+  ],
+  [
+    'adult-large-food-pickup',
+    'Импульс-контроль + Выдержка',
+    'map-adult-large-food-impulse',
+    'https://rutube.ru/video/private/e9f0cb8baf40516cadca88b23554c21c/?p=GBim4zrE2s8wgi9bBdOjEA',
+  ],
+  [
+    'adult-large-food-pickup',
+    'Намордник без драмы',
+    'map-adult-large-food-muzzle',
+    'https://rutube.ru/video/private/cf5bdbbf73f7abdbff8b67d3d5368ae7/?p=QWbEYvLL8XhVbQN6hR64jw',
+  ],
+  [
+    'adult-large-recall',
+    'Контакт',
+    'map-adult-large-recall-contact',
+    'https://rutube.ru/video/private/80b9e9e2a2c94f9ca9aeaca297b5520b/?p=_PRlDTIbyOKILgkOlnGEpw',
+  ],
+  [
+    'adult-large-recall',
+    'Ко мне',
+    'map-adult-large-recall-come',
+    'https://rutube.ru/video/private/3428535014c3c6ae9fb6ea5d671e5a4b/?p=acADR77e4AKTYgTXrMq6aQ',
+  ],
+  [
+    'adult-large-ignore-triggers',
+    'Выдержка: не срываемся на всё подряд',
+    'map-adult-large-ignore-impulse',
+    'https://rutube.ru/video/private/1072ba3cecb33406ff1c5395f7ba5c4e/?p=0kHwy8AO5ar2Dh8Z6XSuDw',
+  ],
+  [
+    'adult-large-ignore-triggers',
+    'Топ интересных игр на прогулке, или как наладить контакт',
+    'map-adult-large-ignore-games',
+    'https://rutube.ru/video/private/d0f206ab4aa8d3428ca3005f7ea3b08f/?p=8x5B3neNBu5KumvPL4A_0g',
+  ],
+  [
+    'adult-large-barking',
+    'Команда «тише»',
+    'map-adult-large-home-quiet',
+    'https://rutube.ru/video/private/7f185fc2ff5df093277d09f300475d6b/?p=GXwDA1DO1e8vRgK5jBWk-g',
+  ],
+  [
+    'adult-large-barking',
+    'Приучаем к звукам: домофон и хлопки',
+    'map-adult-large-home-sounds',
+    'https://rutube.ru/video/private/eda5f0d567ce37786790c95483c93c0a/?p=m0zIkK3NsPdt15blAfhaqQ',
+  ],
+  [
+    'adult-large-loneliness',
+    'Убираем страх и повышаем уверенность в себе',
+    'map-adult-large-loneliness-confidence',
+    'https://rutube.ru/video/private/3e528d87f03d10cf39ae815836a81801/?p=xAcUHghevfMxkBlpEDtjBQ',
+  ],
+  [
+    'adult-large-loneliness',
+    'Правильная организация пространства',
+    'map-adult-large-loneliness-space',
+    'https://rutube.ru/video/private/345417b4748cd2d89c722cc68e083afb/?p=kfGT15gXe_gkLyI9qYROZw',
+  ],
+  [
+    'adult-large-loneliness',
+    'Учим постепенно оставаться одному',
+    'map-adult-large-loneliness-alone',
+    'https://rutube.ru/video/private/c99413cbde6cb274beba12eb7f91f6a8/?p=tfaL-TQ-lufGdN9E3JPLUQ',
+  ],
+  [
+    'adult-large-jumping-on-guests',
+    'Правильный приход/выход из дома',
+    'map-adult-large-guests-arrival',
+    'https://rutube.ru/video/private/6090f451b068583caee69fb900ad90af/?p=eMmHU56z3Q0u0A3K8DiDqA',
+  ],
+  [
+    'adult-large-begging',
+    'Питание',
+    'map-adult-large-begging-feeding',
+    'https://rutube.ru/video/private/63eb473499712d8feaa0656be9688c67/?p=nKspthZal_AUVn6OUFAivg',
+  ],
+  [
+    'adult-large-toilet',
+    'Приучение к улице + режим',
+    'map-adult-large-toilet-outside',
+    'https://rutube.ru/video/private/f64f0e97a7d9a5a0b5eedf1d67b7b939/?p=IOgf4mSC2Pec3g82G1qSlw',
+  ],
+  [
+    'adult-large-toilet',
+    'Метки дома',
+    'map-adult-large-toilet-marking',
+    'https://rutube.ru/video/private/db97d2632ae782185a907d017575cc9c/?p=chkUlQ_NXso5dPwl-I1n3Q',
+  ],
+  [
+    'adult-large-overaroused-play',
+    'Перевозбуждается при игре',
+    'map-adult-large-conflicts-overaroused',
+    'https://rutube.ru/video/private/aa71e29d8bed85e57a01056d8f6cc981/?p=OdB9-lJxqAUhCHWl1sKrng',
+  ],
+  [
+    'adult-large-resource-guarding',
+    'Охраняет чашку/вещи/игрушки',
+    'map-adult-large-conflicts-guarding',
+    'https://rutube.ru/video/private/43d5dfef50ab41c7003d1ba892bfa690/?p=YUCmBYXbXsInQ0QeRGe73Q',
+  ],
+  [
+    'adult-large-barks-at-people',
+    'Лает на людей/собак',
+    'map-adult-large-conflicts-barking',
+    'https://rutube.ru/video/private/c5139d68dc7670e4f31a25a6ff764406/?p=B5tC6gDGO7q_Vt0WllN5Pw',
+  ],
+  [
+    'adult-large-neutering',
+    'Кастрировать/стерилизовать или нет?',
+    'map-adult-large-conflicts-neutering',
+    'https://rutube.ru/video/private/1a9ba87049f2837eff85f2216d5504ec/?p=F-qJcAhquirvHo5hdmCS5Q',
+  ],
+  [
+    'adult-large-scooters-bikes',
+    'Бросается на самокаты/велосипеды',
+    'map-adult-large-conflicts-scooters',
+    'https://rutube.ru/video/private/967d40d46cbecebe9ed0898bd970c024/?p=N8F3EGw7nilRLR4JXyRiEQ',
+  ],
+  [
+    'adult-large-follows-tail',
+    'Ходит хвостиком + Как минимизировать тревожность?',
+    'map-adult-large-fears-follows-tail',
+    'https://rutube.ru/video/private/4d82acbd403f39be5d32d63b9f96d07d/?p=8K0_FThbr1FhIWSqSD7_Qw',
+  ],
+  [
+    'adult-large-sounds',
+    'Боязнь звуков',
+    'map-adult-large-fears-sounds',
+    'https://rutube.ru/video/private/eda5f0d567ce37786790c95483c93c0a/?p=m0zIkK3NsPdt15blAfhaqQ',
+  ],
+  [
+    'adult-large-cars',
+    'Приучаем постепенно к машине',
+    'map-adult-large-fears-cars',
+    'https://rutube.ru/video/private/a10fcc7797462420bc6df53b0f4e4bd3/?p=7Tb-gnfzFNrMMWlsPHk7Hg',
+  ],
+  [
+    'adult-large-new-places',
+    'Страх лестницы/лифта',
+    'map-adult-large-fears-stairs-lift',
+    'https://rutube.ru/video/private/3e9e2373cc789291b830870e7795fdf4/?p=6cDLWYLiDw-0tUP5rdWDyQ',
+  ],
+  [
+    'adult-large-claws',
+    'Когти',
+    'map-adult-large-care-claws',
+    'https://rutube.ru/video/db778ac8388f60e888fcb4c67b9a2400/',
+  ],
+  [
+    'adult-large-eight',
+    'Восемь',
+    'map-adult-large-fitness-eight',
+    'https://rutube.ru/video/private/ffebb9a2b318a43e3b06bfc3aec6acc9/?p=1tCevmSiJ6w-WF6BwaFNBw',
+  ],
+  [
+    'adult-large-go-around',
+    'Обойди',
+    'map-adult-large-fitness-go-around',
+    'https://rutube.ru/video/private/bf3d560106670dff9eab6d64c364a877/?p=2dRDPB4PvUoY6LPFU35fTQ',
+  ],
+  [
+    'adult-large-wipe-muzzle',
+    'Вытри морду',
+    'map-adult-large-fitness-wipe-muzzle',
+    'https://rutube.ru/video/private/c9caf85e9ba8ed92e50c06cd77f1692a/?p=iz8RFE3RJuv83b-ndOnXzw',
+  ],
+  [
+    'adult-large-bow',
+    'Поклон',
+    'map-adult-large-fitness-bow',
+    'https://rutube.ru/video/private/b67278e1b0e316cf36a9eb54ec0ccdb9/?p=t0wNGiVBZN0mG3eTWqi9_Q',
+  ],
+] as const satisfies readonly PlannedLessonVideo[];
+
+type PlannedLessonCover = readonly [
+  topicSlug: PlannedVideoTopicSlug,
+  lessonTitle: string,
+  coverPath: string,
+];
+
+const plannedLessonCovers = [
+  ['conflicts-vandal', 'Мой щенок вандалит и разносит квартиру', '/assets/covers/puppy-vandal.jpg'],
+  ['walk-food-pickup', 'Намордник без драмы', '/assets/covers/muzzle.jpg'],
+  ['walk-recall', 'Команда «Ко мне!» и «кличка»', '/assets/covers/puppy-recall-come.jpg'],
+  ['walk-recall', 'Собака слушает вас, а не улицу', '/assets/covers/puppy-recall-contact.jpg'],
+  ['walk-ignore-triggers', 'Выдержка: не срываемся на всё подряд', '/assets/covers/puppy-ignore-impulse.jpg'],
+  ['home-barking', 'Команда «тише»', '/assets/covers/quiet.jpg'],
+  ['home-barking', 'Приучаем к звукам дома', '/assets/covers/puppy-fears-sounds.jpg'],
+  ['home-loneliness', 'Убираем страх и повышаем уверенность в себе', '/assets/covers/puppy-confidence.jpg'],
+  ['home-loneliness', 'Учим постепенно оставаться одному', '/assets/covers/puppy-alone.jpg'],
+  ['home-jumping-on-guests', 'Правильный приход/выход из дома', '/assets/covers/puppy-arrival.jpg'],
+  [
+    'home-toilet',
+    'Приучение к пелёнке и средства от запаха',
+    '/assets/covers/puppy-toilet-pad.jpg',
+  ],
+  ['home-toilet', 'Приучение к улице и режим', '/assets/covers/toilet-outside.jpg'],
+  ['home-toilet', 'Метки дома', '/assets/covers/toilet-marking.jpg'],
+  [
+    'conflicts-biting-hands',
+    'Грызёт руки и ноги: спокойная и правильная игра',
+    '/assets/covers/puppy-biting.jpg',
+  ],
+  [
+    'conflicts-resource-guarding',
+    'Охраняет чашку, вещи и игрушки',
+    '/assets/covers/puppy-resource-guarding.jpg',
+  ],
+  ['conflicts-barks-at-people', 'Лает на людей и собак', '/assets/covers/barking-triggers.jpg'],
+  ['conflicts-neutering', 'Кастрировать или стерилизовать?', '/assets/covers/neutering.jpg'],
+  [
+    'fears-sounds',
+    'Боязнь звуков (собака боится салютов, пылесосов, лая других собак и звука фена)',
+    '/assets/covers/puppy-fears-sounds.jpg',
+  ],
+  ['fears-new-places', 'Страх лестницы/лифта', '/assets/covers/puppy-stairs-lift.jpg'],
+  ['fears-space-organization', 'Щенок дома', '/assets/covers/puppy-home.jpg'],
+  ['care-claws', 'Когти: анатомия когтя и стрижка', '/assets/covers/kogti.jpg'],
+  ['fitness-bow', 'Поклон', '/assets/covers/bow.jpg'],
+  ['fitness-bunny', 'Зайка', '/assets/covers/puppy-bunny.jpg'],
+  ['fitness-house', 'Домик', '/assets/covers/puppy-house.jpg'],
+  ['fitness-paw', '«Дай лапу»', '/assets/covers/puppy-give-paw.jpg'],
+  ['fitness-wipe-muzzle', 'Вытри морду (тач на тряпочку)', '/assets/covers/wipe-muzzle.jpg'],
+  ['fitness-spin', 'Круть-верть', '/assets/covers/puppy-spin.jpg'],
+  ['fitness-left-right', 'Влево-вправо', '/assets/covers/puppy-left-right.jpg'],
+  ['adult-large-leash', 'Как отучить тянуть поводок?', '/assets/covers/adult-leash-technique.jpg'],
+  ['adult-large-food-pickup', 'Импульс-контроль + Выдержка', '/assets/covers/adult-food-impulse.jpg'],
+  ['adult-large-food-pickup', 'Намордник без драмы', '/assets/covers/muzzle.jpg'],
+  ['adult-large-recall', 'Контакт', '/assets/covers/adult-recall-contact.jpg'],
+  ['adult-large-recall', 'Ко мне', '/assets/covers/adult-recall-come.jpg'],
+  [
+    'adult-large-ignore-triggers',
+    'Топ интересных игр на прогулке, или как наладить контакт',
+    '/assets/covers/adult-walk-games.jpg',
+  ],
+  [
+    'adult-large-ignore-triggers',
+    'Выдержка: не срываемся на всё подряд',
+    '/assets/covers/adult-food-impulse.jpg',
+  ],
+  ['adult-large-barking', 'Команда «тише»', '/assets/covers/quiet.jpg'],
+  [
+    'adult-large-barking',
+    'Приучаем к звукам: домофон и хлопки',
+    '/assets/covers/adult-home-sounds.jpg',
+  ],
+  [
+    'adult-large-loneliness',
+    'Убираем страх и повышаем уверенность в себе',
+    '/assets/covers/adult-confidence.jpg',
+  ],
+  ['adult-large-loneliness', 'Учим постепенно оставаться одному', '/assets/covers/adult-alone.jpg'],
+  [
+    'adult-large-loneliness',
+    'Правильная организация пространства',
+    '/assets/covers/adult-space.jpg',
+  ],
+  [
+    'adult-large-jumping-on-guests',
+    'Правильный приход/выход из дома',
+    '/assets/covers/adult-arrival.jpg',
+  ],
+  ['adult-large-begging', 'Питание', '/assets/covers/adult-feeding.jpg'],
+  ['adult-large-toilet', 'Приучение к улице + режим', '/assets/covers/toilet-outside.jpg'],
+  ['adult-large-toilet', 'Метки дома', '/assets/covers/toilet-marking.jpg'],
+  [
+    'adult-large-overaroused-play',
+    'Перевозбуждается при игре',
+    '/assets/covers/adult-overaroused.jpg',
+  ],
+  [
+    'adult-large-resource-guarding',
+    'Охраняет чашку/вещи/игрушки',
+    '/assets/covers/adult-resource-guarding.jpg',
+  ],
+  [
+    'adult-large-barks-at-people',
+    'Лает на людей/собак',
+    '/assets/covers/barking-triggers.jpg',
+  ],
+  [
+    'adult-large-neutering',
+    'Кастрировать/стерилизовать или нет?',
+    '/assets/covers/neutering.jpg',
+  ],
+  [
+    'adult-large-scooters-bikes',
+    'Бросается на самокаты/велосипеды',
+    '/assets/covers/adult-scooters.jpg',
+  ],
+  [
+    'adult-large-follows-tail',
+    'Ходит хвостиком + Как минимизировать тревожность?',
+    '/assets/covers/adult-anxiety.jpg',
+  ],
+  ['adult-large-sounds', 'Боязнь звуков', '/assets/covers/adult-fears-sounds.jpg'],
+  ['adult-large-cars', 'Приучаем постепенно к машине', '/assets/covers/maschin.jpg'],
+  ['adult-large-new-places', 'Страх лестницы/лифта', '/assets/covers/adult-stairs-lift.jpg'],
+  ['adult-large-claws', 'Когти', '/assets/covers/kogti-bolsh.jpg'],
+  ['adult-large-eight', 'Восемь', '/assets/covers/adult-eight.jpg'],
+  ['adult-large-go-around', 'Обойди', '/assets/covers/adult-go-around.jpg'],
+  ['adult-large-wipe-muzzle', 'Вытри морду', '/assets/covers/wipe-muzzle.jpg'],
+  ['adult-large-bow', 'Поклон', '/assets/covers/bow.jpg'],
+] as const satisfies readonly PlannedLessonCover[];
+
+function applyPlannedLessonVideos(): void {
+  const topics: Array<{ slug: PlannedVideoTopicSlug; lessons: PuppyLessonItem[] }> = [
+    ...puppySituations.flatMap((situation) => situation.topics),
+    ...adultLargeSituations.flatMap((situation) => situation.topics),
+  ];
+  const topicsBySlug = new Map<string, { lessons: PuppyLessonItem[] }>(
+    topics.map((topic) => [topic.slug, topic]),
+  );
+
+  plannedLessonVideos.forEach(([topicSlug, lessonTitle, videoId, rutubeUrl]) => {
+    const topic = topicsBySlug.get(topicSlug);
+    const lesson = topic?.lessons.find((item) => item.title === lessonTitle);
+
+    if (!lesson) {
+      throw new Error(`Planned lesson video target not found: ${topicSlug} / ${lessonTitle}`);
+    }
+
+    lesson.video = { id: videoId, rutubeUrl };
+  });
+
+  plannedLessonCovers.forEach(([topicSlug, lessonTitle, coverPath]) => {
+    const topic = topicsBySlug.get(topicSlug);
+    const lesson = topic?.lessons.find((item) => item.title === lessonTitle);
+
+    if (!lesson) {
+      throw new Error(`Planned lesson cover target not found: ${topicSlug} / ${lessonTitle}`);
+    }
+
+    lesson.coverPath = coverPath;
+  });
+}
+
+applyPlannedLessonVideos();
 
 const adultLargeSituationsBySlug = new Map<AdultLargeSituationSlug, AdultLargeSituation>(
   adultLargeSituations.map((situation) => [situation.slug, situation]),
