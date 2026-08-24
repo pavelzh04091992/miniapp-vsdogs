@@ -337,6 +337,10 @@ function getRouteTransitionDirection(from: AppRoute | null, to: AppRoute): PageT
       return 1;
     }
 
+    if (route.startsWith('complex-levels:')) {
+      return 2;
+    }
+
     if (route.includes('-situation:')) {
       return 2;
     }
@@ -427,6 +431,10 @@ function getCurrentRoute(): AppRoute {
 
   if (hash === 'complex') {
     return 'complex';
+  }
+
+  if (hash === 'complex-levels:timed' || hash === 'complex-levels:self-check') {
+    return hash;
   }
 
   if (hash === 'adult-small') {

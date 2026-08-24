@@ -120,6 +120,8 @@ export type AdultSmallTopicSlug =
 export type AppRoute =
   | 'home'
   | 'complex'
+  | 'complex-levels:timed'
+  | 'complex-levels:self-check'
   | 'puppies'
   | 'adult-large'
   | 'adult-small'
@@ -2456,6 +2458,14 @@ export function createAppMarkup(
     return createComplexMarkup();
   }
 
+  if (route === 'complex-levels:timed') {
+    return createComplexLevelsMarkup('timed');
+  }
+
+  if (route === 'complex-levels:self-check') {
+    return createComplexLevelsMarkup('self-check');
+  }
+
   if (route === 'adult-small') {
     return createAdultSmallMarkup();
   }
@@ -3314,15 +3324,78 @@ function createComplexMarkup(): string {
           <span class="back-button__icon" aria-hidden="true"></span>
         </button>
 
-        <div class="complex-screen__option complex-screen__option--timed">
+        <button
+          class="complex-screen__option complex-screen__option--timed"
+          type="button"
+          data-route="complex-levels:timed"
+          aria-label="Открыть уровни режима На время"
+        >
           <span>На время</span>
-        </div>
+        </button>
 
-        <div class="complex-screen__option complex-screen__option--self-check">
+        <button
+          class="complex-screen__option complex-screen__option--self-check"
+          type="button"
+          data-route="complex-levels:self-check"
+          aria-label="Открыть уровни режима Проверь себя"
+        >
           <span>Проверь себя</span>
+        </button>
+      </main>
+    </div>
+  `;
+}
+
+function createComplexLevelsMarkup(mode: 'timed' | 'self-check'): string {
+  const isTimed = mode === 'timed';
+  const modeTitle = isTimed ? 'На время' : 'Проверь себя';
+  const modeClass = isTimed ? 'timed' : 'self-check';
+
+  return `
+    <div class="app-shell app-shell--complex-levels app-shell--complex-levels--${modeClass}">
+      <main class="screen-content complex-levels">
+        <button class="back-button complex-levels__back" type="button" data-route="complex" aria-label="Назад">
+          <span class="back-button__icon" aria-hidden="true"></span>
+        </button>
+
+        <div class="content-frame complex-levels__frame">
+          <header class="complex-levels__header">
+            <span class="complex-levels__mode">${modeTitle}</span>
+            <h1>Выберите уровень</h1>
+            <p>Начните с комфортной сложности — повысить её можно в любой момент.</p>
+          </header>
+
+          <div class="complex-levels__list" role="list" aria-label="Уровни сложности">
+            ${createComplexLevelCard('Начальный', '01', 'Базовые задания в спокойном темпе', modeTitle)}
+            ${createComplexLevelCard('Средний', '02', 'Больше темпа и концентрации', modeTitle)}
+            ${createComplexLevelCard('Сложный', '03', 'Максимальная сложность заданий', modeTitle)}
+          </div>
         </div>
       </main>
     </div>
+  `;
+}
+
+function createComplexLevelCard(
+  title: string,
+  number: string,
+  description: string,
+  modeTitle: string,
+): string {
+  return `
+    <button
+      class="complex-level-card js-feedback"
+      type="button"
+      role="listitem"
+      data-feedback="${escapeHtml(`${modeTitle}: уровень «${title}» пока в разработке`)}"
+    >
+      <span class="complex-level-card__number" aria-hidden="true">${number}</span>
+      <span class="complex-level-card__content">
+        <span class="complex-level-card__title">${title}</span>
+        <span class="complex-level-card__description">${description}</span>
+      </span>
+      <span class="complex-level-card__arrow" aria-hidden="true"></span>
+    </button>
   `;
 }
 
