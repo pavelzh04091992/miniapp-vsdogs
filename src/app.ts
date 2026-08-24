@@ -119,6 +119,7 @@ export type AdultSmallTopicSlug =
 
 export type AppRoute =
   | 'home'
+  | 'complex'
   | 'puppies'
   | 'adult-large'
   | 'adult-small'
@@ -2451,6 +2452,10 @@ export function createAppMarkup(
     return createRutubePlayerMarkup(lessonVideo);
   }
 
+  if (route === 'complex') {
+    return createComplexMarkup();
+  }
+
   if (route === 'adult-small') {
     return createAdultSmallMarkup();
   }
@@ -2644,6 +2649,7 @@ function createHomeMarkup(): string {
 
             <div class="useful-grid" role="list" aria-label="Полезные материалы">
               ${createUsefulCard('Первый день дома', '/assets/useful-home.svg', 'useful-card--blue')}
+              ${createUsefulCard('Комплекс', '/assets/icons/fitness.webp', 'useful-card--blue', 'complex')}
               ${createUsefulCard('Ошибки воспитания', '/assets/useful-warning.svg', 'useful-card--rose')}
               ${createUsefulCard('Поводок', '/assets/icons/leash.webp', 'useful-card--blue')}
               ${createUsefulCard('Адаптация', '/assets/useful-heart.svg', 'useful-card--rose')}
@@ -3295,14 +3301,48 @@ function createLessonCard(lesson: PuppyLessonItem): string {
   `;
 }
 
+function createComplexMarkup(): string {
+  return `
+    <div class="app-shell app-shell--complex">
+      <main class="screen-content complex-screen">
+        <div class="complex-screen__background" aria-hidden="true">
+          <span class="complex-screen__area complex-screen__area--blue"></span>
+          <span class="complex-screen__area complex-screen__area--red"></span>
+        </div>
+
+        <button class="back-button complex-screen__back" type="button" data-route="home" aria-label="Назад">
+          <span class="back-button__icon" aria-hidden="true"></span>
+        </button>
+
+        <div class="complex-screen__option complex-screen__option--timed">
+          <span>На время</span>
+        </div>
+
+        <div class="complex-screen__option complex-screen__option--self-check">
+          <span>Проверь себя</span>
+        </div>
+      </main>
+    </div>
+  `;
+}
+
 function resolveCardImagePath(imagePath: string): string {
   return imagePath === '/assets/useful-home.svg' ? '/assets/icons/home.webp' : imagePath;
 }
 
-function createUsefulCard(title: string, iconPath: string, modifierClass: string): string {
+function createUsefulCard(
+  title: string,
+  iconPath: string,
+  modifierClass: string,
+  route?: AppRoute,
+): string {
   const resolvedTitle = title === 'Ошибки воспитания' ? 'Спросить у кинолога' : title;
   const resolvedModifierClass = title === 'Ошибки воспитания' ? 'useful-card--ask' : modifierClass;
   const resolvedIconPath = title === 'Первый день дома' ? iconPath : resolveCardImagePath(iconPath);
+  const actionClass = route ? '' : ' js-feedback';
+  const actionAttribute = route
+    ? `data-route="${route}"`
+    : `data-feedback="Материал &quot;${escapeHtml(resolvedTitle)}&quot; пока в разработке"`;
   const iconMarkup =
     modifierClass === 'useful-card--gray'
       ? '<span class="useful-card__test-icon" aria-hidden="true"></span>'
@@ -3310,9 +3350,9 @@ function createUsefulCard(title: string, iconPath: string, modifierClass: string
 
   return `
     <button
-      class="useful-card ${resolvedModifierClass} js-feedback"
+      class="useful-card ${resolvedModifierClass}${actionClass}"
       type="button"
-      data-feedback="Материал &quot;${escapeHtml(resolvedTitle)}&quot; пока в разработке"
+      ${actionAttribute}
     >
       <span class="useful-card__icon">
         ${iconMarkup}
