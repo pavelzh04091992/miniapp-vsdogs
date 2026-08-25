@@ -8,6 +8,11 @@ import {
 } from './app';
 import { fetchSituationVideos } from './lib/videos';
 import { getTelegramWebApp, initTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
+import {
+  ComplexRevealOrigin,
+  animateComplexRevealTransition,
+  getComplexRevealOrigin,
+} from './complex-reveal';
 import './styles.css';
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
@@ -25,6 +30,7 @@ let lastBottomNavIndicatorLeft = '50%';
 let lastRenderedRoute: AppRoute | null = null;
 let pendingTransitionDirection: PageTransitionDirection | null = null;
 let previousPageScroll: { route: AppRoute; scrollTop: number } | null = null;
+let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -70,9 +76,15 @@ document.addEventListener('click', (event) => {
       return;
     }
 
+    const currentRoute = getCurrentRoute();
+
+    if (currentRoute === 'complex' && route.startsWith('complex-levels:')) {
+      pendingComplexTransitionOrigin = getComplexRevealOrigin(routeButton, event);
+    }
+
     pendingTransitionDirection = routeButton.classList.contains('back-button')
       ? 'back'
-      : getRouteTransitionDirection(getCurrentRoute(), route);
+      : getRouteTransitionDirection(currentRoute, route);
     navigateTo(route);
     return;
   }
@@ -133,6 +145,8 @@ function render(): void {
   }
 
   const route = getCurrentRoute();
+  const complexTransitionOrigin = pendingComplexTransitionOrigin;
+  pendingComplexTransitionOrigin = null;
   const routeChanged = lastRenderedRoute !== null && lastRenderedRoute !== route;
   const direction = pendingTransitionDirection ?? getRouteTransitionDirection(lastRenderedRoute, route);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -142,6 +156,8 @@ function render(): void {
     routeChanged &&
     ((lastRenderedRoute === 'home' && route === 'complex') ||
       (lastRenderedRoute === 'complex' && route === 'home'));
+  const isComplexLevelsTransition =
+    routeChanged && lastRenderedRoute === 'complex' && route.startsWith('complex-levels:');
 
   rememberCurrentScrollPosition(routeChanged);
 
@@ -164,6 +180,18 @@ function render(): void {
 
   if (isComplexTransition && !reducedMotion) {
     animateComplexRouteTransition(markup, route === 'complex', finishMarkupUpdate);
+    return;
+  }
+
+  if (isComplexLevelsTransition && !reducedMotion) {
+    animateComplexRevealTransition(
+      root,
+      markup,
+      route === 'complex-levels:timed',
+      complexTransitionOrigin,
+      updatePageMarkup,
+      finishMarkupUpdate,
+    );
     return;
   }
 
