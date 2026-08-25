@@ -2435,6 +2435,59 @@ adultSmallTopics.forEach((topic) => {
   topic.lessons.forEach((lesson) => registerLessonVideo(lesson, `adult-small-topic:${topic.slug}`));
 });
 
+const complexLevelVideos = [
+  {
+    id: 'complex-timed-beginner',
+    title: 'Комплекс: Начальный — На время',
+    rutubeUrl:
+      'https://rutube.ru/video/private/868c780b99793a9e95420aa8e609a364/?p=NinDdZkeobL_1LwsRFPirg',
+    backRoute: 'complex-levels:timed',
+  },
+  {
+    id: 'complex-timed-intermediate',
+    title: 'Комплекс: Средний — На время',
+    rutubeUrl:
+      'https://rutube.ru/video/private/20c4369faf79963b4524a33ed46a62d9/?p=VgnmTA_9eMVItCjPDTjz9Q',
+    backRoute: 'complex-levels:timed',
+  },
+  {
+    id: 'complex-timed-advanced',
+    title: 'Комплекс: Сложный — На время',
+    rutubeUrl:
+      'https://rutube.ru/video/private/515c5cbaf7c3d02635a497851901d18a/?p=YIEV36zl9yUBQIuwpBJNug',
+    backRoute: 'complex-levels:timed',
+  },
+  {
+    id: 'complex-self-check-beginner',
+    title: 'Комплекс: Начальный — Проверь себя',
+    rutubeUrl:
+      'https://rutube.ru/video/private/84fcd227c8379e275a2525a4c3c08300/?p=IDRdEPj_W_IOTFTvsdXt0w',
+    backRoute: 'complex-levels:self-check',
+  },
+  {
+    id: 'complex-self-check-intermediate',
+    title: 'Комплекс: Средний — Проверь себя',
+    rutubeUrl:
+      'https://rutube.ru/video/private/bc52e70990d3b18762b5fd78ec2cf81b/?p=zQb1MxntcZfnXbSmcRkQBg',
+    backRoute: 'complex-levels:self-check',
+  },
+  {
+    id: 'complex-self-check-advanced',
+    title: 'Комплекс: Сложный — Проверь себя',
+    rutubeUrl:
+      'https://rutube.ru/video/private/cb30527360112a4215a5e44b3c074988/?p=uSAlRskkBQI1tGejvH3vDQ',
+    backRoute: 'complex-levels:self-check',
+  },
+] as const satisfies readonly LessonVideoEntry[];
+
+complexLevelVideos.forEach((video) => {
+  if (lessonVideosById.has(video.id)) {
+    throw new Error(`Duplicate lesson video id: ${video.id}`);
+  }
+
+  lessonVideosById.set(video.id, video);
+});
+
 function getLessonVideoFromRoute(route: AppRoute): LessonVideoEntry | null {
   if (!route.startsWith('lesson-video:')) {
     return null;
@@ -3356,6 +3409,8 @@ function createComplexLevelsMarkup(mode: 'timed' | 'self-check'): string {
   const isTimed = mode === 'timed';
   const modeTitle = isTimed ? 'На время' : 'Проверь себя';
   const modeClass = isTimed ? 'timed' : 'self-check';
+  const iconVariant = isTimed ? 'time' : 'check';
+  const videoPrefix = isTimed ? 'complex-timed' : 'complex-self-check';
 
   return `
     <div class="app-shell app-shell--complex-levels app-shell--complex-levels--${modeClass}">
@@ -3372,9 +3427,9 @@ function createComplexLevelsMarkup(mode: 'timed' | 'self-check'): string {
           </header>
 
           <div class="complex-levels__list" role="list" aria-label="Уровни сложности">
-            ${createComplexLevelCard('Начальный', '01', 'Базовые задания в спокойном темпе', modeTitle)}
-            ${createComplexLevelCard('Средний', '02', 'Больше темпа и концентрации', modeTitle)}
-            ${createComplexLevelCard('Сложный', '03', 'Максимальная сложность заданий', modeTitle)}
+            ${createComplexLevelCard('Начальный', 'Базовые задания в спокойном темпе', `/assets/icons/comp_lil_${iconVariant}.webp`, `${videoPrefix}-beginner`)}
+            ${createComplexLevelCard('Средний', 'Больше темпа и концентрации', `/assets/icons/comp_middle_${iconVariant}.webp`, `${videoPrefix}-intermediate`)}
+            ${createComplexLevelCard('Сложный', 'Максимальная сложность заданий', `/assets/icons/comp_big_${iconVariant}.webp`, `${videoPrefix}-advanced`)}
           </div>
         </div>
       </main>
@@ -3384,18 +3439,20 @@ function createComplexLevelsMarkup(mode: 'timed' | 'self-check'): string {
 
 function createComplexLevelCard(
   title: string,
-  number: string,
   description: string,
-  modeTitle: string,
+  iconPath: string,
+  videoId: string,
 ): string {
   return `
     <button
-      class="complex-level-card js-feedback"
+      class="complex-level-card"
       type="button"
       role="listitem"
-      data-feedback="${escapeHtml(`${modeTitle}: уровень «${title}» пока в разработке`)}"
+      data-route="lesson-video:${videoId}"
     >
-      <span class="complex-level-card__number" aria-hidden="true">${number}</span>
+      <span class="complex-level-card__media" aria-hidden="true">
+        <img src="${iconPath}" alt="" />
+      </span>
       <span class="complex-level-card__content">
         <span class="complex-level-card__title">${title}</span>
         <span class="complex-level-card__description">${description}</span>
