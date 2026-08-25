@@ -1697,7 +1697,7 @@ const plannedLessonVideos = [
     'home-barking',
     'Команда «тише»',
     'map-puppy-home-quiet',
-    'https://rutube.ru/video/private/7f185fc2ff5df093277d09f300475d6b/?p=GXwDA1DO1e8vRgK5jBWk-g',
+    'https://rutube.ru/video/private/7b567bd209ba3bce8bbd570377fa3a66/?p=hI7fUYeVpBsBoYa_HpWg7Q',
   ],
   [
     'home-barking',
@@ -1865,7 +1865,7 @@ const plannedLessonVideos = [
     'adult-large-barking',
     'Команда «тише»',
     'map-adult-large-home-quiet',
-    'https://rutube.ru/video/private/7f185fc2ff5df093277d09f300475d6b/?p=GXwDA1DO1e8vRgK5jBWk-g',
+    'https://rutube.ru/video/private/7b567bd209ba3bce8bbd570377fa3a66/?p=hI7fUYeVpBsBoYa_HpWg7Q',
   ],
   [
     'adult-large-barking',
