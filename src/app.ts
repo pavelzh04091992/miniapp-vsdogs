@@ -119,6 +119,9 @@ export type AdultSmallTopicSlug =
 
 export type AppRoute =
   | 'home'
+  | 'complex'
+  | 'complex-levels:timed'
+  | 'complex-levels:self-check'
   | 'puppies'
   | 'adult-large'
   | 'adult-small'
@@ -2432,6 +2435,59 @@ adultSmallTopics.forEach((topic) => {
   topic.lessons.forEach((lesson) => registerLessonVideo(lesson, `adult-small-topic:${topic.slug}`));
 });
 
+const complexLevelVideos = [
+  {
+    id: 'complex-timed-beginner',
+    title: 'Комплекс: Начальный — На время',
+    rutubeUrl:
+      'https://rutube.ru/video/private/868c780b99793a9e95420aa8e609a364/?p=NinDdZkeobL_1LwsRFPirg',
+    backRoute: 'complex-levels:timed',
+  },
+  {
+    id: 'complex-timed-intermediate',
+    title: 'Комплекс: Средний — На время',
+    rutubeUrl:
+      'https://rutube.ru/video/private/20c4369faf79963b4524a33ed46a62d9/?p=VgnmTA_9eMVItCjPDTjz9Q',
+    backRoute: 'complex-levels:timed',
+  },
+  {
+    id: 'complex-timed-advanced',
+    title: 'Комплекс: Сложный — На время',
+    rutubeUrl:
+      'https://rutube.ru/video/private/515c5cbaf7c3d02635a497851901d18a/?p=YIEV36zl9yUBQIuwpBJNug',
+    backRoute: 'complex-levels:timed',
+  },
+  {
+    id: 'complex-self-check-beginner',
+    title: 'Комплекс: Начальный — Проверь себя',
+    rutubeUrl:
+      'https://rutube.ru/video/private/84fcd227c8379e275a2525a4c3c08300/?p=IDRdEPj_W_IOTFTvsdXt0w',
+    backRoute: 'complex-levels:self-check',
+  },
+  {
+    id: 'complex-self-check-intermediate',
+    title: 'Комплекс: Средний — Проверь себя',
+    rutubeUrl:
+      'https://rutube.ru/video/private/bc52e70990d3b18762b5fd78ec2cf81b/?p=zQb1MxntcZfnXbSmcRkQBg',
+    backRoute: 'complex-levels:self-check',
+  },
+  {
+    id: 'complex-self-check-advanced',
+    title: 'Комплекс: Сложный — Проверь себя',
+    rutubeUrl:
+      'https://rutube.ru/video/private/cb30527360112a4215a5e44b3c074988/?p=uSAlRskkBQI1tGejvH3vDQ',
+    backRoute: 'complex-levels:self-check',
+  },
+] as const satisfies readonly LessonVideoEntry[];
+
+complexLevelVideos.forEach((video) => {
+  if (lessonVideosById.has(video.id)) {
+    throw new Error(`Duplicate lesson video id: ${video.id}`);
+  }
+
+  lessonVideosById.set(video.id, video);
+});
+
 function getLessonVideoFromRoute(route: AppRoute): LessonVideoEntry | null {
   if (!route.startsWith('lesson-video:')) {
     return null;
@@ -2449,6 +2505,18 @@ export function createAppMarkup(
 
   if (lessonVideo) {
     return createRutubePlayerMarkup(lessonVideo);
+  }
+
+  if (route === 'complex') {
+    return createComplexMarkup();
+  }
+
+  if (route === 'complex-levels:timed') {
+    return createComplexLevelsMarkup('timed');
+  }
+
+  if (route === 'complex-levels:self-check') {
+    return createComplexLevelsMarkup('self-check');
   }
 
   if (route === 'adult-small') {
@@ -2644,6 +2712,7 @@ function createHomeMarkup(): string {
 
             <div class="useful-grid" role="list" aria-label="Полезные материалы">
               ${createUsefulCard('Первый день дома', '/assets/useful-home.svg', 'useful-card--blue')}
+              ${createUsefulCard('Комплекс', '/assets/icons/fitness.webp', 'useful-card--blue', 'complex')}
               ${createUsefulCard('Ошибки воспитания', '/assets/useful-warning.svg', 'useful-card--rose')}
               ${createUsefulCard('Поводок', '/assets/icons/leash.webp', 'useful-card--blue')}
               ${createUsefulCard('Адаптация', '/assets/useful-heart.svg', 'useful-card--rose')}
@@ -3295,14 +3364,121 @@ function createLessonCard(lesson: PuppyLessonItem): string {
   `;
 }
 
+function createComplexMarkup(): string {
+  return `
+    <div class="app-shell app-shell--complex">
+      <main class="screen-content complex-screen">
+        <div class="complex-screen__background" aria-hidden="true">
+          <span class="complex-screen__area complex-screen__area--blue"></span>
+          <span class="complex-screen__area complex-screen__area--red"></span>
+        </div>
+
+        <button
+          class="complex-screen__hit-area complex-screen__hit-area--timed"
+          type="button"
+          data-route="complex-levels:timed"
+          aria-label="Открыть уровни режима На время"
+        ></button>
+
+        <button
+          class="complex-screen__hit-area complex-screen__hit-area--self-check"
+          type="button"
+          data-route="complex-levels:self-check"
+          aria-label="Открыть уровни режима Проверь себя"
+        ></button>
+
+        <button class="back-button complex-screen__back" type="button" data-route="home" aria-label="Назад">
+          <span class="back-button__icon" aria-hidden="true"></span>
+        </button>
+
+        <h1 class="complex-screen__title">Комплекс</h1>
+
+        <div class="complex-screen__option complex-screen__option--timed">
+          <span>На время</span>
+        </div>
+
+        <div class="complex-screen__option complex-screen__option--self-check">
+          <span>Проверь себя</span>
+        </div>
+      </main>
+    </div>
+  `;
+}
+
+function createComplexLevelsMarkup(mode: 'timed' | 'self-check'): string {
+  const isTimed = mode === 'timed';
+  const modeTitle = isTimed ? 'На время' : 'Проверь себя';
+  const modeClass = isTimed ? 'timed' : 'self-check';
+  const iconVariant = isTimed ? 'time' : 'check';
+  const videoPrefix = isTimed ? 'complex-timed' : 'complex-self-check';
+
+  return `
+    <div class="app-shell app-shell--complex-levels app-shell--complex-levels--${modeClass}">
+      <main class="screen-content complex-levels">
+        <button class="back-button complex-levels__back" type="button" data-route="complex" aria-label="Назад">
+          <span class="back-button__icon" aria-hidden="true"></span>
+        </button>
+
+        <div class="content-frame complex-levels__frame">
+          <header class="complex-levels__header">
+            <span class="complex-levels__mode">${modeTitle}</span>
+            <h1>Выберите уровень</h1>
+            <p>Начните с комфортной сложности — повысить её можно в любой момент.</p>
+          </header>
+
+          <div class="complex-levels__list" role="list" aria-label="Уровни сложности">
+            ${createComplexLevelCard('Начальный', 'Базовые задания в спокойном темпе', `/assets/icons/comp_lil_${iconVariant}.webp`, `${videoPrefix}-beginner`)}
+            ${createComplexLevelCard('Средний', 'Больше темпа и концентрации', `/assets/icons/comp_middle_${iconVariant}.webp`, `${videoPrefix}-intermediate`)}
+            ${createComplexLevelCard('Сложный', 'Максимальная сложность заданий', `/assets/icons/comp_big_${iconVariant}.webp`, `${videoPrefix}-advanced`)}
+          </div>
+        </div>
+      </main>
+    </div>
+  `;
+}
+
+function createComplexLevelCard(
+  title: string,
+  description: string,
+  iconPath: string,
+  videoId: string,
+): string {
+  return `
+    <button
+      class="complex-level-card"
+      type="button"
+      role="listitem"
+      data-route="lesson-video:${videoId}"
+    >
+      <span class="complex-level-card__media" aria-hidden="true">
+        <img src="${iconPath}" alt="" />
+      </span>
+      <span class="complex-level-card__content">
+        <span class="complex-level-card__title">${title}</span>
+        <span class="complex-level-card__description">${description}</span>
+      </span>
+      <span class="complex-level-card__arrow" aria-hidden="true"></span>
+    </button>
+  `;
+}
+
 function resolveCardImagePath(imagePath: string): string {
   return imagePath === '/assets/useful-home.svg' ? '/assets/icons/home.webp' : imagePath;
 }
 
-function createUsefulCard(title: string, iconPath: string, modifierClass: string): string {
+function createUsefulCard(
+  title: string,
+  iconPath: string,
+  modifierClass: string,
+  route?: AppRoute,
+): string {
   const resolvedTitle = title === 'Ошибки воспитания' ? 'Спросить у кинолога' : title;
   const resolvedModifierClass = title === 'Ошибки воспитания' ? 'useful-card--ask' : modifierClass;
   const resolvedIconPath = title === 'Первый день дома' ? iconPath : resolveCardImagePath(iconPath);
+  const actionClass = route ? '' : ' js-feedback';
+  const actionAttribute = route
+    ? `data-route="${route}"`
+    : `data-feedback="Материал &quot;${escapeHtml(resolvedTitle)}&quot; пока в разработке"`;
   const iconMarkup =
     modifierClass === 'useful-card--gray'
       ? '<span class="useful-card__test-icon" aria-hidden="true"></span>'
@@ -3310,9 +3486,9 @@ function createUsefulCard(title: string, iconPath: string, modifierClass: string
 
   return `
     <button
-      class="useful-card ${resolvedModifierClass} js-feedback"
+      class="useful-card ${resolvedModifierClass}${actionClass}"
       type="button"
-      data-feedback="Материал &quot;${escapeHtml(resolvedTitle)}&quot; пока в разработке"
+      ${actionAttribute}
     >
       <span class="useful-card__icon">
         ${iconMarkup}

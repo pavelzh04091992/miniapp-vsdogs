@@ -8,6 +8,11 @@ import {
 } from './app';
 import { fetchSituationVideos } from './lib/videos';
 import { getTelegramWebApp, initTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
+import {
+  ComplexRevealOrigin,
+  animateComplexRevealTransition,
+  getComplexRevealOrigin,
+} from './complex-reveal';
 import './styles.css';
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
@@ -25,6 +30,7 @@ let lastBottomNavIndicatorLeft = '50%';
 let lastRenderedRoute: AppRoute | null = null;
 let pendingTransitionDirection: PageTransitionDirection | null = null;
 let previousPageScroll: { route: AppRoute; scrollTop: number } | null = null;
+let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -70,9 +76,15 @@ document.addEventListener('click', (event) => {
       return;
     }
 
+    const currentRoute = getCurrentRoute();
+
+    if (currentRoute === 'complex' && route.startsWith('complex-levels:')) {
+      pendingComplexTransitionOrigin = getComplexRevealOrigin(routeButton, event);
+    }
+
     pendingTransitionDirection = routeButton.classList.contains('back-button')
       ? 'back'
-      : getRouteTransitionDirection(getCurrentRoute(), route);
+      : getRouteTransitionDirection(currentRoute, route);
     navigateTo(route);
     return;
   }
@@ -133,15 +145,23 @@ function render(): void {
   }
 
   const route = getCurrentRoute();
+  const complexTransitionOrigin = pendingComplexTransitionOrigin;
+  pendingComplexTransitionOrigin = null;
   const routeChanged = lastRenderedRoute !== null && lastRenderedRoute !== route;
   const direction = pendingTransitionDirection ?? getRouteTransitionDirection(lastRenderedRoute, route);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const savedScrollTop = routeChanged ? getPreviousPageScrollTop(route) : getCurrentScrollTop();
+  const markup = createAppMarkup(route, activeFilter, videosState);
+  const isComplexTransition =
+    routeChanged &&
+    ((lastRenderedRoute === 'home' && route === 'complex') ||
+      (lastRenderedRoute === 'complex' && route === 'home'));
+  const isComplexLevelsTransition =
+    routeChanged && lastRenderedRoute === 'complex' && route.startsWith('complex-levels:');
 
   rememberCurrentScrollPosition(routeChanged);
 
-  const updateMarkup = (): void => {
-    updatePageMarkup(createAppMarkup(route, activeFilter, videosState));
+  const finishMarkupUpdate = (): void => {
     document.documentElement.dataset.rutubeExpanded = 'false';
     document.body.style.overflow = '';
     restoreScrollPosition(savedScrollTop);
@@ -157,7 +177,26 @@ function render(): void {
   };
 
   pendingTransitionDirection = null;
-  updateMarkup();
+
+  if (isComplexTransition && !reducedMotion) {
+    animateComplexRouteTransition(markup, route === 'complex', finishMarkupUpdate);
+    return;
+  }
+
+  if (isComplexLevelsTransition && !reducedMotion) {
+    animateComplexRevealTransition(
+      root,
+      markup,
+      route === 'complex-levels:timed',
+      complexTransitionOrigin,
+      updatePageMarkup,
+      finishMarkupUpdate,
+    );
+    return;
+  }
+
+  updatePageMarkup(markup);
+  finishMarkupUpdate();
 
   if (!routeChanged || reducedMotion) {
     return;
@@ -175,6 +214,66 @@ function render(): void {
       { once: true },
     );
   }
+}
+
+function animateComplexRouteTransition(
+  markup: string,
+  isEnteringComplex: boolean,
+  onComplete: () => void,
+): void {
+  const currentShell = root.querySelector<HTMLElement>(':scope > .app-shell');
+  const template = document.createElement('template');
+  template.innerHTML = markup.trim();
+  const nextShell = template.content.querySelector<HTMLElement>('.app-shell');
+
+  if (!currentShell || !nextShell) {
+    updatePageMarkup(markup);
+    onComplete();
+    return;
+  }
+
+  let completed = false;
+  const completeTransition = (): void => {
+    if (completed) {
+      return;
+    }
+
+    completed = true;
+    currentShell.remove();
+    nextShell.classList.remove(
+      'app-shell--complex-transition-enter',
+      'app-shell--complex-transition-base',
+    );
+    nextShell.querySelector('.bottom-nav')?.classList.remove('bottom-nav--complex-transition-enter');
+    onComplete();
+  };
+
+  if (isEnteringComplex) {
+    currentShell
+      .querySelector('.bottom-nav')
+      ?.classList.add('bottom-nav--complex-transition-exit');
+    nextShell.classList.add('app-shell--complex-transition-enter');
+    root.append(nextShell);
+    nextShell.addEventListener('animationend', (event) => {
+      if (event.target === nextShell) {
+        completeTransition();
+      }
+    });
+  } else {
+    nextShell.classList.add('app-shell--complex-transition-base');
+    nextShell
+      .querySelector('.bottom-nav')
+      ?.classList.add('bottom-nav--complex-transition-enter');
+    root.insertBefore(nextShell, currentShell);
+    currentShell.classList.add('app-shell--complex-transition-exit');
+    currentShell.addEventListener('animationend', (event) => {
+      if (event.target === currentShell) {
+        completeTransition();
+      }
+    });
+  }
+
+  window.setTimeout(completeTransition, 1200);
 }
 
 function rememberCurrentScrollPosition(routeChanged: boolean): void {
@@ -257,8 +356,17 @@ function getRouteTransitionDirection(from: AppRoute | null, to: AppRoute): PageT
       return 0;
     }
 
-    if (route === 'puppies' || route === 'adult-large' || route === 'adult-small') {
+    if (
+      route === 'complex' ||
+      route === 'puppies' ||
+      route === 'adult-large' ||
+      route === 'adult-small'
+    ) {
       return 1;
+    }
+
+    if (route.startsWith('complex-levels:')) {
+      return 2;
     }
 
     if (route.includes('-situation:')) {
@@ -348,6 +456,14 @@ function applyCategoryGlassVariation(card: HTMLElement): void {
 
 function getCurrentRoute(): AppRoute {
   const hash = window.location.hash.replace(/^#/, '');
+
+  if (hash === 'complex') {
+    return 'complex';
+  }
+
+  if (hash === 'complex-levels:timed' || hash === 'complex-levels:self-check') {
+    return hash;
+  }
 
   if (hash === 'adult-small') {
     return 'adult-small';
