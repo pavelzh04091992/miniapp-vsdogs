@@ -3315,6 +3315,11 @@ function createComplexMarkup(): string {
   return `
     <div class="app-shell app-shell--complex">
       <main class="screen-content complex-screen">
+        <div class="complex-screen__background" aria-hidden="true">
+          <span class="complex-screen__area complex-screen__area--blue"></span>
+          <span class="complex-screen__area complex-screen__area--red"></span>
+        </div>
+
         <button
           class="complex-screen__hit-area complex-screen__hit-area--timed"
           type="button"
@@ -3328,29 +3333,6 @@ function createComplexMarkup(): string {
           data-route="complex-levels:self-check"
           aria-label="Открыть уровни режима Проверь себя"
         ></button>
-
-        <div class="complex-screen__background" aria-hidden="true">
-          <span class="complex-screen__area complex-screen__area--blue"></span>
-          <span class="complex-screen__area complex-screen__area--red"></span>
-
-          <span class="complex-screen__motif complex-screen__motif--timed">
-            <svg viewBox="0 0 200 200" fill="none" aria-hidden="true">
-              <circle cx="100" cy="112" r="61"></circle>
-              <path d="M100 51V27M79 27h42M143 67l15-15M100 112V78M100 112l28 18"></path>
-              <circle cx="100" cy="112" r="6"></circle>
-            </svg>
-          </span>
-
-          <span class="complex-screen__motif complex-screen__motif--self-check">
-            <svg viewBox="0 0 200 200" fill="none" aria-hidden="true">
-              <circle cx="100" cy="100" r="73"></circle>
-              <circle cx="100" cy="100" r="48"></circle>
-              <path d="m67 101 23 23 46-53"></path>
-            </svg>
-          </span>
-
-          <span class="complex-screen__energy-ribbon"></span>
-        </div>
 
         <button class="back-button complex-screen__back" type="button" data-route="home" aria-label="Назад">
           <span class="back-button__icon" aria-hidden="true"></span>

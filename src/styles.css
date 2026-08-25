@@ -313,7 +313,7 @@ img {
 }
 
 .complex-screen__area--blue {
-  background: linear-gradient(145deg, #0b6de2 0%, #075ac8 52%, #0646a6 100%);
+  background: #075ac8;
   filter:
     drop-shadow(10px -10px 18px rgba(8, 39, 86, 0.24))
     drop-shadow(3px -3px 6px rgba(8, 39, 86, 0.14));
@@ -327,7 +327,7 @@ img {
 }
 
 .complex-screen__area--red {
-  background: linear-gradient(145deg, #f2384d 0%, #e32636 52%, #bd172c 100%);
+  background: #e32636;
   filter:
     drop-shadow(-10px 10px 18px rgba(105, 14, 28, 0.22))
     drop-shadow(-3px 3px 6px rgba(105, 14, 28, 0.13));
@@ -361,79 +361,9 @@ img {
   letter-spacing: -0.035em;
   text-align: center;
   text-shadow:
-    0 2px 4px rgba(8, 24, 50, 0.14),
-    0 11px 30px rgba(8, 24, 50, 0.24);
+    0 3px 6px rgba(8, 24, 50, 0.3),
+    0 10px 28px rgba(8, 24, 50, 0.38);
   transform: translate3d(-50%, 0, 0);
-  pointer-events: none;
-  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-.complex-screen__motif {
-  position: absolute;
-  z-index: 1;
-  inset: -64px;
-  color: rgba(255, 255, 255, 0.13);
-  pointer-events: none;
-}
-
-.complex-screen__motif svg {
-  position: absolute;
-  width: clamp(270px, 88vw, 382px);
-  height: auto;
-  overflow: visible;
-  stroke: currentColor;
-  stroke-width: 7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-.complex-screen__motif--timed {
-  clip-path: polygon(
-    31px 64px,
-    0 64px,
-    0 100%,
-    100% 100%,
-    calc(100% - 97px) calc(100% - 64px)
-  );
-}
-
-.complex-screen__motif--timed svg {
-  left: 6px;
-  bottom: 10px;
-  transform: rotate(-8deg);
-}
-
-.complex-screen__motif--self-check {
-  clip-path: polygon(
-    97px 64px,
-    97px 0,
-    100% 0,
-    100% 100%,
-    calc(100% - 31px) calc(100% - 64px)
-  );
-}
-
-.complex-screen__motif--self-check svg {
-  top: 102px;
-  right: 2px;
-  transform: rotate(7deg);
-}
-
-.complex-screen__energy-ribbon {
-  position: absolute;
-  z-index: 1;
-  inset: -64px;
-  background: #ffffff;
-  clip-path: polygon(
-    31px 64px,
-    97px 64px,
-    calc(100% - 31px) calc(100% - 64px),
-    calc(100% - 97px) calc(100% - 64px)
-  );
-  filter:
-    drop-shadow(-4px 0 7px rgba(7, 90, 200, 0.22))
-    drop-shadow(4px 0 7px rgba(227, 38, 54, 0.2));
   pointer-events: none;
 }
 
@@ -476,9 +406,7 @@ img {
   color: #ffffff;
   text-align: center;
   text-wrap: balance;
-  text-shadow:
-    0 2px 4px rgba(8, 24, 50, 0.12),
-    0 12px 28px rgba(8, 24, 50, 0.24);
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.24);
   pointer-events: none;
   transition:
     transform 180ms ease,
@@ -692,20 +620,6 @@ img {
   opacity: 0.9;
 }
 
-.complex-screen__hit-area--timed:active ~ .complex-screen__background .complex-screen__motif--timed svg {
-  transform: translate3d(7px, -5px, 0) rotate(-6deg) scale(1.018);
-}
-
-.complex-screen__hit-area--self-check:active
-  ~ .complex-screen__background
-  .complex-screen__motif--self-check svg {
-  transform: translate3d(-7px, 5px, 0) rotate(5deg) scale(1.018);
-}
-
-.complex-screen__hit-area:active ~ .complex-screen__title {
-  transform: translate3d(-50%, 0, 0) scale(1.015);
-}
-
 .app-shell--complex-transition-enter,
 .app-shell--complex-transition-exit,
 .app-shell--complex-transition-base {
@@ -736,19 +650,11 @@ img {
   animation: complex-panel-enter-left 650ms 420ms both;
 }
 
-.app-shell--complex-transition-enter .complex-screen__motif--timed {
-  animation: complex-panel-enter-left 650ms 420ms both;
-}
-
 .app-shell--complex-transition-enter .complex-screen__hit-area--timed {
   animation: complex-panel-enter-left 650ms 420ms both;
 }
 
 .app-shell--complex-transition-enter .complex-screen__area--red {
-  animation: complex-panel-enter-right 650ms 420ms both;
-}
-
-.app-shell--complex-transition-enter .complex-screen__motif--self-check {
   animation: complex-panel-enter-right 650ms 420ms both;
 }
 
@@ -770,10 +676,6 @@ img {
 
 .app-shell--complex-transition-enter .complex-screen__title {
   animation: complex-title-enter 650ms 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.app-shell--complex-transition-enter .complex-screen__energy-ribbon {
-  animation: complex-ribbon-enter 420ms 520ms ease-out both;
 }
 
 .bottom-nav--complex-transition-exit {
@@ -859,16 +761,6 @@ img {
 
   to {
     transform: translate3d(-50%, 0, 0) scale(1);
-    opacity: 1;
-  }
-}
-
-@keyframes complex-ribbon-enter {
-  from {
-    opacity: 0;
-  }
-
-  to {
     opacity: 1;
   }
 }
