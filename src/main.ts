@@ -3,7 +3,6 @@ import {
   PuppyFilter,
   SituationVideosState,
   createAppMarkup,
-  createUnsupportedEnvironmentMarkup,
   getVideoSourceSlugForRoute,
 } from './app';
 import { fetchSituationVideos } from './lib/videos';
@@ -34,23 +33,23 @@ let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
-if (!webApp) {
-  root.innerHTML = createUnsupportedEnvironmentMarkup();
-  document.documentElement.dataset.launchContext = 'unsupported';
-} else {
+if (webApp) {
   document.documentElement.dataset.launchContext = 'telegram';
   document.documentElement.dataset.tgPlatform = webApp.platform || 'unknown';
-  void syncRouteState();
-  window.addEventListener('hashchange', () => {
-    void syncRouteState();
-  });
-  window.addEventListener('popstate', () => {
-    void syncRouteState();
-  });
-  window.addEventListener('resize', () => {
-    updateBottomNavIndicatorPosition();
-  });
+} else {
+  document.documentElement.dataset.launchContext = 'browser';
 }
+
+void syncRouteState();
+window.addEventListener('hashchange', () => {
+  void syncRouteState();
+});
+window.addEventListener('popstate', () => {
+  void syncRouteState();
+});
+window.addEventListener('resize', () => {
+  updateBottomNavIndicatorPosition();
+});
 
 document.addEventListener('click', (event) => {
   const target = event.target;
@@ -140,10 +139,6 @@ document.addEventListener('keydown', (event) => {
 });
 
 function render(): void {
-  if (!webApp) {
-    return;
-  }
-
   const route = getCurrentRoute();
   const complexTransitionOrigin = pendingComplexTransitionOrigin;
   pendingComplexTransitionOrigin = null;
