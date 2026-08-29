@@ -3,6 +3,7 @@ import {
   PuppyFilter,
   SituationVideosState,
   createAppMarkup,
+  getPreloadAssetPathsForRoute,
   getVideoSourceSlugForRoute,
 } from './app';
 import { fetchSituationVideos } from './lib/videos';
@@ -30,6 +31,7 @@ let lastRenderedRoute: AppRoute | null = null;
 let pendingTransitionDirection: PageTransitionDirection | null = null;
 let previousPageScroll: { route: AppRoute; scrollTop: number } | null = null;
 let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
+const warmedAssetPaths = new Set<string>();
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -161,6 +163,7 @@ function render(): void {
     document.body.style.overflow = '';
     restoreScrollPosition(savedScrollTop);
     setupLiquidGlassCards();
+    scheduleAssetWarmup(route);
     const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
 
     if (navInner) {
@@ -423,6 +426,58 @@ function setupLiquidGlassCards(): void {
       }
     });
   });
+}
+
+function scheduleAssetWarmup(route: AppRoute): void {
+  const paths = getPreloadAssetPathsForRoute(route).filter((path) => !warmedAssetPaths.has(path));
+
+  if (!paths.length) {
+    return;
+  }
+
+  paths.forEach((path) => warmedAssetPaths.add(path));
+
+  const startWarmup = (): void => {
+    void preloadAssetBatch(paths);
+  };
+  const idleWindow = window as Window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+  };
+
+  if (idleWindow.requestIdleCallback) {
+    idleWindow.requestIdleCallback(startWarmup, { timeout: 1500 });
+    return;
+  }
+
+  window.setTimeout(startWarmup, 300);
+}
+
+async function preloadAssetBatch(paths: string[]): Promise<void> {
+  const queue = [...paths];
+  const workerCount = Math.min(4, queue.length);
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      let path = queue.shift();
+
+      while (path) {
+        await preloadAsset(path);
+        path = queue.shift();
+      }
+    }),
+  );
+}
+
+async function preloadAsset(path: string): Promise<void> {
+  const image = new Image();
+  image.decoding = 'async';
+  image.src = path;
+
+  try {
+    await image.decode();
+  } catch {
+    warmedAssetPaths.delete(path);
+  }
 }
 
 function applyCategoryGlassVariation(card: HTMLElement): void {

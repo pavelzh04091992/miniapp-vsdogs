@@ -2597,6 +2597,59 @@ export function createUnsupportedEnvironmentMarkup(): string {
   `;
 }
 
+export function getPreloadAssetPathsForRoute(route: AppRoute): string[] {
+  const paths: string[] = [];
+
+  if (route === 'home') {
+    paths.push(
+      ...puppySituations.map((situation) => situation.imagePath),
+      ...adultLargeSituations.map((situation) => situation.imagePath),
+    );
+  } else if (route === 'puppies') {
+    paths.push(...puppyTopics.map((topic) => topic.imagePath));
+  } else if (route === 'adult-large') {
+    paths.push(...adultLargeTopics.map((topic) => topic.imagePath));
+  } else if (route === 'adult-small') {
+    paths.push(...adultSmallTopics.map((topic) => topic.imagePath));
+  } else if (route === 'complex') {
+    paths.push(
+      '/assets/icons/comp_lil_time.webp',
+      '/assets/icons/comp_middle_time.webp',
+      '/assets/icons/comp_big_time.webp',
+      '/assets/icons/comp_lil_check.webp',
+      '/assets/icons/comp_middle_check.webp',
+      '/assets/icons/comp_big_check.webp',
+    );
+  } else if (route.startsWith('puppy-situation:')) {
+    const situation = puppySituationsBySlug.get(getSituationSlugFromRoute(route) ?? 'ideal-walk');
+    paths.push(
+      ...(situation?.topics
+        .flatMap((topic) => topic.lessons.map((lesson) => lesson.coverPath))
+        .filter((path): path is string => Boolean(path)) ?? []),
+    );
+  } else if (route.startsWith('adult-large-situation:')) {
+    const situation = adultLargeSituationsBySlug.get(
+      getAdultLargeSituationSlugFromRoute(route) ?? 'adult-large-ideal-walk',
+    );
+    paths.push(
+      ...(situation?.topics
+        .flatMap((topic) => topic.lessons.map((lesson) => lesson.coverPath))
+        .filter((path): path is string => Boolean(path)) ?? []),
+    );
+  } else if (route.startsWith('adult-small-situation:')) {
+    const situation = adultSmallSituationsBySlug.get(
+      getAdultSmallSituationSlugFromRoute(route) ?? 'adult-small-ideal-walk',
+    );
+    paths.push(
+      ...(situation?.topics
+        .flatMap((topic) => topic.lessons.map((lesson) => lesson.coverPath))
+        .filter((path): path is string => Boolean(path)) ?? []),
+    );
+  }
+
+  return [...new Set(paths.filter((path): path is string => Boolean(path)).map(resolveCardImagePath))];
+}
+
 export function getSituationSlugFromRoute(route: AppRoute): PuppySituationSlug | null {
   if (!route.startsWith('puppy-situation:')) {
     return null;
@@ -2711,12 +2764,10 @@ function createHomeMarkup(): string {
             </div>
 
             <div class="useful-grid" role="list" aria-label="Полезные материалы">
-              ${createUsefulCard('Первый день дома', '/assets/useful-home.svg', 'useful-card--blue')}
-              ${createUsefulCard('Комплекс', '/assets/icons/fitness.webp', 'useful-card--blue', 'complex')}
-              ${createUsefulCard('Ошибки воспитания', '/assets/useful-warning.svg', 'useful-card--rose')}
-              ${createUsefulCard('Поводок', '/assets/icons/leash.webp', 'useful-card--blue')}
-              ${createUsefulCard('Адаптация', '/assets/useful-heart.svg', 'useful-card--rose')}
-              ${createUsefulCard('ТЕСТ', '', 'useful-card--gray')}
+              ${createUsefulCard('Спросить у кинолога', '/assets/icons/ask_kinolog.webp', 'useful-card--ask')}
+              ${createUsefulCard('Фитнес', '/assets/icons/gantel.webp', 'useful-card--fitness')}
+              ${createUsefulCard('Сезонные темы', '/assets/icons/seasons.webp', 'useful-card--seasonal')}
+              ${createUsefulCard('Комплекс', '/assets/icons/course.webp', 'useful-card--course', 'complex')}
             </div>
           </section>
 
@@ -3472,28 +3523,25 @@ function createUsefulCard(
   modifierClass: string,
   route?: AppRoute,
 ): string {
-  const resolvedTitle = title === 'Ошибки воспитания' ? 'Спросить у кинолога' : title;
-  const resolvedModifierClass = title === 'Ошибки воспитания' ? 'useful-card--ask' : modifierClass;
-  const resolvedIconPath = title === 'Первый день дома' ? iconPath : resolveCardImagePath(iconPath);
+  const resolvedIconPath = resolveCardImagePath(iconPath);
   const actionClass = route ? '' : ' js-feedback';
   const actionAttribute = route
     ? `data-route="${route}"`
-    : `data-feedback="Материал &quot;${escapeHtml(resolvedTitle)}&quot; пока в разработке"`;
+    : `data-feedback="Материал &quot;${escapeHtml(title)}&quot; пока в разработке"`;
   const iconMarkup =
     modifierClass === 'useful-card--gray'
       ? '<span class="useful-card__test-icon" aria-hidden="true"></span>'
       : `<img src="${resolvedIconPath}" alt="" />`;
-
   return `
     <button
-      class="useful-card ${resolvedModifierClass}${actionClass}"
+      class="useful-card ${modifierClass}${actionClass}"
       type="button"
       ${actionAttribute}
     >
       <span class="useful-card__icon">
         ${iconMarkup}
       </span>
-      <span class="useful-card__title">${resolvedTitle}</span>
+      <span class="useful-card__title">${title}</span>
     </button>
   `;
 }
