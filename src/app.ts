@@ -2597,55 +2597,47 @@ export function createUnsupportedEnvironmentMarkup(): string {
   `;
 }
 
-export function getPreloadAssetPathsForRoute(route: AppRoute): string[] {
-  const paths: string[] = [];
+export function getAllAppAssetPaths(): string[] {
+  const paths = [
+    '/assets/logo-dog.svg',
+    '/assets/hero-dog.webp',
+    '/assets/nav-home.svg',
+    '/assets/nav-lessons.svg',
+    '/assets/nav-chat.svg',
+    '/assets/icons/ask_kinolog.webp',
+    '/assets/icons/gantel.webp',
+    '/assets/icons/seasons.webp',
+    '/assets/icons/course.webp',
+    '/assets/images/programs/puppy.webp',
+    '/assets/images/programs/teen_dog.webp',
+    '/assets/images/programs/adult_dog.webp',
+    '/assets/images/programs/shelter_dog.webp',
+    '/assets/images/programs/puppy-hero.webp',
+    '/assets/icons/comp_lil_time.webp',
+    '/assets/icons/comp_middle_time.webp',
+    '/assets/icons/comp_big_time.webp',
+    '/assets/icons/comp_lil_check.webp',
+    '/assets/icons/comp_middle_check.webp',
+    '/assets/icons/comp_big_check.webp',
+  ];
 
-  if (route === 'home') {
+  const addSituationAssets = (
+    situations: Array<{ imagePath: string; topics: Array<{ imagePath: string; lessons: Array<{ coverPath?: string }> }> }>,
+  ): void => {
     paths.push(
-      ...puppySituations.map((situation) => situation.imagePath),
-      ...adultLargeSituations.map((situation) => situation.imagePath),
+      ...situations.flatMap((situation) => [
+        situation.imagePath,
+        ...situation.topics.flatMap((topic) => [
+          topic.imagePath,
+          ...topic.lessons.map((lesson) => lesson.coverPath).filter((path): path is string => Boolean(path)),
+        ]),
+      ]),
     );
-  } else if (route === 'puppies') {
-    paths.push(...puppyTopics.map((topic) => topic.imagePath));
-  } else if (route === 'adult-large') {
-    paths.push(...adultLargeTopics.map((topic) => topic.imagePath));
-  } else if (route === 'adult-small') {
-    paths.push(...adultSmallTopics.map((topic) => topic.imagePath));
-  } else if (route === 'complex') {
-    paths.push(
-      '/assets/icons/comp_lil_time.webp',
-      '/assets/icons/comp_middle_time.webp',
-      '/assets/icons/comp_big_time.webp',
-      '/assets/icons/comp_lil_check.webp',
-      '/assets/icons/comp_middle_check.webp',
-      '/assets/icons/comp_big_check.webp',
-    );
-  } else if (route.startsWith('puppy-situation:')) {
-    const situation = puppySituationsBySlug.get(getSituationSlugFromRoute(route) ?? 'ideal-walk');
-    paths.push(
-      ...(situation?.topics
-        .flatMap((topic) => topic.lessons.map((lesson) => lesson.coverPath))
-        .filter((path): path is string => Boolean(path)) ?? []),
-    );
-  } else if (route.startsWith('adult-large-situation:')) {
-    const situation = adultLargeSituationsBySlug.get(
-      getAdultLargeSituationSlugFromRoute(route) ?? 'adult-large-ideal-walk',
-    );
-    paths.push(
-      ...(situation?.topics
-        .flatMap((topic) => topic.lessons.map((lesson) => lesson.coverPath))
-        .filter((path): path is string => Boolean(path)) ?? []),
-    );
-  } else if (route.startsWith('adult-small-situation:')) {
-    const situation = adultSmallSituationsBySlug.get(
-      getAdultSmallSituationSlugFromRoute(route) ?? 'adult-small-ideal-walk',
-    );
-    paths.push(
-      ...(situation?.topics
-        .flatMap((topic) => topic.lessons.map((lesson) => lesson.coverPath))
-        .filter((path): path is string => Boolean(path)) ?? []),
-    );
-  }
+  };
+
+  addSituationAssets(puppySituations);
+  addSituationAssets(adultLargeSituations);
+  addSituationAssets(adultSmallSituations);
 
   return [...new Set(paths.filter((path): path is string => Boolean(path)).map(resolveCardImagePath))];
 }

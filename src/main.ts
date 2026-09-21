@@ -3,7 +3,7 @@ import {
   PuppyFilter,
   SituationVideosState,
   createAppMarkup,
-  getPreloadAssetPathsForRoute,
+  getAllAppAssetPaths,
   getVideoSourceSlugForRoute,
 } from './app';
 import { fetchSituationVideos } from './lib/videos';
@@ -31,7 +31,6 @@ let lastRenderedRoute: AppRoute | null = null;
 let pendingTransitionDirection: PageTransitionDirection | null = null;
 let previousPageScroll: { route: AppRoute; scrollTop: number } | null = null;
 let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
-const warmedAssetPaths = new Set<string>();
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -42,7 +41,7 @@ if (webApp) {
   document.documentElement.dataset.launchContext = 'browser';
 }
 
-void syncRouteState();
+void initializeApp();
 window.addEventListener('hashchange', () => {
   void syncRouteState();
 });
@@ -140,6 +139,17 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+async function initializeApp(): Promise<void> {
+  root.innerHTML = `
+    <main class="initial-loader" role="status" aria-live="polite" aria-label="Загрузка приложения">
+      <span class="initial-loader__spinner" aria-hidden="true"></span>
+    </main>
+  `;
+
+  await preloadAllAssets(getAllAppAssetPaths());
+  await syncRouteState();
+}
+
 function render(): void {
   const route = getCurrentRoute();
   const complexTransitionOrigin = pendingComplexTransitionOrigin;
@@ -163,7 +173,6 @@ function render(): void {
     document.body.style.overflow = '';
     restoreScrollPosition(savedScrollTop);
     setupLiquidGlassCards();
-    scheduleAssetWarmup(route);
     const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
 
     if (navInner) {
@@ -428,56 +437,18 @@ function setupLiquidGlassCards(): void {
   });
 }
 
-function scheduleAssetWarmup(route: AppRoute): void {
-  const paths = getPreloadAssetPathsForRoute(route).filter((path) => !warmedAssetPaths.has(path));
-
-  if (!paths.length) {
-    return;
-  }
-
-  paths.forEach((path) => warmedAssetPaths.add(path));
-
-  const startWarmup = (): void => {
-    void preloadAssetBatch(paths);
-  };
-  const idleWindow = window as Window & {
-    requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-  };
-
-  if (idleWindow.requestIdleCallback) {
-    idleWindow.requestIdleCallback(startWarmup, { timeout: 1500 });
-    return;
-  }
-
-  window.setTimeout(startWarmup, 300);
+async function preloadAllAssets(paths: string[]): Promise<void> {
+  await Promise.all(paths.map((path) => preloadAsset(path)));
 }
 
-async function preloadAssetBatch(paths: string[]): Promise<void> {
-  const queue = [...paths];
-  const workerCount = Math.min(4, queue.length);
-
-  await Promise.all(
-    Array.from({ length: workerCount }, async () => {
-      let path = queue.shift();
-
-      while (path) {
-        await preloadAsset(path);
-        path = queue.shift();
-      }
-    }),
-  );
-}
-
-async function preloadAsset(path: string): Promise<void> {
-  const image = new Image();
-  image.decoding = 'async';
-  image.src = path;
-
-  try {
-    await image.decode();
-  } catch {
-    warmedAssetPaths.delete(path);
-  }
+function preloadAsset(path: string): Promise<void> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.decoding = 'async';
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+    image.src = path;
+  });
 }
 
 function applyCategoryGlassVariation(card: HTMLElement): void {
