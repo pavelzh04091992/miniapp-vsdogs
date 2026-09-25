@@ -133,42 +133,6 @@ img {
   overflow: hidden;
 }
 
-.unsupported-shell {
-  min-height: 100vh;
-  padding: 24px;
-  display: grid;
-  place-items: center;
-}
-
-.unsupported-card {
-  width: min(100%, 390px);
-  padding: 32px 24px;
-  border-radius: 28px;
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
-  text-align: center;
-}
-
-.unsupported-card h1 {
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.25;
-}
-
-.unsupported-link {
-  min-height: 48px;
-  margin: 20px auto 0;
-  padding: 0 22px;
-  border-radius: 999px;
-  display: inline-grid;
-  place-items: center;
-  background: var(--primary);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
 .app-shell {
   height: 100vh;
   height: var(--tg-viewport-stable-height, 100dvh);
@@ -2282,6 +2246,383 @@ img {
   height: 100vh;
 }
 
+.lesson-player-card {
+  width: 100%;
+}
+
+.lesson-player {
+  --video-progress: 0%;
+  --video-buffered: 0%;
+  --video-volume: 85%;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  position: relative;
+  overflow: hidden;
+  background: #07101f;
+  color: #ffffff;
+  box-shadow: 0 16px 36px rgba(5, 22, 47, 0.2);
+  outline: none;
+}
+
+.lesson-player:focus-visible {
+  box-shadow:
+    0 0 0 3px rgba(20, 84, 163, 0.35),
+    0 16px 36px rgba(5, 22, 47, 0.2);
+}
+
+.lesson-player__video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  background: #07101f;
+  cursor: pointer;
+}
+
+/* The app supplies its own controls. Keep browser/WebView media overlays out of the player. */
+.lesson-player__video::-webkit-media-controls,
+.lesson-player__video::-webkit-media-controls-enclosure,
+.lesson-player__video::-webkit-media-controls-panel,
+.lesson-player__video::-webkit-media-controls-overlay-play-button,
+.lesson-player__video::-webkit-media-controls-picture-in-picture-button {
+  display: none !important;
+  -webkit-appearance: none;
+}
+
+.lesson-player__center-play {
+  width: 62px;
+  height: 62px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  background: rgba(8, 24, 46, 0.74);
+  color: #ffffff;
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.lesson-player__center-play:hover {
+  transform: translate(-50%, -50%) scale(1.05);
+}
+
+.lesson-player--playing .lesson-player__center-play,
+.lesson-player--loading .lesson-player__center-play,
+.lesson-player--error .lesson-player__center-play {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lesson-player__play-symbol {
+  width: 0;
+  height: 0;
+  margin-left: 4px;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 13px solid currentColor;
+}
+
+[data-state='pause'] .lesson-player__play-symbol {
+  width: 12px;
+  height: 16px;
+  margin-left: 0;
+  border: 0;
+  background: linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px, currentColor 8px 12px);
+}
+
+.lesson-player__status {
+  max-width: calc(100% - 32px);
+  padding: 9px 13px;
+  border-radius: 999px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  transform: translate(-50%, -50%);
+  background: rgba(8, 24, 46, 0.8);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lesson-player__status[hidden] {
+  display: none;
+}
+
+.lesson-player--loading .lesson-player__status,
+.lesson-player--error .lesson-player__status {
+  opacity: 1;
+}
+
+.lesson-player__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: player-spin 700ms linear infinite;
+}
+
+.lesson-player--error .lesson-player__spinner {
+  display: none;
+}
+
+.lesson-player__controls {
+  padding: 30px 12px 10px;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  background: linear-gradient(transparent, rgba(2, 10, 22, 0.88));
+}
+
+.lesson-player__seek,
+.lesson-player__volume {
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.lesson-player__seek {
+  width: 100%;
+  display: block;
+}
+
+.lesson-player__seek::-webkit-slider-runnable-track,
+.lesson-player__volume::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #ff5555 0 var(--video-progress),
+    rgba(255, 255, 255, 0.45) var(--video-progress) var(--video-buffered),
+    rgba(255, 255, 255, 0.2) var(--video-buffered) 100%
+  );
+}
+
+.lesson-player__volume::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #ffffff 0 var(--video-volume), rgba(255, 255, 255, 0.25) var(--video-volume) 100%);
+}
+
+.lesson-player__seek::-moz-range-track,
+.lesson-player__volume::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.lesson-player__seek::-moz-range-progress,
+.lesson-player__volume::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: #ff5555;
+}
+
+.lesson-player__seek::-webkit-slider-thumb,
+.lesson-player__volume::-webkit-slider-thumb {
+  width: 13px;
+  height: 13px;
+  margin-top: -4.5px;
+  border: 0;
+  border-radius: 50%;
+  appearance: none;
+  background: #ffffff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+}
+
+.lesson-player__seek::-moz-range-thumb,
+.lesson-player__volume::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.lesson-player__control-row {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lesson-player__button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.lesson-player__button:hover,
+.lesson-player__button:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.lesson-player__button--play .lesson-player__play-symbol {
+  border-top-width: 6px;
+  border-bottom-width: 6px;
+  border-left-width: 10px;
+}
+
+.lesson-player__time {
+  display: flex;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lesson-player__control-spacer {
+  flex: 1 1 auto;
+}
+
+.lesson-player__select-wrap[hidden] {
+  display: none;
+}
+
+.lesson-player__select {
+  height: 30px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  outline: none;
+  cursor: pointer;
+}
+
+.lesson-player__select option {
+  color: #111827;
+}
+
+.lesson-player__volume {
+  width: 58px;
+  --video-progress: var(--video-volume);
+}
+
+.lesson-player__volume-symbol {
+  width: 20px;
+  height: 20px;
+  display: block;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lesson-player__volume-speaker {
+  fill: currentColor;
+  stroke: none;
+}
+
+.lesson-player__volume-muted,
+[data-state='muted'] .lesson-player__volume-waves {
+  display: none;
+}
+
+[data-state='muted'] .lesson-player__volume-muted {
+  display: block;
+}
+
+.lesson-player__fullscreen-symbol {
+  width: 19px;
+  height: 19px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lesson-player-card__title {
+  margin: 10px 4px 0;
+  color: var(--primary-dark);
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.lesson-player:fullscreen,
+.lesson-player--expanded {
+  width: 100vw;
+  height: 100dvh;
+  aspect-ratio: auto;
+  border-radius: 0;
+  background: #000000;
+}
+
+.lesson-player--expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+}
+
+.lesson-player:fullscreen .lesson-player__controls,
+.lesson-player--expanded .lesson-player__controls {
+  padding-right: max(18px, env(safe-area-inset-right));
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  padding-left: max(18px, env(safe-area-inset-left));
+}
+
+@keyframes player-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 560px) {
+  .lesson-player__volume {
+    display: none;
+  }
+
+  .lesson-player__controls {
+    padding-right: 8px;
+    padding-bottom: 7px;
+    padding-left: 8px;
+  }
+
+  .lesson-player__control-row {
+    gap: 4px;
+  }
+
+  .lesson-player__select {
+    padding: 0 3px;
+    font-size: 10px;
+  }
+}
+
 .video-empty-card {
   padding: 22px 18px;
   border-radius: 22px;
@@ -2483,7 +2824,6 @@ html[data-rutube-expanded='true'] .screen-content {
 .program-card:active,
 .rutube-player-card__expand-icon:active,
 .rutube-player-card__collapse:active,
-.unsupported-link:active,
 .bottom-nav__tab:active {
   transform: scale(0.985);
   opacity: 0.88;

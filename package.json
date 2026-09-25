@@ -5,15 +5,24 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:media": "docker compose up -d media",
     "build": "tsc --noEmit && vite build",
+    "verify": "npm run build && npm run media:check",
     "preview": "vite preview",
+    "start": "node scripts/app-server.mjs",
+    "test:smoke": "node scripts/smoke-test.mjs",
     "send:channel-message": "node scripts/send-channel-message.mjs",
-    "bot:server": "node scripts/run-bot-server.mjs",
+    "bot:server": "node scripts/app-server.mjs",
     "bot:set-webhook": "node scripts/set-webhook.mjs",
+    "media:check": "node scripts/check-media.mjs",
+    "video:prepare": "node scripts/prepare-video.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
     "vite": "^7.1.7"
+  },
+  "dependencies": {
+    "hls.js": "^1.7.3"
   }
 }

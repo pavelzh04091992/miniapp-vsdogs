@@ -4,5 +4,8 @@ dist/
 .DS_Store
 .idea/
 *.log
-data/
+data/*
+!data/.gitkeep
 letsencrypt/
+media/*
+!media/.gitkeep

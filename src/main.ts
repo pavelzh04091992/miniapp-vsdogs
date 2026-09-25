@@ -7,12 +7,13 @@ import {
   getVideoSourceSlugForRoute,
 } from './app';
 import { fetchSituationVideos } from './lib/videos';
-import { getTelegramWebApp, initTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
+import { initTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
 import {
   ComplexRevealOrigin,
   animateComplexRevealTransition,
   getComplexRevealOrigin,
 } from './complex-reveal';
+import { setupLessonVideoPlayer } from './video-player';
 import './styles.css';
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
@@ -31,6 +32,7 @@ let lastRenderedRoute: AppRoute | null = null;
 let pendingTransitionDirection: PageTransitionDirection | null = null;
 let previousPageScroll: { route: AppRoute; scrollTop: number } | null = null;
 let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
+let destroyLessonVideoPlayer: (() => void) | null = null;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -62,8 +64,7 @@ document.addEventListener('click', (event) => {
   const rutubeExpandButton = target.closest<HTMLElement>('[data-rutube-expand]');
 
   if (rutubeExpandButton) {
-    const shouldExpand = rutubeExpandButton.dataset.rutubeExpand === 'true';
-    setRutubeExpanded(shouldExpand);
+    setRutubeExpanded(rutubeExpandButton.dataset.rutubeExpand === 'true');
     return;
   }
 
@@ -149,7 +150,6 @@ async function initializeApp(): Promise<void> {
   await preloadAllAssets(getAllAppAssetPaths());
   await syncRouteState();
 }
-
 function render(): void {
   const route = getCurrentRoute();
   const complexTransitionOrigin = pendingComplexTransitionOrigin;
@@ -167,12 +167,15 @@ function render(): void {
     routeChanged && lastRenderedRoute === 'complex' && route.startsWith('complex-levels:');
 
   rememberCurrentScrollPosition(routeChanged);
+  destroyLessonVideoPlayer?.();
+  destroyLessonVideoPlayer = null;
 
   const finishMarkupUpdate = (): void => {
     document.documentElement.dataset.rutubeExpanded = 'false';
     document.body.style.overflow = '';
     restoreScrollPosition(savedScrollTop);
     setupLiquidGlassCards();
+    destroyLessonVideoPlayer = setupLessonVideoPlayer();
     const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
 
     if (navInner) {
@@ -547,7 +550,7 @@ async function syncRouteState(): Promise<void> {
     } catch {
       videosState = {
         status: 'error',
-        message: 'Р СџР С•Р С—РЎР‚Р С•Р В±РЎС“Р в„–РЎвЂљР Вµ Р С•РЎвЂљР С”РЎР‚РЎвЂ№РЎвЂљРЎРЉ РЎРЊР С”РЎР‚Р В°Р Р… РЎвЂЎРЎС“РЎвЂљРЎРЉ Р С—Р С•Р В·Р В¶Р Вµ',
+        message: 'Попробуйте открыть этот экран чуть позже',
       };
     }
 
@@ -572,12 +575,10 @@ function navigateTo(route: AppRoute): void {
 }
 
 function showFeedback(message: string): void {
-  const activeWebApp = webApp ?? getTelegramWebApp();
+  webApp?.HapticFeedback?.impactOccurred('light');
 
-  activeWebApp?.HapticFeedback?.impactOccurred('light');
-
-  if (activeWebApp?.showAlert) {
-    activeWebApp.showAlert(message);
+  if (webApp?.showAlert) {
+    webApp.showAlert(message);
     return;
   }
 
@@ -585,15 +586,13 @@ function showFeedback(message: string): void {
 }
 
 function openExternalUrl(url: string): void {
-  const activeWebApp = webApp ?? getTelegramWebApp();
-
   if (url.startsWith('https://t.me/') || url.startsWith('http://t.me/')) {
-    if (activeWebApp?.openTelegramLink) {
-      activeWebApp.openTelegramLink(url);
+    if (webApp?.openTelegramLink) {
+      webApp.openTelegramLink(url);
       return;
     }
-  } else if (activeWebApp?.openLink) {
-    activeWebApp.openLink(url);
+  } else if (webApp?.openLink) {
+    webApp.openLink(url);
     return;
   }
 

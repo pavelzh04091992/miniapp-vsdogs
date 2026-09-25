@@ -1,128 +1,194 @@
 # MiniAppPuppys
 
-Telegram Mini App for a dog school with a Vite frontend, Telegram WebApp integration, and a lightweight bot webhook that collects channel videos into Mini App cards.
+Веб-приложение школы собак с поддержкой Telegram Mini Apps и обычного браузера. Уроки
+воспроизводятся собственным плеером с локального сервера; Rutube и YouTube не используются.
 
-## Stack
+## Стек
 
-- Vite
-- TypeScript
-- Telegram WebApp SDK
-- Node.js built-in HTTP server for bot webhook handling
+- Vite + TypeScript
+- Собственный HTML5-плеер, HLS.js и MP4 fallback
+- Nginx для быстрой раздачи видео и Range-запросов
+- Node.js HTTP-сервер для фронтенда, healthcheck и опционального Telegram webhook
+- Docker Compose; локальный HTTP gateway или Traefik с HTTPS
 
-## Quick start
+## Локальная разработка
 
 ```bash
-npm install
+npm ci
+npm run dev:media
 npm run dev
 ```
 
-## Production build
+Vite доступен на `http://localhost:3000`. Запросы `/media/` проксируются на media-контейнер
+через порт `8081`; тестовый каталог `/data/videos.json` берётся из `public/`. Полный Docker-стек
+доступен на `http://localhost:8080` после `docker compose up -d --build`.
+
+Проверки без Docker:
 
 ```bash
+npm run typecheck
 npm run build
+npm run verify
 ```
 
-## Container deploy without a domain
+`npm run verify` выполняет production-сборку и проверяет, что MP4 подготовлены с fast start.
 
-This branch includes a minimal Traefik setup for a clean test server without a domain.
-Traefik listens on port `80` and routes all HTTP traffic to one app container.
-The app container serves the built Mini App from `dist/` and handles `/health` plus the Telegram webhook.
+## Тестовое развёртывание на сервере
+
+Нужны Docker Engine с Compose v2 и открытый TCP-порт приложения.
+
+1. Скопируйте репозиторий на сервер и создайте конфигурацию:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Для доступа по IP измените в `.env`:
+
+   ```dotenv
+   APP_BIND_ADDRESS=0.0.0.0
+   LOCAL_APP_PORT=8080
+   ```
+
+   Не открывайте порт всему интернету без настроенного firewall. Для доступа только через
+   локальный reverse proxy оставьте `APP_BIND_ADDRESS=127.0.0.1`.
+
+3. Загрузите видео отдельно — каталог `media/` намеренно не хранится в Git:
+
+   ```text
+   media/
+     map-puppy-fitness-house/
+       video.mp4
+   ```
+
+4. Запустите стек:
+
+   ```bash
+   docker compose up -d --build
+   docker compose ps
+   ```
+
+5. Выполните smoke-тест:
+
+   ```bash
+   npm run test:smoke -- http://127.0.0.1:8080
+   ```
+
+После этого приложение доступно по адресу `http://SERVER_IP:8080`. `BOT_TOKEN` для просмотра
+приложения и видео не нужен. Если `TELEGRAM_WEBHOOK_SECRET` пуст, webhook отключён.
+
+Полезные команды:
 
 ```bash
-cp .env.example .env
-# fill BOT_TOKEN and Mini App values in .env
-docker compose up -d --build
-curl http://SERVER_IP/health
+docker compose logs -f --tail=100 app media gateway
+docker compose restart app media gateway
+docker compose down
 ```
 
-Runtime video catalog data is stored in the local `./data` directory and mounted into the app container.
+## HTTPS с доменом
 
-Telegram Mini Apps and Telegram webhooks require a trusted HTTPS public URL for real Telegram usage.
-Without a domain, use this setup for server smoke-testing, or put a temporary HTTPS tunnel in front of the server.
-
-## Channel entry message
-
-Create `.env` from `.env.example`, fill in the bot and Mini App values, then send the pinned channel message:
+Укажите реальные `DOMAIN` и `ACME_EMAIL` в `.env`, направьте DNS A/AAAA-запись на сервер и
+откройте порты 80/443. Затем запустите профиль Traefik:
 
 ```bash
-npm run send:channel-message
+mkdir -p letsencrypt
+docker compose --profile production up -d --build
 ```
 
-Requirements:
+Traefik получает сертификат Let's Encrypt, направляет `/media/` непосредственно в Nginx, а
+остальные запросы — в приложение. Локальный gateway остаётся доступен на адресе из
+`APP_BIND_ADDRESS` и может использоваться для диагностики.
 
-- The bot must be an admin in the channel
-- The bot needs permission to pin messages if you want auto-pin
-- The Mini App must be configured in BotFather
-- `MINI_APP_LINK` should be a Telegram Mini App deep link such as `https://t.me/botusername/appname`
+## Подготовка видео
 
-## Auto-create video cards from channel posts
-
-The project now supports this flow:
-
-1. You publish a channel post with a video
-2. Telegram sends a `channel_post` update to your webhook
-3. The webhook stores the post in `public/data/videos.json`
-4. The Mini App loads this catalog and shows a new video card
-5. Clicking the card opens the original Telegram post
-
-### Post format
-
-Use a hashtag in the post caption to map the video to a Mini App section:
+Для обычного MP4 достаточно положить файл по адресу:
 
 ```text
-Как приучить щенка к туалету дома
-
-Разбираем первые шаги без наказаний
-#puppy-toilet-home
+media/<video-id>/video.mp4
 ```
 
-Right now the app uses `#puppy-toilet-home`.
-
-### Run the bot webhook server
+MP4 должен быть подготовлен с fast start (`moov` в начале файла). Для адаптивного HLS установите
+FFmpeg и выполните:
 
 ```bash
-npm run bot:server
+npm run video:prepare -- /path/to/source.mp4 <video-id>
 ```
 
-By default it listens on `http://0.0.0.0:8787/telegram/webhook`.
+Проверить все MP4 в каталоге `media/`:
 
-### Register the Telegram webhook
+```bash
+npm run media:check
+```
 
-Expose the bot server with your domain or tunnel, set `PUBLIC_BASE_URL` in `.env`, then run:
+Скрипт создаёт:
+
+```text
+media/<video-id>/
+  master.m3u8
+  poster.webp
+  video.mp4
+  360p/
+    index.m3u8
+    init.mp4
+    segment_00000.m4s
+  720p/
+  1080p/
+```
+
+Для HLS у урока должен быть `sourceType: 'hls'`; для одного MP4 — `sourceType: 'mp4'`.
+
+## Telegram webhook
+
+Webhook не участвует в воспроизведении локальных видео. Он нужен только для прежнего сценария,
+в котором посты Telegram добавляются в каталог `/data/videos.json`.
+
+Для его включения задайте как минимум:
+
+```dotenv
+TELEGRAM_WEBHOOK_SECRET=long-random-secret
+PUBLIC_CHANNEL_USERNAME=channel_username
+PUBLIC_BASE_URL=https://example.com
+BOT_TOKEN=telegram-bot-token
+```
+
+Затем зарегистрируйте webhook:
 
 ```bash
 npm run bot:set-webhook
 ```
 
-Recommended `.env` fields for this flow:
+`BOT_TOKEN` используется только вспомогательными командами регистрации webhook и отправки
+сообщений; в контейнер приложения он не передаётся.
 
-- `PUBLIC_BASE_URL=https://your-domain-or-ngrok`
-- `TELEGRAM_WEBHOOK_SECRET=some-random-secret`
-- `PUBLIC_CHANNEL_USERNAME=your_public_channel_username`
-- `KNOWN_VIDEO_SITUATION_SLUGS=puppy-toilet-home`
-- `DEFAULT_VIDEO_SITUATION_SLUG=puppy-toilet-home`
+## Хранение данных и резервные копии
 
-## Project structure
+- `media/` — видеофайлы; монтируется в media-контейнер только для чтения.
+- `data/` — изменяемый каталог Telegram-видео; монтируется в app-контейнер для записи.
+- `letsencrypt/` — сертификаты Traefik.
+
+Перед обновлением сервера сохраняйте эти три каталога. На Linux пользователь контейнера
+приложения имеет UID `1000`; каталог `data/` должен быть доступен ему на запись.
+
+## Ограничение доступа к видео
+
+На тестовом этапе `/media/` остаётся публичным. Скрытие URL и отключение кнопки скачивания —
+только базовая защита интерфейса. Для закрытого контента следующим этапом нужны короткоживущие
+подписанные URL или проверка сессии на media endpoint.
+
+## Структура
 
 ```text
-public/
-  data/videos.json           # Stored catalog for Mini App video cards
+infra/
+  local-gateway-nginx.conf  # HTTP gateway для локального и тестового запуска
+  media-nginx.conf          # Раздача MP4/HLS с поддержкой Range
 scripts/
-  run-bot-server.mjs         # Receives Telegram webhook updates
-  send-channel-message.mjs   # Sends channel post with Mini App button
-  set-webhook.mjs            # Registers Telegram webhook
-  video-catalog.mjs          # Shared catalog storage helpers
+  app-server.mjs            # Фронтенд, healthcheck и Telegram webhook
+  prepare-video.mjs         # Подготовка HLS/MP4/poster через FFmpeg
+  smoke-test.mjs            # Проверка развёрнутого стека
 src/
-  app.ts                     # Screen markup
-  main.ts                    # App bootstrap and routing
-  styles.css                 # UI styling
-  lib/
-    telegram.ts              # Telegram WebApp integration
-    videos.ts                # Frontend video catalog loader
+  app.ts                    # Экраны и разметка
+  main.ts                   # Инициализация и маршрутизация
+  video-player.ts           # Логика собственного плеера
+media/
+  <video-id>/               # Локальные видео; содержимое не коммитится
 ```
-
-## Notes
-
-- If the video catalog is empty, the Mini App shows the existing empty state
-- The webhook currently stores a placeholder thumbnail for Telegram videos
-- Opening Telegram post links inside the Mini App uses `openTelegramLink` when available

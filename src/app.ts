@@ -1,4 +1,5 @@
 import { SituationSlug, SituationVideo } from './lib/videos';
+import { getLegacyVideoSource } from './legacy-video-sources';
 
 export type PuppySituationSlug =
   | 'ideal-walk'
@@ -140,14 +141,15 @@ export type SituationVideosState =
   | { status: 'ready'; videos: SituationVideo[] }
   | { status: 'error'; message: string };
 
+type LessonVideoSource = 'hls' | 'mp4';
+
 interface PuppyLessonItem {
   title: string;
   description: string;
   coverPath?: string;
   video?: {
     id: string;
-    rutubeUrl?: string;
-    youtubeUrl?: string;
+    sourceType?: LessonVideoSource;
   };
   externalUrl?: string;
   feedback?: string;
@@ -764,7 +766,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/ideal_prog.jpg',
             video: {
               id: 'puppy-leash-collar-harness',
-              rutubeUrl: 'https://rutube.ru/video/private/d443968096289bc361898c707da0ee58/?p=tsIxAoB1riBx9xb8_6iZCQ',
             },
           },
           {
@@ -773,7 +774,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/tech_vlad.jpg',
             video: {
               id: 'puppy-leash-stop-pulling',
-              rutubeUrl: 'https://rutube.ru/video/private/50f87645b23d81233e282e6db2ea51c3/?p=-8xq2f8b9mCJEzBaMEJHyQ',
             },
           },
           {
@@ -782,7 +782,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/povod_rulet.jpg',
             video: {
               id: 'puppy-leash-or-retractable-part-1',
-              rutubeUrl: 'https://rutube.ru/video/private/9b59314f3a0b3d4b7fa4cade3f33d3fe/?p=oINNpDLyhvs9EDcgNJqPRw',
             },
           },
           {
@@ -795,7 +794,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/stop_dor.jpg',
             video: {
               id: 'puppy-leash-stop-road',
-              rutubeUrl: 'https://rutube.ru/video/private/7dc91c3b638a827929fa1694ddf0ea42/?p=UvF-NSJWeRelw8ztu2-9xA',
             },
           },
         ],
@@ -850,7 +848,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/1-2-3.jpg',
             video: {
               id: 'puppy-ignore-123',
-              youtubeUrl: 'https://www.youtube.com/watch?v=TKXEGLmGbqg',
             },
           },
           {
@@ -863,7 +860,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/igri.jpg',
             video: {
               id: 'puppy-ignore-walk-games',
-              rutubeUrl: 'https://rutube.ru/video/private/46783a74b756796dde6772ce8a236676/?p=qeRSB2nkWdolROO7DQBPAw',
             },
           },
           {
@@ -941,7 +937,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/gosti.jpg',
             video: {
               id: 'puppy-home-jumping-guests',
-              rutubeUrl: 'https://rutube.ru/video/private/99c4bd449c359a3a468ee8a15952a754/?p=hwkZUtVsMO7qhs5PDW4E-Q',
             },
           },
         ],
@@ -960,7 +955,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/mesto.jpg',
             video: {
               id: 'puppy-home-begging-place',
-              rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
             },
           },
           {
@@ -969,7 +963,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/pogriz.jpg',
             video: {
               id: 'puppy-home-begging-enrichment',
-              rutubeUrl: 'https://rutube.ru/video/private/c2313be833d702352d502ce8594a4e90/?p=RKaOJQl0742iR5Af36Gp-g',
             },
           },
           {
@@ -978,7 +971,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/korm.jpg',
             video: {
               id: 'puppy-home-begging-feeding',
-              rutubeUrl: 'https://rutube.ru/video/private/1dee214d6aa2ec5a35d35389e86d127f/?p=NChTWvCdLikdyEm-E47EwQ',
             },
           },
         ],
@@ -1126,7 +1118,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/maschin.jpg',
             video: {
               id: 'puppy-fears-car',
-              rutubeUrl: 'https://rutube.ru/video/private/a10fcc7797462420bc6df53b0f4e4bd3/?p=7Tb-gnfzFNrMMWlsPHk7Hg',
             },
           },
         ],
@@ -1159,7 +1150,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/mesto.jpg',
             video: {
               id: 'puppy-fears-place',
-              rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
             },
           },
         ],
@@ -1231,7 +1221,6 @@ const puppySituations: PuppySituation[] = [
             coverPath: '/assets/covers/lapi-shen.jpg',
             video: {
               id: 'puppy-care-paws',
-              rutubeUrl: 'https://rutube.ru/video/private/8aec062db1e4fd15c437e3f4f22ea885/?p=Gu_YqW37pvxe99-67Ru10A',
             },
           },
         ],
@@ -1358,7 +1347,6 @@ const puppySituations: PuppySituation[] = [
             description: 'Формируем спокойное касание тряпочки и переносим навык в бытовой уход',
             video: {
               id: 'map-puppy-fitness-wipe-muzzle',
-              rutubeUrl: 'https://rutube.ru/video/private/c9caf85e9ba8ed92e50c06cd77f1692a/?p=iz8RFE3RJuv83b-ndOnXzw',
             },
           },
         ],
@@ -1376,7 +1364,6 @@ const puppySituations: PuppySituation[] = [
             description: 'Собираем плавный поворот в обе стороны через короткие понятные шаги',
             video: {
               id: 'map-puppy-fitness-spin',
-              rutubeUrl: 'https://rutube.ru/video/private/29c74ef1bfdfa3b8361de0c2aec609f4/?p=XcZ34ONVjBS_bZuEJnQrKA',
             },
           },
         ],
@@ -1394,7 +1381,6 @@ const puppySituations: PuppySituation[] = [
             description: 'Учимся двигаться в стороны по понятному сигналу без спешки',
             video: {
               id: 'map-puppy-fitness-left-right',
-              rutubeUrl: 'https://rutube.ru/video/private/5bf27d649cc9f76de2164b8739bbd064/?p=gdIg22RLS7B4nJ0B_V_UXQ',
             },
           },
         ],
@@ -1447,7 +1433,6 @@ const adultLargeSituations: AdultLargeSituation[] = [
             coverPath: '/assets/covers/stop_dor.jpg',
             video: {
               id: 'adult-large-leash-road-stop',
-              rutubeUrl: 'https://rutube.ru/video/private/7dc91c3b638a827929fa1694ddf0ea42/?p=UvF-NSJWeRelw8ztu2-9xA',
             },
           },
         ],
@@ -1517,7 +1502,6 @@ const adultLargeSituations: AdultLargeSituation[] = [
           coverPath: '/assets/covers/gosti.jpg',
           video: {
             id: 'adult-large-jumping-guests',
-            rutubeUrl: 'https://rutube.ru/video/private/99c4bd449c359a3a468ee8a15952a754/?p=hwkZUtVsMO7qhs5PDW4E-Q',
           },
         },
       ]},
@@ -1528,7 +1512,6 @@ const adultLargeSituations: AdultLargeSituation[] = [
           coverPath: '/assets/covers/mesto.jpg',
           video: {
             id: 'adult-large-begging-place',
-            rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
           },
         },
         {
@@ -1537,7 +1520,6 @@ const adultLargeSituations: AdultLargeSituation[] = [
           coverPath: '/assets/covers/pogriz.jpg',
           video: {
             id: 'adult-large-begging-enrichment',
-            rutubeUrl: 'https://rutube.ru/video/private/c2313be833d702352d502ce8594a4e90/?p=RKaOJQl0742iR5Af36Gp-g',
           },
         },
         { title: 'Питание', description: 'Разбираем режим, логику выдачи еды и бытовые рамки', coverPath: '/assets/covers/korm.jpg' },
@@ -1588,7 +1570,6 @@ const adultLargeSituations: AdultLargeSituation[] = [
           coverPath: '/assets/covers/mesto.jpg',
           video: {
             id: 'adult-large-fears-place',
-            rutubeUrl: 'https://rutube.ru/video/private/4ac32dd398d8501818454a1ff838af80/?p=VeSOJpWF9cYLy7g_voY4-Q',
           },
         },
       ]},
@@ -1624,7 +1605,6 @@ const adultLargeSituations: AdultLargeSituation[] = [
           coverPath: '/assets/covers/lapi-bolsh.jpg',
           video: {
             id: 'adult-large-care-paws',
-            rutubeUrl: 'https://rutube.ru/video/private/545e5a20d076a8b631fc8dd92fb0e393/?p=lfksp_Rh_AZRgkwDHOI42Q',
           },
         },
       ]},
@@ -1665,7 +1645,7 @@ type PlannedLessonVideo = readonly [
   topicSlug: PlannedVideoTopicSlug,
   lessonTitle: string,
   videoId: string,
-  rutubeUrl: string,
+  sourceType?: LessonVideoSource,
 ];
 
 const plannedLessonVideos = [
@@ -1673,331 +1653,277 @@ const plannedLessonVideos = [
     'walk-food-pickup',
     'Намордник без драмы',
     'map-puppy-food-pickup-muzzle',
-    'https://rutube.ru/video/private/cf5bdbbf73f7abdbff8b67d3d5368ae7/?p=QWbEYvLL8XhVbQN6hR64jw',
   ],
   [
     'walk-recall',
     'Команда «Ко мне!» и «кличка»',
     'map-puppy-recall-name',
-    'https://rutube.ru/video/private/17278544222abdb2cc421ec860b31fc2/?p=PxpOjanY2cM-lginl8UXBA',
   ],
   [
     'walk-recall',
     'Собака слушает вас, а не улицу',
     'map-puppy-recall-contact',
-    'https://rutube.ru/video/private/456841dcf884c73963bf8234b1a02193/?p=aqeNgR_1dUsvLQ8BtI5Xiw',
   ],
   [
     'walk-ignore-triggers',
     'Выдержка: не срываемся на всё подряд',
     'map-puppy-ignore-impulse',
-    'https://rutube.ru/video/private/c5139d68dc7670e4f31a25a6ff764406/?p=B5tC6gDGO7q_Vt0WllN5Pw',
   ],
   [
     'home-barking',
     'Команда «тише»',
     'map-puppy-home-quiet',
-    'https://rutube.ru/video/private/7b567bd209ba3bce8bbd570377fa3a66/?p=hI7fUYeVpBsBoYa_HpWg7Q',
   ],
   [
     'home-barking',
     'Приучаем к звукам дома',
     'map-puppy-home-sounds',
-    'https://rutube.ru/video/private/e501d1b145969703e3de68e2a36820d1/?p=jkE-lFhpUCp_3IFSLMABhA',
   ],
   [
     'home-loneliness',
     'Убираем страх и повышаем уверенность в себе',
     'map-puppy-loneliness-confidence',
-    'https://rutube.ru/video/private/faa2212d0a78e8ce7090cbed1ff096c4/?p=5EQPL2Mns74gPhnftcztig',
   ],
   [
     'home-loneliness',
     'Учим постепенно оставаться одному',
     'map-puppy-loneliness-alone',
-    'https://rutube.ru/video/private/59f6c0c6262bb1ee4ac0a2f096566e20/?p=y0PH7hQYJ6Dr80Y27cFHkA',
   ],
   [
     'home-jumping-on-guests',
     'Правильный приход/выход из дома',
     'map-puppy-guests-arrival',
-    'https://rutube.ru/video/private/f9488776f89cf7018d117fd47c3b1f59/?p=hByo1lSHeSUT9RR1VWSLbA',
   ],
   [
     'home-toilet',
     'Приучение к пелёнке и средства от запаха',
     'map-puppy-toilet-pad',
-    'https://rutube.ru/video/private/0a54b61a591485acf663ac90ec17b18e/?p=RNwssQk5npbDN_CatzYXcQ',
   ],
   [
     'home-toilet',
     'Приучение к улице и режим',
     'map-puppy-toilet-outside',
-    'https://rutube.ru/video/private/f64f0e97a7d9a5a0b5eedf1d67b7b939/?p=IOgf4mSC2Pec3g82G1qSlw',
   ],
   [
     'home-toilet',
     'Метки дома',
     'map-puppy-toilet-marking',
-    'https://rutube.ru/video/private/db97d2632ae782185a907d017575cc9c/?p=chkUlQ_NXso5dPwl-I1n3Q',
   ],
   [
     'conflicts-biting-hands',
     'Грызёт руки и ноги: спокойная и правильная игра',
     'map-puppy-conflicts-biting',
-    'https://rutube.ru/video/private/5f9b127377cd1a043cab44b56d98df55/?p=NiyXnCpum9bLFkWAUaioRg',
   ],
   [
     'conflicts-vandal',
     'Мой щенок вандалит и разносит квартиру',
     'map-puppy-conflicts-vandal',
-    'https://rutube.ru/video/private/c5e830c0def596d41344661ecd0e9995/?p=CoFmTZ2pALMmx2eYhWSRZA',
   ],
   [
     'conflicts-resource-guarding',
     'Охраняет чашку, вещи и игрушки',
     'map-puppy-conflicts-guarding',
-    'https://rutube.ru/video/private/1766c0e2df0912aceebb1a0c2911cb73/?p=F1FMgnaJ4INALu2J7AsSqA',
   ],
   [
     'conflicts-barks-at-people',
     'Лает на людей и собак',
     'map-puppy-conflicts-barking',
-    'https://rutube.ru/video/private/1a8799f89386b1025522c28b19d6206b/?p=FjyZ6bt_uMfxOSW72OLjqg',
   ],
   [
     'conflicts-neutering',
     'Кастрировать или стерилизовать?',
     'map-puppy-conflicts-neutering',
-    'https://rutube.ru/video/private/1a9ba87049f2837eff85f2216d5504ec/?p=F-qJcAhquirvHo5hdmCS5Q',
   ],
   [
     'fears-sounds',
     'Боязнь звуков (собака боится салютов, пылесосов, лая других собак и звука фена)',
     'map-puppy-fears-sounds',
-    'https://rutube.ru/video/private/e501d1b145969703e3de68e2a36820d1/?p=jkE-lFhpUCp_3IFSLMABhA',
   ],
   [
     'fears-new-places',
     'Страх лестницы/лифта',
     'map-puppy-fears-stairs-lift',
-    'https://rutube.ru/video/private/9c8c48c06b6328e8a72b75f3df3ade84/?p=CQP2BUTwo0BD04P2GcFgnA',
   ],
   [
     'fears-space-organization',
     'Щенок дома',
     'map-puppy-fears-space',
-    'https://rutube.ru/video/private/8c78568d20f5cfaa21a85680d6256caa/?p=q0gmTeAB_ZCEv0i2WHarIg',
   ],
   [
     'care-claws',
     'Когти: анатомия когтя и стрижка',
     'map-puppy-care-claws',
-    'https://rutube.ru/video/private/fb291b9372cc8cde0b9bfe74ffb3280e/?p=v4xfRGW_V1ZRF-BYYPTZpA',
   ],
   [
     'fitness-bow',
     'Поклон',
     'map-puppy-fitness-bow',
-    'https://rutube.ru/video/private/b67278e1b0e316cf36a9eb54ec0ccdb9/?p=t0wNGiVBZN0mG3eTWqi9_Q',
   ],
   [
     'fitness-bunny',
     'Зайка',
     'map-puppy-fitness-bunny',
-    'https://rutube.ru/video/private/942176b07180ca6ffd4d32c7d4ab74b9/?p=M2wePflL4R7VCgAJyq3aUQ',
   ],
   [
     'fitness-house',
     'Домик',
     'map-puppy-fitness-house',
-    'https://rutube.ru/video/private/d56219b18cc1bb2116ce3ccbf51fa09b/?p=8nsyQLKls6pIL92KCnZgqA',
+    'mp4',
   ],
   [
     'fitness-paw',
     '«Дай лапу»',
     'map-puppy-fitness-paw',
-    'https://rutube.ru/video/private/9b92e46e194cdea5bb5d64011c27f23d/?p=e55CiwRfECm5ybbSfbB-Tg',
   ],
   [
     'adult-large-leash',
     'Как отучить тянуть поводок?',
     'map-adult-large-leash-pulling',
-    'https://rutube.ru/video/private/f3feaa722dae449718e1d7e2df717e84/?p=lUnLrVJeTXQNguoa4yG3pQ',
   ],
   [
     'adult-large-food-pickup',
     'Импульс-контроль + Выдержка',
     'map-adult-large-food-impulse',
-    'https://rutube.ru/video/private/e9f0cb8baf40516cadca88b23554c21c/?p=GBim4zrE2s8wgi9bBdOjEA',
   ],
   [
     'adult-large-food-pickup',
     'Намордник без драмы',
     'map-adult-large-food-muzzle',
-    'https://rutube.ru/video/private/cf5bdbbf73f7abdbff8b67d3d5368ae7/?p=QWbEYvLL8XhVbQN6hR64jw',
   ],
   [
     'adult-large-recall',
     'Контакт',
     'map-adult-large-recall-contact',
-    'https://rutube.ru/video/private/80b9e9e2a2c94f9ca9aeaca297b5520b/?p=_PRlDTIbyOKILgkOlnGEpw',
   ],
   [
     'adult-large-recall',
     'Ко мне',
     'map-adult-large-recall-come',
-    'https://rutube.ru/video/private/3428535014c3c6ae9fb6ea5d671e5a4b/?p=acADR77e4AKTYgTXrMq6aQ',
   ],
   [
     'adult-large-ignore-triggers',
     'Выдержка: не срываемся на всё подряд',
     'map-adult-large-ignore-impulse',
-    'https://rutube.ru/video/private/1072ba3cecb33406ff1c5395f7ba5c4e/?p=0kHwy8AO5ar2Dh8Z6XSuDw',
   ],
   [
     'adult-large-ignore-triggers',
     'Топ интересных игр на прогулке, или как наладить контакт',
     'map-adult-large-ignore-games',
-    'https://rutube.ru/video/private/d0f206ab4aa8d3428ca3005f7ea3b08f/?p=8x5B3neNBu5KumvPL4A_0g',
   ],
   [
     'adult-large-barking',
     'Команда «тише»',
     'map-adult-large-home-quiet',
-    'https://rutube.ru/video/private/7b567bd209ba3bce8bbd570377fa3a66/?p=hI7fUYeVpBsBoYa_HpWg7Q',
   ],
   [
     'adult-large-barking',
     'Приучаем к звукам: домофон и хлопки',
     'map-adult-large-home-sounds',
-    'https://rutube.ru/video/private/eda5f0d567ce37786790c95483c93c0a/?p=m0zIkK3NsPdt15blAfhaqQ',
   ],
   [
     'adult-large-loneliness',
     'Убираем страх и повышаем уверенность в себе',
     'map-adult-large-loneliness-confidence',
-    'https://rutube.ru/video/private/3e528d87f03d10cf39ae815836a81801/?p=xAcUHghevfMxkBlpEDtjBQ',
   ],
   [
     'adult-large-loneliness',
     'Правильная организация пространства',
     'map-adult-large-loneliness-space',
-    'https://rutube.ru/video/private/345417b4748cd2d89c722cc68e083afb/?p=kfGT15gXe_gkLyI9qYROZw',
   ],
   [
     'adult-large-loneliness',
     'Учим постепенно оставаться одному',
     'map-adult-large-loneliness-alone',
-    'https://rutube.ru/video/private/c99413cbde6cb274beba12eb7f91f6a8/?p=tfaL-TQ-lufGdN9E3JPLUQ',
   ],
   [
     'adult-large-jumping-on-guests',
     'Правильный приход/выход из дома',
     'map-adult-large-guests-arrival',
-    'https://rutube.ru/video/private/6090f451b068583caee69fb900ad90af/?p=eMmHU56z3Q0u0A3K8DiDqA',
   ],
   [
     'adult-large-begging',
     'Питание',
     'map-adult-large-begging-feeding',
-    'https://rutube.ru/video/private/63eb473499712d8feaa0656be9688c67/?p=nKspthZal_AUVn6OUFAivg',
   ],
   [
     'adult-large-toilet',
     'Приучение к улице + режим',
     'map-adult-large-toilet-outside',
-    'https://rutube.ru/video/private/f64f0e97a7d9a5a0b5eedf1d67b7b939/?p=IOgf4mSC2Pec3g82G1qSlw',
   ],
   [
     'adult-large-toilet',
     'Метки дома',
     'map-adult-large-toilet-marking',
-    'https://rutube.ru/video/private/db97d2632ae782185a907d017575cc9c/?p=chkUlQ_NXso5dPwl-I1n3Q',
   ],
   [
     'adult-large-overaroused-play',
     'Перевозбуждается при игре',
     'map-adult-large-conflicts-overaroused',
-    'https://rutube.ru/video/private/aa71e29d8bed85e57a01056d8f6cc981/?p=OdB9-lJxqAUhCHWl1sKrng',
   ],
   [
     'adult-large-resource-guarding',
     'Охраняет чашку/вещи/игрушки',
     'map-adult-large-conflicts-guarding',
-    'https://rutube.ru/video/private/43d5dfef50ab41c7003d1ba892bfa690/?p=YUCmBYXbXsInQ0QeRGe73Q',
   ],
   [
     'adult-large-barks-at-people',
     'Лает на людей/собак',
     'map-adult-large-conflicts-barking',
-    'https://rutube.ru/video/private/c5139d68dc7670e4f31a25a6ff764406/?p=B5tC6gDGO7q_Vt0WllN5Pw',
   ],
   [
     'adult-large-neutering',
     'Кастрировать/стерилизовать или нет?',
     'map-adult-large-conflicts-neutering',
-    'https://rutube.ru/video/private/1a9ba87049f2837eff85f2216d5504ec/?p=F-qJcAhquirvHo5hdmCS5Q',
   ],
   [
     'adult-large-scooters-bikes',
     'Бросается на самокаты/велосипеды',
     'map-adult-large-conflicts-scooters',
-    'https://rutube.ru/video/private/967d40d46cbecebe9ed0898bd970c024/?p=N8F3EGw7nilRLR4JXyRiEQ',
   ],
   [
     'adult-large-follows-tail',
     'Ходит хвостиком + Как минимизировать тревожность?',
     'map-adult-large-fears-follows-tail',
-    'https://rutube.ru/video/private/4d82acbd403f39be5d32d63b9f96d07d/?p=8K0_FThbr1FhIWSqSD7_Qw',
   ],
   [
     'adult-large-sounds',
     'Боязнь звуков',
     'map-adult-large-fears-sounds',
-    'https://rutube.ru/video/private/eda5f0d567ce37786790c95483c93c0a/?p=m0zIkK3NsPdt15blAfhaqQ',
   ],
   [
     'adult-large-cars',
     'Приучаем постепенно к машине',
     'map-adult-large-fears-cars',
-    'https://rutube.ru/video/private/a10fcc7797462420bc6df53b0f4e4bd3/?p=7Tb-gnfzFNrMMWlsPHk7Hg',
   ],
   [
     'adult-large-new-places',
     'Страх лестницы/лифта',
     'map-adult-large-fears-stairs-lift',
-    'https://rutube.ru/video/private/3e9e2373cc789291b830870e7795fdf4/?p=6cDLWYLiDw-0tUP5rdWDyQ',
   ],
   [
     'adult-large-claws',
     'Когти',
     'map-adult-large-care-claws',
-    'https://rutube.ru/video/db778ac8388f60e888fcb4c67b9a2400/',
   ],
   [
     'adult-large-eight',
     'Восемь',
     'map-adult-large-fitness-eight',
-    'https://rutube.ru/video/private/ffebb9a2b318a43e3b06bfc3aec6acc9/?p=1tCevmSiJ6w-WF6BwaFNBw',
   ],
   [
     'adult-large-go-around',
     'Обойди',
     'map-adult-large-fitness-go-around',
-    'https://rutube.ru/video/private/bf3d560106670dff9eab6d64c364a877/?p=2dRDPB4PvUoY6LPFU35fTQ',
   ],
   [
     'adult-large-wipe-muzzle',
     'Вытри морду',
     'map-adult-large-fitness-wipe-muzzle',
-    'https://rutube.ru/video/private/c9caf85e9ba8ed92e50c06cd77f1692a/?p=iz8RFE3RJuv83b-ndOnXzw',
   ],
   [
     'adult-large-bow',
     'Поклон',
     'map-adult-large-fitness-bow',
-    'https://rutube.ru/video/private/b67278e1b0e316cf36a9eb54ec0ccdb9/?p=t0wNGiVBZN0mG3eTWqi9_Q',
   ],
 ] as const satisfies readonly PlannedLessonVideo[];
 
@@ -2141,7 +2067,7 @@ function applyPlannedLessonVideos(): void {
     topics.map((topic) => [topic.slug, topic]),
   );
 
-  plannedLessonVideos.forEach(([topicSlug, lessonTitle, videoId, rutubeUrl]) => {
+  plannedLessonVideos.forEach(([topicSlug, lessonTitle, videoId, sourceType]) => {
     const topic = topicsBySlug.get(topicSlug);
     const lesson = topic?.lessons.find((item) => item.title === lessonTitle);
 
@@ -2149,7 +2075,7 @@ function applyPlannedLessonVideos(): void {
       throw new Error(`Planned lesson video target not found: ${topicSlug} / ${lessonTitle}`);
     }
 
-    lesson.video = { id: videoId, rutubeUrl };
+    lesson.video = { id: videoId, sourceType };
   });
 
   plannedLessonCovers.forEach(([topicSlug, lessonTitle, coverPath]) => {
@@ -2398,6 +2324,7 @@ const adultSmallTopicsBySlug = new Map<
 interface LessonVideoEntry {
   id: string;
   title: string;
+  sourceType?: LessonVideoSource;
   rutubeUrl?: string;
   youtubeUrl?: string;
   backRoute: AppRoute;
@@ -2414,11 +2341,13 @@ function registerLessonVideo(lesson: PuppyLessonItem, backRoute: AppRoute): void
     throw new Error(`Duplicate lesson video id: ${lesson.video.id}`);
   }
 
+  const legacySource = getLegacyVideoSource(lesson.video.id);
+
   lessonVideosById.set(lesson.video.id, {
     id: lesson.video.id,
     title: lesson.title,
-    rutubeUrl: lesson.video.rutubeUrl,
-    youtubeUrl: lesson.video.youtubeUrl,
+    sourceType: lesson.video.sourceType,
+    ...legacySource,
     backRoute,
   });
 }
@@ -2439,43 +2368,31 @@ const complexLevelVideos = [
   {
     id: 'complex-timed-beginner',
     title: 'Комплекс: Начальный — На время',
-    rutubeUrl:
-      'https://rutube.ru/video/private/868c780b99793a9e95420aa8e609a364/?p=NinDdZkeobL_1LwsRFPirg',
     backRoute: 'complex-levels:timed',
   },
   {
     id: 'complex-timed-intermediate',
     title: 'Комплекс: Средний — На время',
-    rutubeUrl:
-      'https://rutube.ru/video/private/20c4369faf79963b4524a33ed46a62d9/?p=VgnmTA_9eMVItCjPDTjz9Q',
     backRoute: 'complex-levels:timed',
   },
   {
     id: 'complex-timed-advanced',
     title: 'Комплекс: Сложный — На время',
-    rutubeUrl:
-      'https://rutube.ru/video/private/515c5cbaf7c3d02635a497851901d18a/?p=YIEV36zl9yUBQIuwpBJNug',
     backRoute: 'complex-levels:timed',
   },
   {
     id: 'complex-self-check-beginner',
     title: 'Комплекс: Начальный — Проверь себя',
-    rutubeUrl:
-      'https://rutube.ru/video/private/84fcd227c8379e275a2525a4c3c08300/?p=IDRdEPj_W_IOTFTvsdXt0w',
     backRoute: 'complex-levels:self-check',
   },
   {
     id: 'complex-self-check-intermediate',
     title: 'Комплекс: Средний — Проверь себя',
-    rutubeUrl:
-      'https://rutube.ru/video/private/bc52e70990d3b18762b5fd78ec2cf81b/?p=zQb1MxntcZfnXbSmcRkQBg',
     backRoute: 'complex-levels:self-check',
   },
   {
     id: 'complex-self-check-advanced',
     title: 'Комплекс: Сложный — Проверь себя',
-    rutubeUrl:
-      'https://rutube.ru/video/private/cb30527360112a4215a5e44b3c074988/?p=uSAlRskkBQI1tGejvH3vDQ',
     backRoute: 'complex-levels:self-check',
   },
 ] as const satisfies readonly LessonVideoEntry[];
@@ -2485,7 +2402,10 @@ complexLevelVideos.forEach((video) => {
     throw new Error(`Duplicate lesson video id: ${video.id}`);
   }
 
-  lessonVideosById.set(video.id, video);
+  lessonVideosById.set(video.id, {
+    ...video,
+    ...getLegacyVideoSource(video.id),
+  });
 });
 
 function getLessonVideoFromRoute(route: AppRoute): LessonVideoEntry | null {
@@ -2504,7 +2424,9 @@ export function createAppMarkup(
   const lessonVideo = getLessonVideoFromRoute(route);
 
   if (lessonVideo) {
-    return createRutubePlayerMarkup(lessonVideo);
+    return lessonVideo.sourceType
+      ? createLessonPlayerMarkup(lessonVideo)
+      : createRutubePlayerMarkup(lessonVideo);
   }
 
   if (route === 'complex') {
@@ -2582,21 +2504,6 @@ export function createAppMarkup(
   return createHomeMarkup();
 }
 
-export function createUnsupportedEnvironmentMarkup(): string {
-  const miniAppLink = getMiniAppLink();
-
-  return `
-    <main class="unsupported-shell">
-      <section class="unsupported-card">
-        <h1>Пожалуйста, откройте MiniApp</h1>
-        <a class="unsupported-link" href="${miniAppLink}" rel="noreferrer">
-          Открыть MiniApp
-        </a>
-      </section>
-    </main>
-  `;
-}
-
 export function getAllAppAssetPaths(): string[] {
   const paths = [
     '/assets/logo-dog.svg',
@@ -2641,7 +2548,6 @@ export function getAllAppAssetPaths(): string[] {
 
   return [...new Set(paths.filter((path): path is string => Boolean(path)).map(resolveCardImagePath))];
 }
-
 export function getSituationSlugFromRoute(route: AppRoute): PuppySituationSlug | null {
   if (!route.startsWith('puppy-situation:')) {
     return null;
@@ -3277,7 +3183,7 @@ function createRutubePlayerMarkup(video: LessonVideoEntry): string {
                 </button>
               </div>
               <div class="rutube-player-card__details">
-                <p>Тестовый текст</p>
+                <p>${escapedTitle}</p>
                 <button
                   class="rutube-player-card__expand-icon"
                   type="button"
@@ -3287,6 +3193,120 @@ function createRutubePlayerMarkup(video: LessonVideoEntry): string {
                   <span class="rutube-player-card__expand-symbol" aria-hidden="true"></span>
                 </button>
               </div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      ${createBottomNav('lessons')}
+    </div>
+  `;
+}
+
+function createLessonPlayerMarkup(video: LessonVideoEntry): string {
+  const escapedTitle = escapeHtml(video.title);
+  const escapedVideoId = escapeHtml(video.id);
+  const escapedSourceType = escapeHtml(video.sourceType ?? 'hls');
+
+  return `
+    <div class="app-shell">
+      <header class="subpage-header">
+        <div class="content-frame">
+          <div class="subpage-header__inner">
+            <button class="back-button" type="button" data-route="${video.backRoute}" aria-label="Назад">
+              <span class="back-button__icon" aria-hidden="true"></span>
+            </button>
+            <h1 class="subpage-title">${escapedTitle}</h1>
+          </div>
+        </div>
+      </header>
+
+      <main class="screen-content">
+        <div class="content-frame content-frame--player">
+          <section class="section-block section-block--detail-first">
+            <div class="lesson-player-card">
+              <div
+                class="lesson-player lesson-player--loading"
+                data-video-player
+                data-video-id="${escapedVideoId}"
+                data-video-source="${escapedSourceType}"
+                tabindex="0"
+              >
+                <video
+                  class="lesson-player__video"
+                  data-video-element
+                  preload="metadata"
+                  playsinline
+                  webkit-playsinline
+                  controlslist="nodownload nofullscreen noremoteplayback"
+                  disablepictureinpicture
+                  disableremoteplayback
+                  aria-label="${escapedTitle}"
+                ></video>
+
+                <button class="lesson-player__center-play" type="button" data-video-action="toggle" aria-label="Воспроизвести">
+                  <span class="lesson-player__play-symbol" aria-hidden="true"></span>
+                </button>
+
+                <div class="lesson-player__status" aria-live="polite">
+                  <span class="lesson-player__spinner" aria-hidden="true"></span>
+                  <span data-video-status-text>Загрузка видео…</span>
+                </div>
+
+                <div class="lesson-player__controls">
+                  <input
+                    class="lesson-player__seek"
+                    type="range"
+                    min="0"
+                    max="1000"
+                    value="0"
+                    step="1"
+                    data-video-seek
+                    aria-label="Перемотка видео"
+                  />
+                  <div class="lesson-player__control-row">
+                    <button class="lesson-player__button lesson-player__button--play" type="button" data-video-action="toggle" aria-label="Воспроизвести">
+                      <span class="lesson-player__play-symbol" aria-hidden="true"></span>
+                    </button>
+                    <span class="lesson-player__time">
+                      <span data-video-current-time>0:00</span>
+                      <span aria-hidden="true">/</span>
+                      <span data-video-duration>0:00</span>
+                    </span>
+                    <span class="lesson-player__control-spacer"></span>
+                    <label class="lesson-player__select-wrap" data-video-quality-control hidden>
+                      <span class="sr-only">Качество</span>
+                      <select class="lesson-player__select" data-video-quality aria-label="Качество видео">
+                        <option value="-1">Авто</option>
+                      </select>
+                    </label>
+                    <label class="lesson-player__select-wrap">
+                      <span class="sr-only">Скорость</span>
+                      <select class="lesson-player__select" data-video-speed aria-label="Скорость воспроизведения">
+                        <option value="0.75">0.75×</option>
+                        <option value="1" selected>1×</option>
+                        <option value="1.25">1.25×</option>
+                        <option value="1.5">1.5×</option>
+                        <option value="2">2×</option>
+                      </select>
+                    </label>
+                    <button class="lesson-player__button lesson-player__button--volume" type="button" data-video-action="mute" aria-label="Выключить звук">
+                      <svg class="lesson-player__volume-symbol" viewBox="0 0 24 24" aria-hidden="true">
+                        <path class="lesson-player__volume-speaker" d="M4 9.25v5.5h3.6l4.15 3.35V5.9L7.6 9.25H4Z"></path>
+                        <path class="lesson-player__volume-waves" d="M15.1 9.1a4 4 0 0 1 0 5.8M17.85 6.65a7.45 7.45 0 0 1 0 10.7"></path>
+                        <path class="lesson-player__volume-muted" d="m15.25 9.25 5.5 5.5m0-5.5-5.5 5.5"></path>
+                      </svg>
+                    </button>
+                    <input class="lesson-player__volume" type="range" min="0" max="100" value="85" data-video-volume aria-label="Громкость" />
+                    <button class="lesson-player__button lesson-player__button--fullscreen" type="button" data-video-action="fullscreen" aria-label="На весь экран">
+                      <svg class="lesson-player__fullscreen-symbol" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M8.5 4.5h-4v4m11-4h4v4m-15 7v4h4m11-4v4h-4"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p class="lesson-player-card__title">${escapedTitle}</p>
             </div>
           </section>
         </div>
@@ -3782,20 +3802,6 @@ function createNavTab(
       </span>
     </button>
   `;
-}
-
-function getMiniAppLink(): string {
-  const configuredLink = import.meta.env.VITE_MINI_APP_LINK;
-
-  if (!configuredLink) {
-    return 'https://t.me/testpuppybot/navigation';
-  }
-
-  if (configuredLink.startsWith('https://t.me/')) {
-    return configuredLink;
-  }
-
-  return `https://t.me/${configuredLink.replace(/^https?:\/\//, '').replace(/^t\.me\//, '').replace(/^\/+/, '')}`;
 }
 
 function getRutubeEmbedUrl(sourceUrl?: string): string {
