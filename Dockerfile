@@ -2,28 +2,24 @@ FROM node:22-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 
-COPY . .
-
-ARG VITE_MINI_APP_LINK
-ARG VITE_TEST_RUTUBE_VIDEO_URL
-ENV VITE_MINI_APP_LINK=$VITE_MINI_APP_LINK
-ENV VITE_TEST_RUTUBE_VIDEO_URL=$VITE_TEST_RUTUBE_VIDEO_URL
+COPY index.html tsconfig.json vite.config.ts ./
+COPY public ./public
+COPY src ./src
 
 RUN npm run build
 
 FROM node:22-alpine AS app
 WORKDIR /app
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    APP_SERVER_PORT=8787
 
-COPY package*.json ./
-RUN npm ci --omit=dev
+COPY --chown=node:node scripts/app-server.mjs scripts/video-catalog.mjs ./scripts/
+COPY --from=build --chown=node:node /app/dist ./dist
 
-COPY scripts ./scripts
-COPY --from=build /app/dist ./dist
-
-RUN mkdir -p data
+RUN mkdir -p public/data && chown -R node:node public
 
 EXPOSE 8787
-CMD ["node", "scripts/run-bot-server.mjs"]
+USER node
+CMD ["node", "scripts/app-server.mjs"]

@@ -3,16 +3,16 @@ import {
   PuppyFilter,
   SituationVideosState,
   createAppMarkup,
-  createUnsupportedEnvironmentMarkup,
   getVideoSourceSlugForRoute,
 } from './app';
 import { fetchSituationVideos } from './lib/videos';
-import { getTelegramWebApp, initTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
+import { initTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
 import {
   ComplexRevealOrigin,
   animateComplexRevealTransition,
   getComplexRevealOrigin,
 } from './complex-reveal';
+import { setupLessonVideoPlayer } from './video-player';
 import './styles.css';
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
@@ -31,39 +31,32 @@ let lastRenderedRoute: AppRoute | null = null;
 let pendingTransitionDirection: PageTransitionDirection | null = null;
 let previousPageScroll: { route: AppRoute; scrollTop: number } | null = null;
 let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
+let destroyLessonVideoPlayer: (() => void) | null = null;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
-if (!webApp) {
-  root.innerHTML = createUnsupportedEnvironmentMarkup();
-  document.documentElement.dataset.launchContext = 'unsupported';
-} else {
+if (webApp) {
   document.documentElement.dataset.launchContext = 'telegram';
   document.documentElement.dataset.tgPlatform = webApp.platform || 'unknown';
-  void syncRouteState();
-  window.addEventListener('hashchange', () => {
-    void syncRouteState();
-  });
-  window.addEventListener('popstate', () => {
-    void syncRouteState();
-  });
-  window.addEventListener('resize', () => {
-    updateBottomNavIndicatorPosition();
-  });
+} else {
+  document.documentElement.dataset.launchContext = 'standalone';
 }
+
+void syncRouteState();
+window.addEventListener('hashchange', () => {
+  void syncRouteState();
+});
+window.addEventListener('popstate', () => {
+  void syncRouteState();
+});
+window.addEventListener('resize', () => {
+  updateBottomNavIndicatorPosition();
+});
 
 document.addEventListener('click', (event) => {
   const target = event.target;
 
   if (!(target instanceof HTMLElement)) {
-    return;
-  }
-
-  const rutubeExpandButton = target.closest<HTMLElement>('[data-rutube-expand]');
-
-  if (rutubeExpandButton) {
-    const shouldExpand = rutubeExpandButton.dataset.rutubeExpand === 'true';
-    setRutubeExpanded(shouldExpand);
     return;
   }
 
@@ -129,21 +122,7 @@ document.addEventListener('click', (event) => {
   showFeedback(message);
 });
 
-document.addEventListener('keydown', (event) => {
-  if (event.key !== 'Escape') {
-    return;
-  }
-
-  if (document.documentElement.dataset.rutubeExpanded === 'true') {
-    setRutubeExpanded(false);
-  }
-});
-
 function render(): void {
-  if (!webApp) {
-    return;
-  }
-
   const route = getCurrentRoute();
   const complexTransitionOrigin = pendingComplexTransitionOrigin;
   pendingComplexTransitionOrigin = null;
@@ -160,12 +139,13 @@ function render(): void {
     routeChanged && lastRenderedRoute === 'complex' && route.startsWith('complex-levels:');
 
   rememberCurrentScrollPosition(routeChanged);
+  destroyLessonVideoPlayer?.();
+  destroyLessonVideoPlayer = null;
 
   const finishMarkupUpdate = (): void => {
-    document.documentElement.dataset.rutubeExpanded = 'false';
-    document.body.style.overflow = '';
     restoreScrollPosition(savedScrollTop);
     setupLiquidGlassCards();
+    destroyLessonVideoPlayer = setupLessonVideoPlayer();
     const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
 
     if (navInner) {
@@ -526,7 +506,7 @@ async function syncRouteState(): Promise<void> {
     } catch {
       videosState = {
         status: 'error',
-        message: 'Р СџР С•Р С—РЎР‚Р С•Р В±РЎС“Р в„–РЎвЂљР Вµ Р С•РЎвЂљР С”РЎР‚РЎвЂ№РЎвЂљРЎРЉ РЎРЊР С”РЎР‚Р В°Р Р… РЎвЂЎРЎС“РЎвЂљРЎРЉ Р С—Р С•Р В·Р В¶Р Вµ',
+        message: 'Попробуйте открыть этот экран чуть позже',
       };
     }
 
@@ -551,12 +531,10 @@ function navigateTo(route: AppRoute): void {
 }
 
 function showFeedback(message: string): void {
-  const activeWebApp = webApp ?? getTelegramWebApp();
+  webApp?.HapticFeedback?.impactOccurred('light');
 
-  activeWebApp?.HapticFeedback?.impactOccurred('light');
-
-  if (activeWebApp?.showAlert) {
-    activeWebApp.showAlert(message);
+  if (webApp?.showAlert) {
+    webApp.showAlert(message);
     return;
   }
 
@@ -564,15 +542,13 @@ function showFeedback(message: string): void {
 }
 
 function openExternalUrl(url: string): void {
-  const activeWebApp = webApp ?? getTelegramWebApp();
-
   if (url.startsWith('https://t.me/') || url.startsWith('http://t.me/')) {
-    if (activeWebApp?.openTelegramLink) {
-      activeWebApp.openTelegramLink(url);
+    if (webApp?.openTelegramLink) {
+      webApp.openTelegramLink(url);
       return;
     }
-  } else if (activeWebApp?.openLink) {
-    activeWebApp.openLink(url);
+  } else if (webApp?.openLink) {
+    webApp.openLink(url);
     return;
   }
 
@@ -601,16 +577,4 @@ function updateBottomNavIndicatorPosition(): void {
       navInner.style.setProperty('--active-indicator-left', nextIndicatorLeft);
     });
   });
-}
-
-function setRutubeExpanded(expanded: boolean): void {
-  const playerCard = document.querySelector<HTMLElement>('.rutube-player-card');
-
-  if (!playerCard) {
-    return;
-  }
-
-  playerCard.classList.toggle('rutube-player-card--expanded', expanded);
-  document.documentElement.dataset.rutubeExpanded = expanded ? 'true' : 'false';
-  document.body.style.overflow = expanded ? 'hidden' : '';
 }
