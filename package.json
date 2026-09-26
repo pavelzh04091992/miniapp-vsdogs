@@ -15,6 +15,7 @@
     "bot:server": "node scripts/app-server.mjs",
     "bot:set-webhook": "node scripts/set-webhook.mjs",
     "media:check": "node scripts/check-media.mjs",
+    "video:catalog:check": "node scripts/check-video-catalog.mjs",
     "video:prepare": "node scripts/prepare-video.mjs",
     "typecheck": "tsc --noEmit"
   },

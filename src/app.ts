@@ -1,5 +1,6 @@
 import { SituationSlug, SituationVideo } from './lib/videos';
 import { getLegacyVideoSource } from './legacy-video-sources';
+import localVideoCatalog from './local-video-catalog.json';
 
 export type PuppySituationSlug =
   | 'ideal-walk'
@@ -149,6 +150,7 @@ interface PuppyLessonItem {
   coverPath?: string;
   video?: {
     id: string;
+    mediaId?: string;
     sourceType?: LessonVideoSource;
   };
   externalUrl?: string;
@@ -2316,6 +2318,47 @@ const adultSmallTopics = adultSmallSituations.flatMap((situation) =>
   })),
 );
 
+type LocalVideoTopicSlug = PuppyTopicSlug | AdultLargeTopicSlug | AdultSmallTopicSlug;
+
+const localLessonMediaByTopic = localVideoCatalog.topicMedia satisfies Record<
+  LocalVideoTopicSlug,
+  string[]
+>;
+
+function applyLocalLessonVideos(): void {
+  const topics: Array<{ slug: LocalVideoTopicSlug; lessons: PuppyLessonItem[] }> = [
+    ...puppySituations.flatMap((situation) => situation.topics),
+    ...adultLargeSituations.flatMap((situation) => situation.topics),
+    ...adultSmallSituations.flatMap((situation) => situation.topics),
+  ];
+
+  topics.forEach((topic) => {
+    const mediaIds = localLessonMediaByTopic[topic.slug];
+
+    if (mediaIds.length !== topic.lessons.length) {
+      throw new Error(
+        `Local video count mismatch for ${topic.slug}: ${mediaIds.length} media / ${topic.lessons.length} lessons`,
+      );
+    }
+
+    topic.lessons.forEach((lesson, index) => {
+      const mediaId = mediaIds[index];
+
+      if (!(mediaId in localVideoCatalog.mediaFiles)) {
+        throw new Error(`Unknown local media id: ${mediaId}`);
+      }
+
+      lesson.video = {
+        id: lesson.video?.id ?? `${topic.slug}-${index + 1}`,
+        mediaId,
+        sourceType: 'mp4',
+      };
+    });
+  });
+}
+
+applyLocalLessonVideos();
+
 const adultSmallTopicsBySlug = new Map<
   AdultSmallTopicSlug,
   AdultSmallTopic & { parentSlug: AdultSmallSituationSlug; parentTitle: string }
@@ -2323,6 +2366,7 @@ const adultSmallTopicsBySlug = new Map<
 
 interface LessonVideoEntry {
   id: string;
+  mediaId?: string;
   title: string;
   sourceType?: LessonVideoSource;
   rutubeUrl?: string;
@@ -2345,6 +2389,7 @@ function registerLessonVideo(lesson: PuppyLessonItem, backRoute: AppRoute): void
 
   lessonVideosById.set(lesson.video.id, {
     id: lesson.video.id,
+    mediaId: lesson.video.mediaId,
     title: lesson.title,
     sourceType: lesson.video.sourceType,
     ...legacySource,
@@ -2367,32 +2412,44 @@ adultSmallTopics.forEach((topic) => {
 const complexLevelVideos = [
   {
     id: 'complex-timed-beginner',
+    mediaId: 'complex-timed-beginner',
     title: 'Комплекс: Начальный — На время',
+    sourceType: 'mp4',
     backRoute: 'complex-levels:timed',
   },
   {
     id: 'complex-timed-intermediate',
+    mediaId: 'complex-timed-intermediate',
     title: 'Комплекс: Средний — На время',
+    sourceType: 'mp4',
     backRoute: 'complex-levels:timed',
   },
   {
     id: 'complex-timed-advanced',
+    mediaId: 'complex-timed-advanced',
     title: 'Комплекс: Сложный — На время',
+    sourceType: 'mp4',
     backRoute: 'complex-levels:timed',
   },
   {
     id: 'complex-self-check-beginner',
+    mediaId: 'complex-self-check-beginner',
     title: 'Комплекс: Начальный — Проверь себя',
+    sourceType: 'mp4',
     backRoute: 'complex-levels:self-check',
   },
   {
     id: 'complex-self-check-intermediate',
+    mediaId: 'complex-self-check-intermediate',
     title: 'Комплекс: Средний — Проверь себя',
+    sourceType: 'mp4',
     backRoute: 'complex-levels:self-check',
   },
   {
     id: 'complex-self-check-advanced',
+    mediaId: 'complex-self-check-advanced',
     title: 'Комплекс: Сложный — Проверь себя',
+    sourceType: 'mp4',
     backRoute: 'complex-levels:self-check',
   },
 ] as const satisfies readonly LessonVideoEntry[];
@@ -3205,7 +3262,7 @@ function createRutubePlayerMarkup(video: LessonVideoEntry): string {
 
 function createLessonPlayerMarkup(video: LessonVideoEntry): string {
   const escapedTitle = escapeHtml(video.title);
-  const escapedVideoId = escapeHtml(video.id);
+  const escapedVideoId = escapeHtml(video.mediaId ?? video.id);
   const escapedSourceType = escapeHtml(video.sourceType ?? 'hls');
 
   return `
