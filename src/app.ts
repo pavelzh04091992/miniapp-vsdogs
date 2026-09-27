@@ -1,5 +1,4 @@
 import { SituationSlug, SituationVideo } from './lib/videos';
-import { getLegacyVideoSource } from './legacy-video-sources';
 import localVideoCatalog from './local-video-catalog.json';
 
 export type PuppySituationSlug =
@@ -2363,16 +2362,14 @@ interface LessonVideoEntry {
   id: string;
   mediaId?: string;
   title: string;
-  sourceType?: LessonVideoSource;
-  rutubeUrl?: string;
-  youtubeUrl?: string;
+  sourceType: LessonVideoSource;
   backRoute: AppRoute;
 }
 
 const lessonVideosById = new Map<string, LessonVideoEntry>();
 
 function registerLessonVideo(lesson: PuppyLessonItem, backRoute: AppRoute): void {
-  if (!lesson.video) {
+  if (!lesson.video?.sourceType) {
     return;
   }
 
@@ -2380,14 +2377,11 @@ function registerLessonVideo(lesson: PuppyLessonItem, backRoute: AppRoute): void
     throw new Error(`Duplicate lesson video id: ${lesson.video.id}`);
   }
 
-  const legacySource = getLegacyVideoSource(lesson.video.id);
-
   lessonVideosById.set(lesson.video.id, {
     id: lesson.video.id,
     mediaId: lesson.video.mediaId,
     title: lesson.title,
     sourceType: lesson.video.sourceType,
-    ...legacySource,
     backRoute,
   });
 }
@@ -2454,10 +2448,7 @@ complexLevelVideos.forEach((video) => {
     throw new Error(`Duplicate lesson video id: ${video.id}`);
   }
 
-  lessonVideosById.set(video.id, {
-    ...video,
-    ...getLegacyVideoSource(video.id),
-  });
+  lessonVideosById.set(video.id, { ...video });
 });
 
 function getLessonVideoFromRoute(route: AppRoute): LessonVideoEntry | null {
@@ -2476,9 +2467,7 @@ export function createAppMarkup(
   const lessonVideo = getLessonVideoFromRoute(route);
 
   if (lessonVideo) {
-    return lessonVideo.sourceType
-      ? createLessonPlayerMarkup(lessonVideo)
-      : createRutubePlayerMarkup(lessonVideo);
+    return createLessonPlayerMarkup(lessonVideo);
   }
 
   if (route === 'complex') {
@@ -3182,79 +3171,6 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
   `;
 }
 
-function createRutubePlayerMarkup(video: LessonVideoEntry): string {
-  const youtubeEmbedUrl = getYoutubeEmbedUrl(video.youtubeUrl);
-  const rutubeEmbedUrl = youtubeEmbedUrl ? '' : getRutubeEmbedUrl(video.rutubeUrl);
-  const embedUrl = youtubeEmbedUrl || rutubeEmbedUrl;
-  const escapedTitle = escapeHtml(video.title);
-  const providerLabel = youtubeEmbedUrl ? 'YouTube' : 'Rutube';
-
-  return `
-    <div class="app-shell">
-      <header class="subpage-header">
-        <div class="content-frame">
-          <div class="subpage-header__inner">
-            <button class="back-button" type="button" data-route="${video.backRoute}" aria-label="Назад">
-              <span class="back-button__icon" aria-hidden="true"></span>
-            </button>
-            <h1 class="subpage-title">${escapedTitle}</h1>
-          </div>
-        </div>
-      </header>
-
-      <main class="screen-content">
-        <div class="content-frame content-frame--player">
-          <section class="section-block section-block--detail-first">
-            <div class="rutube-player-card">
-              <div class="rutube-player-card__frame">
-                ${
-                  embedUrl
-                    ? `<iframe
-                        src="${escapeHtml(embedUrl)}"
-                        title="${escapedTitle}"
-                        frameborder="0"
-                        allow="autoplay; clipboard-write; fullscreen; picture-in-picture"
-                        referrerpolicy="strict-origin-when-cross-origin"
-                        allowFullScreen
-                        webkitallowfullscreen
-                        mozallowfullscreen
-                        allowfullscreen
-                      ></iframe>`
-                    : `<div class="rutube-player-card__empty">
-                        <h2>Видео временно недоступно</h2>
-                        <p>Не удалось подготовить безопасную ссылку на ${providerLabel}</p>
-                      </div>`
-                }
-                <button
-                  class="rutube-player-card__collapse"
-                  type="button"
-                  data-rutube-expand="false"
-                  aria-label="Свернуть плеер"
-                >
-                  Свернуть
-                </button>
-              </div>
-              <div class="rutube-player-card__details">
-                <p>${escapedTitle}</p>
-                <button
-                  class="rutube-player-card__expand-icon"
-                  type="button"
-                  data-rutube-expand="true"
-                  aria-label="Открыть в полный экран"
-                >
-                  <span class="rutube-player-card__expand-symbol" aria-hidden="true"></span>
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
-      </main>
-
-      ${createBottomNav('lessons')}
-    </div>
-  `;
-}
-
 function createLessonPlayerMarkup(video: LessonVideoEntry): string {
   const escapedTitle = escapeHtml(video.title);
   const escapedVideoId = escapeHtml(video.mediaId ?? video.id);
@@ -3443,10 +3359,11 @@ function createVideoCard(video: SituationVideo): string {
 function createLessonCard(lesson: PuppyLessonItem): string {
   const feedback = lesson.feedback ?? `Материал "${lesson.title}" пока без подключённого видео`;
   const externalAttr = lesson.externalUrl ? `data-external-url="${escapeHtml(lesson.externalUrl)}"` : '';
-  const route = lesson.video ? `lesson-video:${lesson.video.id}` : lesson.route;
+  const route = lesson.video?.sourceType ? `lesson-video:${lesson.video.id}` : lesson.route;
   const routeAttr = route ? `data-route="${route}"` : '';
-  const buttonClass = lesson.externalUrl || route ? 'lesson-card' : 'lesson-card lesson-card--placeholder js-feedback';
-  const buttonFeedback = lesson.externalUrl || route ? '' : `data-feedback="${escapeHtml(feedback)}"`;
+  const hasAction = Boolean(lesson.externalUrl || route);
+  const buttonClass = hasAction ? 'lesson-card' : 'lesson-card lesson-card--placeholder js-feedback';
+  const buttonFeedback = hasAction ? '' : `data-feedback="${escapeHtml(feedback)}"`;
   const previewMarkup = lesson.coverPath
     ? `<img src="${escapeHtml(lesson.coverPath)}" alt="" loading="lazy" />`
     : `
@@ -3473,7 +3390,7 @@ function createLessonCard(lesson: PuppyLessonItem): string {
       <span class="lesson-card__body">
         <span class="lesson-card__title">${escapeHtml(lesson.title)}</span>
         <span class="lesson-card__description">${escapeHtml(lesson.description)}</span>
-        ${lesson.video || lesson.externalUrl ? '' : '<span class="lesson-card__status">Материал готовится</span>'}
+        ${hasAction ? '' : '<span class="lesson-card__status">Материал готовится</span>'}
       </span>
     </button>
   `;
@@ -3854,74 +3771,6 @@ function createNavTab(
       </span>
     </button>
   `;
-}
-
-function getRutubeEmbedUrl(sourceUrl?: string): string {
-  const configuredUrl = sourceUrl?.trim() ?? '';
-
-  if (!configuredUrl) {
-    return '';
-  }
-
-  try {
-    const url = new URL(configuredUrl);
-    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
-
-    if (url.protocol !== 'https:' || hostname !== 'rutube.ru') {
-      return '';
-    }
-
-    const videoMatch = url.pathname.match(/^\/(?:play\/embed\/|video\/(?:private\/)?)([a-f0-9]{32})(?:\/|$)/i);
-
-    if (videoMatch) {
-      const embedUrl = new URL(`https://rutube.ru/play/embed/${videoMatch[1]}/`);
-      embedUrl.search = url.search;
-      return embedUrl.toString();
-    }
-  } catch {
-    return '';
-  }
-
-  return '';
-}
-
-function getYoutubeEmbedUrl(sourceUrl?: string): string {
-  const configuredUrl = sourceUrl?.trim() ?? '';
-
-  if (!configuredUrl) {
-    return '';
-  }
-
-  try {
-    const url = new URL(configuredUrl);
-    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
-    let videoId = '';
-
-    if (url.protocol !== 'https:') {
-      return '';
-    }
-
-    if (hostname === 'youtube.com') {
-      if (url.pathname === '/watch') {
-        videoId = url.searchParams.get('v') ?? '';
-      } else {
-        videoId = url.pathname.match(/^\/(?:embed|shorts)\/([a-zA-Z0-9_-]{11})\/?$/)?.[1] ?? '';
-      }
-    } else if (hostname === 'youtu.be') {
-      videoId = url.pathname.match(/^\/([a-zA-Z0-9_-]{11})\/?$/)?.[1] ?? '';
-    }
-
-    if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
-      return '';
-    }
-
-    const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
-    embedUrl.searchParams.set('rel', '0');
-    embedUrl.searchParams.set('playsinline', '1');
-    return embedUrl.toString();
-  } catch {
-    return '';
-  }
 }
 
 function escapeHtml(value: string): string {

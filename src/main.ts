@@ -61,13 +61,6 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  const rutubeExpandButton = target.closest<HTMLElement>('[data-rutube-expand]');
-
-  if (rutubeExpandButton) {
-    setRutubeExpanded(rutubeExpandButton.dataset.rutubeExpand === 'true');
-    return;
-  }
-
   const routeButton = target.closest<HTMLElement>('[data-route]');
 
   if (routeButton) {
@@ -130,16 +123,6 @@ document.addEventListener('click', (event) => {
   showFeedback(message);
 });
 
-document.addEventListener('keydown', (event) => {
-  if (event.key !== 'Escape') {
-    return;
-  }
-
-  if (document.documentElement.dataset.rutubeExpanded === 'true') {
-    setRutubeExpanded(false);
-  }
-});
-
 async function initializeApp(): Promise<void> {
   root.innerHTML = `
     <main class="initial-loader" role="status" aria-live="polite" aria-label="Загрузка приложения">
@@ -171,7 +154,6 @@ function render(): void {
   destroyLessonVideoPlayer = null;
 
   const finishMarkupUpdate = (): void => {
-    document.documentElement.dataset.rutubeExpanded = 'false';
     document.body.style.overflow = '';
     restoreScrollPosition(savedScrollTop);
     setupLiquidGlassCards();
@@ -621,16 +603,4 @@ function updateBottomNavIndicatorPosition(): void {
       navInner.style.setProperty('--active-indicator-left', nextIndicatorLeft);
     });
   });
-}
-
-function setRutubeExpanded(expanded: boolean): void {
-  const playerCard = document.querySelector<HTMLElement>('.rutube-player-card');
-
-  if (!playerCard) {
-    return;
-  }
-
-  playerCard.classList.toggle('rutube-player-card--expanded', expanded);
-  document.documentElement.dataset.rutubeExpanded = expanded ? 'true' : 'false';
-  document.body.style.overflow = expanded ? 'hidden' : '';
 }
