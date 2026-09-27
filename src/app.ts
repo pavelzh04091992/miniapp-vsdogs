@@ -984,7 +984,6 @@ const puppySituations: PuppySituation[] = [
         meta: '3 видео',
         imagePath: '/assets/icons/toilet_puppy.webp',
         cardClass: 'topic-card--rose',
-        videoSourceSlug: 'puppy-toilet-home',
         lessons: [
           {
             title: 'Приучение к пелёнке и средства от запаха',
