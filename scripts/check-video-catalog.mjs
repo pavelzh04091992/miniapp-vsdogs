@@ -18,52 +18,81 @@ const property = (object, name) =>
       candidate.name.getText(sourceFile).replace(/["']/g, '') === name,
   )?.initializer;
 const stringValue = (node) => (node && ts.isStringLiteral(node) ? node.text : '');
-
-const topicLessonCounts = new Map();
-let lessonCount = 0;
-
-for (const variableName of [
-  'puppySituations',
-  'adultLargeSituations',
-  'adultSmallSituations',
-]) {
-  const declaration = sourceFile.statements
+const declaration = (name) =>
+  sourceFile.statements
     .filter(ts.isVariableStatement)
     .flatMap((statement) => [...statement.declarationList.declarations])
-    .find((candidate) => candidate.name.getText(sourceFile) === variableName);
+    .find((candidate) => candidate.name.getText(sourceFile) === name);
 
-  if (!declaration || !ts.isArrayLiteralExpression(declaration.initializer)) {
+const activeCards = new Map();
+let activeLessonCount = 0;
+
+// adultSmallSituations is legacy and deliberately excluded from local-video wiring.
+for (const variableName of ['puppySituations', 'adultLargeSituations']) {
+  const situations = declaration(variableName)?.initializer;
+  if (!situations || !ts.isArrayLiteralExpression(situations)) {
     throw new Error(`Cannot inspect ${variableName}`);
   }
 
-  for (const situation of declaration.initializer.elements) {
+  for (const situation of situations.elements) {
     for (const topic of property(situation, 'topics').elements) {
       const topicSlug = stringValue(property(topic, 'slug'));
-      const count = property(topic, 'lessons').elements.length;
-      topicLessonCounts.set(topicSlug, count);
-      lessonCount += count;
+      for (const lesson of property(topic, 'lessons').elements) {
+        const lessonTitle = stringValue(property(lesson, 'title'));
+        const key = `${topicSlug}\u0000${lessonTitle}`;
+        if (activeCards.has(key)) throw new Error(`Duplicate active card: ${topicSlug} / ${lessonTitle}`);
+        activeCards.set(key, { topicSlug, lessonTitle });
+        activeLessonCount += 1;
+      }
     }
   }
 }
 
-for (const [topicSlug, count] of topicLessonCounts) {
-  const assignments = catalog.topicMedia[topicSlug];
+const assignedTargets = new Set();
+const usedMedia = new Set();
 
-  if (!assignments) throw new Error(`Missing topic assignment: ${topicSlug}`);
-  if (assignments.length !== count) {
-    throw new Error(`${topicSlug}: ${assignments.length} media assignments for ${count} lessons`);
-  }
+for (const assignment of catalog.cardMedia) {
+  const { topicSlug, lessonTitle, mediaId } = assignment;
+  const key = `${topicSlug}\u0000${lessonTitle}`;
 
-  for (const mediaId of assignments) {
-    if (!catalog.mediaFiles[mediaId]) throw new Error(`Unknown media id: ${mediaId}`);
-  }
+  if (!activeCards.has(key)) throw new Error(`Unknown active card: ${topicSlug} / ${lessonTitle}`);
+  if (assignedTargets.has(key)) throw new Error(`Duplicate media assignment: ${topicSlug} / ${lessonTitle}`);
+  if (!catalog.mediaFiles[mediaId]) throw new Error(`Unknown media id: ${mediaId}`);
+
+  assignedTargets.add(key);
+  usedMedia.add(mediaId);
 }
 
-const unknownTopics = Object.keys(catalog.topicMedia).filter(
-  (topicSlug) => !topicLessonCounts.has(topicSlug),
+const complexMediaIds = [
+  'complex-timed-beginner',
+  'complex-timed-intermediate',
+  'complex-timed-advanced',
+  'complex-self-check-beginner',
+  'complex-self-check-intermediate',
+  'complex-self-check-advanced',
+];
+for (const mediaId of complexMediaIds) {
+  if (!catalog.mediaFiles[mediaId]) throw new Error(`Missing complex media: ${mediaId}`);
+  usedMedia.add(mediaId);
+}
+
+const intentionallyUnassigned = new Set();
+for (const mediaId of catalog.unassignedMedia) {
+  if (!catalog.mediaFiles[mediaId]) throw new Error(`Unknown unassigned media id: ${mediaId}`);
+  if (usedMedia.has(mediaId)) throw new Error(`Media is both assigned and unassigned: ${mediaId}`);
+  if (intentionallyUnassigned.has(mediaId)) throw new Error(`Duplicate unassigned media id: ${mediaId}`);
+  intentionallyUnassigned.add(mediaId);
+}
+
+const unaccountedMedia = Object.keys(catalog.mediaFiles).filter(
+  (mediaId) => !usedMedia.has(mediaId) && !intentionallyUnassigned.has(mediaId),
 );
-if (unknownTopics.length) throw new Error(`Unknown topic assignments: ${unknownTopics.join(', ')}`);
+if (unaccountedMedia.length) {
+  throw new Error(`Unaccounted media: ${unaccountedMedia.join(', ')}`);
+}
 
 console.log(
-  `Video catalog OK: ${lessonCount} lesson cards, 6 complex cards, ${Object.keys(catalog.mediaFiles).length} local files`,
+  `Video catalog OK: ${activeLessonCount} active cards, ${assignedTargets.size} mapped cards, ` +
+    `${complexMediaIds.length} complex cards, ${intentionallyUnassigned.size} videos without cards; ` +
+    'adult-small legacy untouched',
 );

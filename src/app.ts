@@ -2318,42 +2318,38 @@ const adultSmallTopics = adultSmallSituations.flatMap((situation) =>
   })),
 );
 
-type LocalVideoTopicSlug = PuppyTopicSlug | AdultLargeTopicSlug | AdultSmallTopicSlug;
+type LocalVideoTopicSlug = PuppyTopicSlug | AdultLargeTopicSlug;
 
-const localLessonMediaByTopic = localVideoCatalog.topicMedia satisfies Record<
-  LocalVideoTopicSlug,
-  string[]
->;
+const localLessonMediaAssignments = localVideoCatalog.cardMedia as Array<{
+  topicSlug: LocalVideoTopicSlug;
+  lessonTitle: string;
+  mediaId: string;
+}>;
 
 function applyLocalLessonVideos(): void {
   const topics: Array<{ slug: LocalVideoTopicSlug; lessons: PuppyLessonItem[] }> = [
     ...puppySituations.flatMap((situation) => situation.topics),
     ...adultLargeSituations.flatMap((situation) => situation.topics),
-    ...adultSmallSituations.flatMap((situation) => situation.topics),
   ];
+  const topicsBySlug = new Map(topics.map((topic) => [topic.slug, topic]));
 
-  topics.forEach((topic) => {
-    const mediaIds = localLessonMediaByTopic[topic.slug];
+  localLessonMediaAssignments.forEach(({ topicSlug, lessonTitle, mediaId }) => {
+    const topic = topicsBySlug.get(topicSlug);
+    const lessonIndex = topic?.lessons.findIndex((lesson) => lesson.title === lessonTitle) ?? -1;
+    const lesson = lessonIndex >= 0 ? topic?.lessons[lessonIndex] : undefined;
 
-    if (mediaIds.length !== topic.lessons.length) {
-      throw new Error(
-        `Local video count mismatch for ${topic.slug}: ${mediaIds.length} media / ${topic.lessons.length} lessons`,
-      );
+    if (!lesson) {
+      throw new Error(`Local video target not found: ${topicSlug} / ${lessonTitle}`);
+    }
+    if (!(mediaId in localVideoCatalog.mediaFiles)) {
+      throw new Error(`Unknown local media id: ${mediaId}`);
     }
 
-    topic.lessons.forEach((lesson, index) => {
-      const mediaId = mediaIds[index];
-
-      if (!(mediaId in localVideoCatalog.mediaFiles)) {
-        throw new Error(`Unknown local media id: ${mediaId}`);
-      }
-
-      lesson.video = {
-        id: lesson.video?.id ?? `${topic.slug}-${index + 1}`,
-        mediaId,
-        sourceType: 'mp4',
-      };
-    });
+    lesson.video = {
+      id: lesson.video?.id ?? `${topicSlug}-${lessonIndex + 1}`,
+      mediaId,
+      sourceType: 'mp4',
+    };
   });
 }
 
