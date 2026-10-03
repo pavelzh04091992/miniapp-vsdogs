@@ -2530,15 +2530,213 @@ img {
 
 .lesson-player-card__description {
   margin: 12px 0 0;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid rgba(17, 80, 161, 0.08);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.78);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
   color: #3f4856;
   font-size: 14px;
-  line-height: 1.55;
-  white-space: pre-line;
+  line-height: 1.52;
   overflow-wrap: anywhere;
+}
+
+.lesson-description {
+  display: grid;
+  gap: 18px;
+}
+
+.lesson-description__section {
+  display: grid;
+  gap: 11px;
+}
+
+.lesson-description__section--intro {
+  color: #303a49;
+  font-size: 15px;
+  line-height: 1.58;
+}
+
+.lesson-description__section--mistakes,
+.lesson-description__section--note {
+  margin-inline: -4px;
+  padding: 14px;
+  border-radius: 14px;
+}
+
+.lesson-description__section--mistakes {
+  border: 1px solid rgba(219, 55, 67, 0.1);
+  background: rgba(255, 242, 243, 0.76);
+}
+
+.lesson-description__section--note {
+  border: 1px solid rgba(17, 80, 161, 0.09);
+  background: rgba(235, 244, 255, 0.72);
+}
+
+.lesson-description__heading {
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: 17px;
+  line-height: 1.25;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+}
+
+.lesson-description__paragraph,
+.lesson-description__step-content p,
+.lesson-description__callout p {
+  margin: 0;
+}
+
+.lesson-description__paragraph + .lesson-description__paragraph {
+  margin-top: 8px;
+}
+
+.lesson-description__steps,
+.lesson-description__bullets,
+.lesson-description__mistakes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lesson-description__steps {
+  display: grid;
+  gap: 12px;
+}
+
+.lesson-description__step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.lesson-description__step-number {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(17, 80, 161, 0.12);
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: rgba(17, 80, 161, 0.08);
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.lesson-description__step-content {
+  min-width: 0;
+  padding-top: 3px;
+  display: grid;
+  gap: 4px;
+}
+
+.lesson-description__step-content strong {
+  color: #27364a;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.lesson-description__step-content p {
+  color: #596474;
+  font-size: 13px;
+  line-height: 1.48;
+}
+
+.lesson-description__mistakes {
+  display: grid;
+  gap: 9px;
+}
+
+.lesson-description__bullets {
+  display: grid;
+  gap: 8px;
+}
+
+.lesson-description__bullets li {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.lesson-description__bullet-icon {
+  width: 7px;
+  height: 7px;
+  margin: 7px 0 0 2px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(17, 80, 161, 0.08);
+}
+
+.lesson-description__mistakes li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.lesson-description__mistake-icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(219, 55, 67, 0.1);
+  color: #d93b47;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.lesson-description__callout {
+  padding: 14px;
+  border: 1px solid rgba(17, 80, 161, 0.1);
+  border-radius: 14px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  background: rgba(238, 246, 255, 0.86);
+  color: #294767;
+}
+
+.lesson-description__callout-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--accent);
+  position: relative;
+}
+
+.lesson-description__callout-icon::before {
+  content: '';
+  position: absolute;
+  inset: 8px 7px 9px;
+  border: 2px solid #ffffff;
+  border-radius: 7px;
+}
+
+.lesson-description__callout-icon::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  bottom: 6px;
+  width: 6px;
+  height: 6px;
+  border-bottom: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  transform: skewY(-35deg);
+}
+
+.lesson-description__callout p {
+  padding-top: 3px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .lesson-player:fullscreen,
