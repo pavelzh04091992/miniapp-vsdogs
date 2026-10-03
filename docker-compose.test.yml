@@ -1,0 +1,104 @@
+name: miniapp-puppys-test
+
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    build:
+      context: .
+      target: app
+    init: true
+    environment:
+      APP_SERVER_PORT: "8787"
+      DEFAULT_VIDEO_SITUATION_SLUG: "${DEFAULT_VIDEO_SITUATION_SLUG:-puppy-toilet-home}"
+      KNOWN_VIDEO_SITUATION_SLUGS: "${KNOWN_VIDEO_SITUATION_SLUGS:-puppy-toilet-home}"
+      PUBLIC_CHANNEL_USERNAME: "${PUBLIC_CHANNEL_USERNAME:-}"
+      TELEGRAM_WEBHOOK_PATH: "${TELEGRAM_WEBHOOK_PATH:-/telegram/webhook}"
+      TELEGRAM_WEBHOOK_SECRET: ""
+      WEBHOOK_MAX_BODY_BYTES: "${WEBHOOK_MAX_BODY_BYTES:-1048576}"
+    expose:
+      - "8787"
+    volumes:
+      - "${TEST_DATA_PATH:-./data}:/app/public/data:rw"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8787/health').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - test-internal
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+  media:
+    image: nginx:1.29-alpine
+    volumes:
+      - "./infra/media-nginx.conf:/etc/nginx/nginx.conf:ro"
+      - "${TEST_MEDIA_PATH:-./media}:/usr/share/nginx/html/media:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/media-health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - test-internal
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    restart: unless-stopped
+
+  gateway:
+    image: nginx:1.29-alpine
+    depends_on:
+      app:
+        condition: service_healthy
+      media:
+        condition: service_healthy
+    ports:
+      - "${TEST_BIND_ADDRESS:-0.0.0.0}:${TEST_PORT:-8000}:80"
+    volumes:
+      - "./infra/test-gateway-nginx.conf:/etc/nginx/nginx.conf:ro"
+      - "${TEST_HTPASSWD_PATH:-./.test-secrets/.htpasswd}:/etc/nginx/auth/.htpasswd:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/gateway-health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - test-internal
+      - test-edge
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    restart: unless-stopped
+
+networks:
+  test-internal:
+    driver: bridge
+    internal: true
+  test-edge:
+    driver: bridge

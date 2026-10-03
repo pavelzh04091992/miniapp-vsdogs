@@ -780,7 +780,7 @@ const puppySituations: PuppySituation[] = [
             },
           },
           {
-            title: 'Поводок или рулетка? часть 1',
+            title: 'Поводок или рулетка?',
             description: 'Разбираем преимущества обычного поводка и подходящую длину для прогулки',
             coverPath: '/assets/covers/povod_rulet.jpg',
             video: {
@@ -2333,7 +2333,7 @@ const lessonDescriptionAssignments: Array<{
 }> = [
   { topicSlug: 'walk-leash', lessonTitle: 'Ошейник или шлейка?', descriptionId: '21' },
   { topicSlug: 'walk-leash', lessonTitle: 'Как отучить тянуть поводок?', descriptionId: '01' },
-  { topicSlug: 'walk-leash', lessonTitle: 'Поводок или рулетка? часть 1', descriptionId: '05' },
+  { topicSlug: 'walk-leash', lessonTitle: 'Поводок или рулетка?', descriptionId: '05' },
   { topicSlug: 'walk-leash', lessonTitle: 'Команда «рядом»', descriptionId: '23' },
   { topicSlug: 'walk-leash', lessonTitle: '«Стоп» перед дорогой', descriptionId: '06' },
   { topicSlug: 'walk-food-pickup', lessonTitle: 'Намордник без драмы', descriptionId: '04' },

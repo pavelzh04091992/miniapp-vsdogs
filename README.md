@@ -99,6 +99,31 @@ Traefik получает сертификат Let's Encrypt, направляе�
 остальные запросы — в приложение. Локальный gateway остаётся доступен на адресе из
 `APP_BIND_ADDRESS` и может использоваться для диагностики.
 
+## Изолированный тестовый контур
+
+Тестовый Compose-проект не использует продовые контейнеры, сеть или Traefik. Наружу
+публикуется только gateway на порту `8000`, а всё приложение защищено Basic Auth.
+
+```bash
+cp .env.test.example .env.test
+mkdir -p .test-secrets
+docker run --rm --entrypoint htpasswd httpd:2.4-alpine -nbB miniapp-test 'unique-test-password' \
+  > .test-secrets/.htpasswd
+docker compose --env-file .env.test -f docker-compose.test.yml up -d --build
+```
+
+Для серверного запуска задайте в `.env.test` отдельные пути:
+
+```dotenv
+TEST_DATA_PATH=/opt/miniapp-test/data
+TEST_MEDIA_PATH=/opt/miniapp/app/media
+TEST_HTPASSWD_PATH=/opt/miniapp-test/secrets/.htpasswd
+```
+
+Медиатека подключается к отдельному test-media контейнеру только для чтения. Webhook в
+тестовом Compose-проекте всегда выключен. Basic Auth поверх HTTP не шифрует credentials,
+поэтому используйте только случайный временный пароль, который нигде больше не применяется.
+
 ## Подготовка видео
 
 Для обычного MP4 достаточно положить файл по адресу:
