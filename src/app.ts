@@ -1,5 +1,6 @@
 import { SituationSlug, SituationVideo } from './lib/videos';
 import localVideoCatalog from './local-video-catalog.json';
+import videoDescriptions from './video-descriptions.json';
 
 export type PuppySituationSlug =
   | 'ideal-walk'
@@ -146,6 +147,7 @@ type LessonVideoSource = 'hls' | 'mp4';
 interface PuppyLessonItem {
   title: string;
   description: string;
+  longDescription?: string;
   coverPath?: string;
   video?: {
     id: string;
@@ -822,7 +824,7 @@ const puppySituations: PuppySituation[] = [
         title: 'Подзыв',
         description: 'Возврат к человеку, кличка и устойчивый контакт на прогулке',
         meta: '2 видео',
-        imagePath: '/assets/images/programs/puppy.webp',
+        imagePath: '/assets/icons/puppy-podziv.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
@@ -2324,6 +2326,86 @@ const localLessonMediaAssignments = localVideoCatalog.cardMedia as Array<{
   mediaId: string;
 }>;
 
+const lessonDescriptionAssignments: Array<{
+  topicSlug: LocalVideoTopicSlug;
+  lessonTitle: string;
+  descriptionId: keyof typeof videoDescriptions;
+}> = [
+  { topicSlug: 'walk-leash', lessonTitle: 'Ошейник или шлейка?', descriptionId: '21' },
+  { topicSlug: 'walk-leash', lessonTitle: 'Как отучить тянуть поводок?', descriptionId: '01' },
+  { topicSlug: 'walk-leash', lessonTitle: 'Поводок или рулетка? часть 1', descriptionId: '05' },
+  { topicSlug: 'walk-leash', lessonTitle: 'Команда «рядом»', descriptionId: '23' },
+  { topicSlug: 'walk-leash', lessonTitle: '«Стоп» перед дорогой', descriptionId: '06' },
+  { topicSlug: 'walk-food-pickup', lessonTitle: 'Намордник без драмы', descriptionId: '04' },
+  { topicSlug: 'walk-recall', lessonTitle: 'Команда «Ко мне!» и «кличка»', descriptionId: '09' },
+  { topicSlug: 'walk-recall', lessonTitle: 'Собака слушает вас, а не улицу', descriptionId: '08' },
+  { topicSlug: 'walk-ignore-triggers', lessonTitle: 'Упражнение против отвлечений (1-2-3)', descriptionId: '10' },
+  { topicSlug: 'walk-ignore-triggers', lessonTitle: 'Выдержка: не срываемся на всё подряд', descriptionId: '11' },
+  { topicSlug: 'walk-ignore-triggers', lessonTitle: 'Топ интересных игр на прогулке, или как наладить контакт', descriptionId: '12' },
+  { topicSlug: 'walk-ignore-triggers', lessonTitle: 'Моя собака ко всем лезет', descriptionId: '13' },
+  { topicSlug: 'home-barking', lessonTitle: 'Команда «тише»', descriptionId: '36' },
+  { topicSlug: 'home-barking', lessonTitle: 'Приучаем к звукам дома', descriptionId: '37' },
+  { topicSlug: 'home-loneliness', lessonTitle: 'Убираем страх и повышаем уверенность в себе', descriptionId: '15' },
+  { topicSlug: 'home-loneliness', lessonTitle: 'Правильная организация пространства', descriptionId: '02' },
+  { topicSlug: 'home-jumping-on-guests', lessonTitle: 'Правильный приход/выход из дома', descriptionId: '38' },
+  { topicSlug: 'home-jumping-on-guests', lessonTitle: 'Прыжки на гостей', descriptionId: '39' },
+  { topicSlug: 'home-begging', lessonTitle: 'Команда «место»', descriptionId: '19' },
+  { topicSlug: 'home-begging', lessonTitle: 'Топ долгоиграющих лакомств и умных девайсов', descriptionId: '42' },
+  { topicSlug: 'home-toilet', lessonTitle: 'Приучение к пелёнке и средства от запаха', descriptionId: '34' },
+  { topicSlug: 'home-toilet', lessonTitle: 'Приучение к улице и режим', descriptionId: '35' },
+  { topicSlug: 'home-toilet', lessonTitle: 'Метки дома', descriptionId: '35' },
+  { topicSlug: 'conflicts-biting-hands', lessonTitle: 'Грызёт руки и ноги: спокойная и правильная игра', descriptionId: '03' },
+  { topicSlug: 'conflicts-resource-guarding', lessonTitle: 'Охраняет чашку, вещи и игрушки', descriptionId: '14' },
+  { topicSlug: 'conflicts-barks-at-people', lessonTitle: 'Лает на людей и собак', descriptionId: '29' },
+  { topicSlug: 'conflicts-neutering', lessonTitle: 'Кастрировать или стерилизовать?', descriptionId: '18' },
+  { topicSlug: 'fears-sounds', lessonTitle: 'Боязнь звуков (собака боится салютов, пылесосов, лая других собак и звука фена)', descriptionId: '31' },
+  { topicSlug: 'fears-cars', lessonTitle: 'Приучаем постепенно к машине', descriptionId: '16' },
+  { topicSlug: 'fears-new-places', lessonTitle: 'Страх лестницы/лифта', descriptionId: '17' },
+  { topicSlug: 'fears-place-command', lessonTitle: 'Команда «место»', descriptionId: '19' },
+  { topicSlug: 'fears-space-organization', lessonTitle: 'Щенок дома', descriptionId: '02' },
+  { topicSlug: 'fears-follows-tail', lessonTitle: 'Ходит хвостиком + Как минимизировать тревожность?', descriptionId: '20' },
+  { topicSlug: 'care-claws', lessonTitle: 'Когти: анатомия когтя и стрижка', descriptionId: '43' },
+  { topicSlug: 'care-paws', lessonTitle: 'Лапы', descriptionId: '44' },
+  { topicSlug: 'fitness-bow', lessonTitle: 'Поклон', descriptionId: '40' },
+  { topicSlug: 'adult-large-leash', lessonTitle: 'Как отучить тянуть поводок?', descriptionId: '22' },
+  { topicSlug: 'adult-large-leash', lessonTitle: 'Ошейник или шлейка?', descriptionId: '21' },
+  { topicSlug: 'adult-large-leash', lessonTitle: 'Поводок или рулетка?', descriptionId: '23' },
+  { topicSlug: 'adult-large-leash', lessonTitle: 'Команда «рядом»', descriptionId: '23' },
+  { topicSlug: 'adult-large-leash', lessonTitle: '«Дорога» и «стоп»', descriptionId: '24' },
+  { topicSlug: 'adult-large-food-pickup', lessonTitle: 'Импульс-контроль + Выдержка', descriptionId: '07' },
+  { topicSlug: 'adult-large-food-pickup', lessonTitle: 'Намордник без драмы', descriptionId: '04' },
+  { topicSlug: 'adult-large-recall', lessonTitle: 'Контакт', descriptionId: '08' },
+  { topicSlug: 'adult-large-recall', lessonTitle: 'Ко мне', descriptionId: '09' },
+  { topicSlug: 'adult-large-ignore-triggers', lessonTitle: 'Упражнение против отвлечений (1-2-3)', descriptionId: '25' },
+  { topicSlug: 'adult-large-ignore-triggers', lessonTitle: 'Выдержка: не срываемся на всё подряд', descriptionId: '26' },
+  { topicSlug: 'adult-large-ignore-triggers', lessonTitle: 'Топ интересных игр на прогулке, или как наладить контакт', descriptionId: '27' },
+  { topicSlug: 'adult-large-ignore-triggers', lessonTitle: 'Моя собака ко всем лезет', descriptionId: '28' },
+  { topicSlug: 'adult-large-barking', lessonTitle: 'Команда «тише»', descriptionId: '36' },
+  { topicSlug: 'adult-large-barking', lessonTitle: 'Приучаем к звукам: домофон и хлопки', descriptionId: '37' },
+  { topicSlug: 'adult-large-loneliness', lessonTitle: 'Убираем страх и повышаем уверенность в себе', descriptionId: '15' },
+  { topicSlug: 'adult-large-loneliness', lessonTitle: 'Правильная организация пространства', descriptionId: '02' },
+  { topicSlug: 'adult-large-jumping-on-guests', lessonTitle: 'Правильный приход/выход из дома', descriptionId: '38' },
+  { topicSlug: 'adult-large-jumping-on-guests', lessonTitle: 'Прыжки на гостей', descriptionId: '39' },
+  { topicSlug: 'adult-large-begging', lessonTitle: 'Команда «место»', descriptionId: '19' },
+  { topicSlug: 'adult-large-begging', lessonTitle: 'Топ долгоиграющих лакомств и умных девайсов', descriptionId: '42' },
+  { topicSlug: 'adult-large-begging', lessonTitle: 'Питание', descriptionId: '41' },
+  { topicSlug: 'adult-large-toilet', lessonTitle: 'Приучение к улице + режим', descriptionId: '35' },
+  { topicSlug: 'adult-large-toilet', lessonTitle: 'Метки дома', descriptionId: '35' },
+  { topicSlug: 'adult-large-overaroused-play', lessonTitle: 'Перевозбуждается при игре', descriptionId: '03' },
+  { topicSlug: 'adult-large-resource-guarding', lessonTitle: 'Охраняет чашку/вещи/игрушки', descriptionId: '14' },
+  { topicSlug: 'adult-large-barks-at-people', lessonTitle: 'Лает на людей/собак', descriptionId: '30' },
+  { topicSlug: 'adult-large-neutering', lessonTitle: 'Кастрировать/стерилизовать или нет?', descriptionId: '18' },
+  { topicSlug: 'adult-large-place-space', lessonTitle: 'Команда «место»', descriptionId: '19' },
+  { topicSlug: 'adult-large-follows-tail', lessonTitle: 'Ходит хвостиком + Как минимизировать тревожность?', descriptionId: '20' },
+  { topicSlug: 'adult-large-sounds', lessonTitle: 'Боязнь звуков', descriptionId: '31' },
+  { topicSlug: 'adult-large-cars', lessonTitle: 'Приучаем постепенно к машине', descriptionId: '32' },
+  { topicSlug: 'adult-large-new-places', lessonTitle: 'Страх лестницы/лифта', descriptionId: '33' },
+  { topicSlug: 'adult-large-paws', lessonTitle: 'Лапы', descriptionId: '44' },
+  { topicSlug: 'adult-large-eight', lessonTitle: 'Восемь', descriptionId: '45' },
+  { topicSlug: 'adult-large-go-around', lessonTitle: 'Обойди', descriptionId: '46' },
+  { topicSlug: 'adult-large-bow', lessonTitle: 'Поклон', descriptionId: '47' },
+];
+
 function applyLocalLessonVideos(): void {
   const topics: Array<{ slug: LocalVideoTopicSlug; lessons: PuppyLessonItem[] }> = [
     ...puppySituations.flatMap((situation) => situation.topics),
@@ -2351,7 +2433,28 @@ function applyLocalLessonVideos(): void {
   });
 }
 
+function applyLessonDescriptions(): void {
+  const topics: Array<{ slug: LocalVideoTopicSlug; lessons: PuppyLessonItem[] }> = [
+    ...puppySituations.flatMap((situation) => situation.topics),
+    ...adultLargeSituations.flatMap((situation) => situation.topics),
+  ];
+  const topicsBySlug = new Map(topics.map((topic) => [topic.slug, topic]));
+
+  lessonDescriptionAssignments.forEach(({ topicSlug, lessonTitle, descriptionId }) => {
+    const lesson = topicsBySlug
+      .get(topicSlug)
+      ?.lessons.find((candidate) => candidate.title === lessonTitle);
+
+    if (!lesson) {
+      throw new Error(`Lesson description target not found: ${topicSlug} / ${lessonTitle}`);
+    }
+
+    lesson.longDescription = videoDescriptions[descriptionId];
+  });
+}
+
 applyLocalLessonVideos();
+applyLessonDescriptions();
 
 const adultSmallTopicsBySlug = new Map<
   AdultSmallTopicSlug,
@@ -2362,6 +2465,7 @@ interface LessonVideoEntry {
   id: string;
   mediaId?: string;
   title: string;
+  description?: string;
   sourceType: LessonVideoSource;
   backRoute: AppRoute;
 }
@@ -2381,6 +2485,7 @@ function registerLessonVideo(lesson: PuppyLessonItem, backRoute: AppRoute): void
     id: lesson.video.id,
     mediaId: lesson.video.mediaId,
     title: lesson.title,
+    description: lesson.longDescription,
     sourceType: lesson.video.sourceType,
     backRoute,
   });
@@ -2403,6 +2508,7 @@ const complexLevelVideos = [
     id: 'complex-timed-beginner',
     mediaId: 'complex-timed-beginner',
     title: 'Комплекс: Начальный — На время',
+    description: videoDescriptions['49'],
     sourceType: 'mp4',
     backRoute: 'complex-levels:timed',
   },
@@ -2410,6 +2516,7 @@ const complexLevelVideos = [
     id: 'complex-timed-intermediate',
     mediaId: 'complex-timed-intermediate',
     title: 'Комплекс: Средний — На время',
+    description: videoDescriptions['51'],
     sourceType: 'mp4',
     backRoute: 'complex-levels:timed',
   },
@@ -2417,6 +2524,7 @@ const complexLevelVideos = [
     id: 'complex-timed-advanced',
     mediaId: 'complex-timed-advanced',
     title: 'Комплекс: Сложный — На время',
+    description: videoDescriptions['53'],
     sourceType: 'mp4',
     backRoute: 'complex-levels:timed',
   },
@@ -2424,6 +2532,7 @@ const complexLevelVideos = [
     id: 'complex-self-check-beginner',
     mediaId: 'complex-self-check-beginner',
     title: 'Комплекс: Начальный — Проверь себя',
+    description: videoDescriptions['48'],
     sourceType: 'mp4',
     backRoute: 'complex-levels:self-check',
   },
@@ -2431,6 +2540,7 @@ const complexLevelVideos = [
     id: 'complex-self-check-intermediate',
     mediaId: 'complex-self-check-intermediate',
     title: 'Комплекс: Средний — Проверь себя',
+    description: videoDescriptions['50'],
     sourceType: 'mp4',
     backRoute: 'complex-levels:self-check',
   },
@@ -2438,6 +2548,7 @@ const complexLevelVideos = [
     id: 'complex-self-check-advanced',
     mediaId: 'complex-self-check-advanced',
     title: 'Комплекс: Сложный — Проверь себя',
+    description: videoDescriptions['52'],
     sourceType: 'mp4',
     backRoute: 'complex-levels:self-check',
   },
@@ -3173,6 +3284,9 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
 
 function createLessonPlayerMarkup(video: LessonVideoEntry): string {
   const escapedTitle = escapeHtml(video.title);
+  const descriptionMarkup = video.description
+    ? `<div class="lesson-player-card__description">${escapeHtml(video.description)}</div>`
+    : '';
   const escapedVideoId = escapeHtml(video.mediaId ?? video.id);
   const escapedSourceType = escapeHtml(video.sourceType ?? 'hls');
 
@@ -3275,6 +3389,7 @@ function createLessonPlayerMarkup(video: LessonVideoEntry): string {
                 </div>
               </div>
               <p class="lesson-player-card__title">${escapedTitle}</p>
+              ${descriptionMarkup}
             </div>
           </section>
         </div>

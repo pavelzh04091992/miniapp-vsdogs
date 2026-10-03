@@ -267,11 +267,18 @@ img {
 .screen-content {
   min-height: 0;
   flex: 1 1 auto;
-  padding: 20px 0 calc(var(--tab-bar-height) + 24px + env(safe-area-inset-bottom));
+  padding: 20px 0 0;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+}
+
+.screen-content:not(.complex-screen)::after {
+  content: '';
+  height: calc(var(--tab-bar-height) + 24px + env(safe-area-inset-bottom));
+  display: block;
+  flex: 0 0 auto;
 }
 
 .screen-content::-webkit-scrollbar,
@@ -2421,6 +2428,19 @@ img {
   font-size: 14px;
   line-height: 1.35;
   font-weight: 700;
+}
+
+.lesson-player-card__description {
+  margin: 12px 0 0;
+  padding: 16px;
+  border: 1px solid rgba(17, 80, 161, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #3f4856;
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .lesson-player:fullscreen,
