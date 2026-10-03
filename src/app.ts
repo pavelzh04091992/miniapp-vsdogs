@@ -3285,7 +3285,7 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
 function createLessonPlayerMarkup(video: LessonVideoEntry): string {
   const escapedTitle = escapeHtml(video.title);
   const descriptionMarkup = video.description
-    ? `<div class="lesson-player-card__description">${escapeHtml(video.description)}</div>`
+    ? createLessonDescriptionMarkup(video.description)
     : '';
   const escapedVideoId = escapeHtml(video.mediaId ?? video.id);
   const escapedSourceType = escapeHtml(video.sourceType ?? 'hls');
@@ -3397,6 +3397,232 @@ function createLessonPlayerMarkup(video: LessonVideoEntry): string {
 
       ${createBottomNav('lessons')}
     </div>
+  `;
+}
+
+type LessonDescriptionBlock =
+  | { type: 'paragraph'; lines: string[] }
+  | { type: 'steps'; items: Array<{ number: string; title: string; details: string[] }> }
+  | { type: 'bullets'; items: string[] }
+  | { type: 'mistakes'; items: string[] }
+  | { type: 'callout'; text: string };
+
+interface LessonDescriptionSection {
+  title: string | null;
+  lines: string[];
+}
+
+function createLessonDescriptionMarkup(description: string): string {
+  const sections: LessonDescriptionSection[] = [{ title: null, lines: [] }];
+
+  description
+    .replaceAll('\r', '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      if (isLessonDescriptionHeading(line)) {
+        sections.push({ title: line.replace(/:$/, ''), lines: [] });
+        return;
+      }
+
+      sections.at(-1)?.lines.push(line);
+    });
+
+  const content = sections
+    .filter((section) => section.title || section.lines.length > 0)
+    .map((section) => createLessonDescriptionSectionMarkup(section))
+    .join('');
+
+  return `<article class="lesson-player-card__description lesson-description">${content}</article>`;
+}
+
+function isLessonDescriptionHeading(line: string): boolean {
+  return /^(Как (учим|играем|работаем|кормим|приучаем|организуем|выполняем)|Частые ошибки|Особенности 🐾|Важные особенности 🐾|Что важно понять|Что можно использовать|Как устроен коготь 🐾|Что важно помнить 🐾|В (этом )?видео (разберём|поговорим о том|покажем|покажем несколько простых игр):|Упражнение развивает:|Главная последовательность:|Полный навык выглядит так:)$/.test(
+    line,
+  );
+}
+
+function createLessonDescriptionSectionMarkup(section: LessonDescriptionSection): string {
+  const isMistakesSection = section.title === 'Частые ошибки';
+  const isNoteSection =
+    section.title === 'Особенности 🐾' ||
+    section.title === 'Важные особенности 🐾' ||
+    section.title === 'Что важно помнить 🐾';
+  const sectionClass = [
+    'lesson-description__section',
+    isMistakesSection ? 'lesson-description__section--mistakes' : '',
+    isNoteSection ? 'lesson-description__section--note' : '',
+    section.title ? '' : 'lesson-description__section--intro',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const titleMarkup = section.title
+    ? `<h2 class="lesson-description__heading">${escapeHtml(section.title)}</h2>`
+    : '';
+
+  return `
+    <section class="${sectionClass}">
+      ${titleMarkup}
+      ${createLessonDescriptionBlocksMarkup(section.lines)}
+    </section>
+  `;
+}
+
+function createLessonDescriptionBlocksMarkup(lines: string[]): string {
+  const blocks: LessonDescriptionBlock[] = [];
+  let paragraphLines: string[] = [];
+  let stepItems: Array<{ number: string; title: string; details: string[] }> = [];
+  let bulletItems: string[] = [];
+  let mistakeItems: string[] = [];
+
+  const flushParagraph = (): void => {
+    if (paragraphLines.length > 0) {
+      blocks.push({ type: 'paragraph', lines: paragraphLines });
+      paragraphLines = [];
+    }
+  };
+  const flushSteps = (): void => {
+    if (stepItems.length > 0) {
+      blocks.push({ type: 'steps', items: stepItems });
+      stepItems = [];
+    }
+  };
+  const flushBullets = (): void => {
+    if (bulletItems.length > 0) {
+      blocks.push({ type: 'bullets', items: bulletItems });
+      bulletItems = [];
+    }
+  };
+  const flushMistakes = (): void => {
+    if (mistakeItems.length > 0) {
+      blocks.push({ type: 'mistakes', items: mistakeItems });
+      mistakeItems = [];
+    }
+  };
+  const flushAll = (): void => {
+    flushParagraph();
+    flushSteps();
+    flushBullets();
+    flushMistakes();
+  };
+
+  lines.forEach((line) => {
+    const stepMatch = line.match(/^(\d+)\.\s+(.+)$/);
+
+    if (stepMatch) {
+      flushParagraph();
+      flushBullets();
+      flushMistakes();
+      stepItems.push({ number: stepMatch[1], title: stepMatch[2], details: [] });
+      return;
+    }
+
+    if (line.startsWith('🐾')) {
+      flushParagraph();
+      flushSteps();
+      flushMistakes();
+      bulletItems.push(line.replace(/^🐾\s*/, ''));
+      return;
+    }
+
+    if (line.startsWith('❌')) {
+      flushParagraph();
+      flushSteps();
+      flushBullets();
+      mistakeItems.push(line.replace(/^❌\s*/, ''));
+      return;
+    }
+
+    if (line.startsWith('💬')) {
+      flushAll();
+      blocks.push({ type: 'callout', text: line.replace(/^💬\s*/, '') });
+      return;
+    }
+
+    if (stepItems.length > 0) {
+      stepItems.at(-1)?.details.push(line);
+      return;
+    }
+
+    flushBullets();
+    flushMistakes();
+    paragraphLines.push(line);
+  });
+
+  flushAll();
+
+  return blocks.map((block) => createLessonDescriptionBlockMarkup(block)).join('');
+}
+
+function createLessonDescriptionBlockMarkup(block: LessonDescriptionBlock): string {
+  if (block.type === 'paragraph') {
+    return block.lines
+      .map((line) => `<p class="lesson-description__paragraph">${escapeHtml(line)}</p>`)
+      .join('');
+  }
+
+  if (block.type === 'steps') {
+    return `
+      <ol class="lesson-description__steps">
+        ${block.items
+          .map(
+            (item) => `
+              <li class="lesson-description__step">
+                <span class="lesson-description__step-number" aria-hidden="true">${escapeHtml(item.number)}</span>
+                <div class="lesson-description__step-content">
+                  <strong>${escapeHtml(item.title)}</strong>
+                  ${item.details
+                    .map((detail) => `<p>${escapeHtml(detail)}</p>`)
+                    .join('')}
+                </div>
+              </li>
+            `,
+          )
+          .join('')}
+      </ol>
+    `;
+  }
+
+  if (block.type === 'mistakes') {
+    return `
+      <ul class="lesson-description__mistakes">
+        ${block.items
+          .map(
+            (item) => `
+              <li>
+                <span class="lesson-description__mistake-icon" aria-hidden="true">×</span>
+                <span>${escapeHtml(item)}</span>
+              </li>
+            `,
+          )
+          .join('')}
+      </ul>
+    `;
+  }
+
+  if (block.type === 'bullets') {
+    return `
+      <ul class="lesson-description__bullets">
+        ${block.items
+          .map(
+            (item) => `
+              <li>
+                <span class="lesson-description__bullet-icon" aria-hidden="true"></span>
+                <span>${escapeHtml(item)}</span>
+              </li>
+            `,
+          )
+          .join('')}
+      </ul>
+    `;
+  }
+
+  return `
+    <aside class="lesson-description__callout">
+      <span class="lesson-description__callout-icon" aria-hidden="true"></span>
+      <p>${escapeHtml(block.text)}</p>
+    </aside>
   `;
 }
 
