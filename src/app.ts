@@ -3215,10 +3215,10 @@ function createLessonPlayerMarkup(video: LessonVideoEntry): string {
       <header class="subpage-header">
         <div class="content-frame">
           <div class="subpage-header__inner">
+            <h1 class="subpage-title">${escapedTitle}</h1>
             <button class="back-button" type="button" data-route="${video.backRoute}" aria-label="Назад">
               <span class="back-button__icon" aria-hidden="true"></span>
             </button>
-            <h1 class="subpage-title">${escapedTitle}</h1>
           </div>
         </div>
       </header>
