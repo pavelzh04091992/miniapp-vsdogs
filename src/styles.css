@@ -2619,37 +2619,42 @@ img {
 }
 
 .lesson-description__callout {
-  padding: 14px;
-  border: 1px solid rgba(20, 84, 163, 0.12);
-  border-radius: 15px;
+  padding: 16px;
+  border: 1px solid rgba(37, 117, 201, 0.24);
+  border-radius: 17px;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 42px minmax(0, 1fr);
   align-items: start;
-  gap: 11px;
-  background: linear-gradient(145deg, rgba(229, 242, 255, 0.98), rgba(241, 247, 255, 0.92));
+  gap: 13px;
+  background:
+    radial-gradient(circle at 8% 4%, rgba(96, 181, 255, 0.2), transparent 42%),
+    linear-gradient(135deg, rgba(226, 242, 255, 0.98), rgba(244, 248, 255, 0.96));
   color: #294968;
+  box-shadow:
+    0 10px 24px rgba(20, 84, 163, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
 .lesson-description__callout-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, #1b63b9, #124987);
+  background: linear-gradient(145deg, #2a78c8, #1454a3);
   color: #ffffff;
-  box-shadow: 0 7px 16px rgba(20, 84, 163, 0.2);
+  box-shadow: 0 8px 18px rgba(20, 84, 163, 0.22);
 }
 
 .lesson-description__callout-icon .lesson-description__icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .lesson-description__callout p {
-  padding-top: 4px;
+  padding-top: 3px;
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.62;
 }
 
 .lesson-description__flow {
