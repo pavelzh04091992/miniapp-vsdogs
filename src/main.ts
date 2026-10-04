@@ -54,6 +54,33 @@ window.addEventListener('resize', () => {
   updateBottomNavIndicatorPosition();
 });
 
+document.addEventListener('keydown', (event) => {
+  if (
+    event.defaultPrevented ||
+    event.repeat ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    (event.key !== 'Escape' && event.key !== 'Backspace') ||
+    (event.key === 'Backspace' && isEditableElement(event.target))
+  ) {
+    return;
+  }
+
+  const backButton = root.querySelector<HTMLButtonElement>(
+    '.subpage-header__inner--branded .back-button[data-route]',
+  );
+  const route = backButton?.dataset.route as AppRoute | undefined;
+
+  if (!route) {
+    return;
+  }
+
+  event.preventDefault();
+  pendingTransitionDirection = 'back';
+  navigateTo(route);
+});
+
 document.addEventListener('click', (event) => {
   const target = event.target;
 
@@ -554,6 +581,15 @@ function navigateTo(route: AppRoute): void {
   const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
   window.history.pushState(null, '', nextUrl);
   void syncRouteState();
+}
+
+function isEditableElement(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
 }
 
 function showFeedback(message: string): void {

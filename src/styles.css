@@ -197,6 +197,22 @@ img {
   padding: 0 4px;
 }
 
+.subpage-header__inner--branded {
+  grid-template-columns: 58px minmax(0, 1fr) 44px;
+  padding: 0;
+}
+
+.subpage-header__logo {
+  width: 58px;
+  height: 58px;
+  display: block;
+  object-fit: contain;
+}
+
+.subpage-header__inner--branded .back-button {
+  justify-self: end;
+}
+
 .back-button {
   width: 44px;
   height: 44px;
@@ -222,11 +238,16 @@ img {
 }
 
 .subpage-title {
+  width: fit-content;
+  max-width: min(100%, 30ch);
   margin: 0;
-  font-size: clamp(24px, 5.8vw, 28px);
-  line-height: 1.06;
+  font-size: clamp(20px, 5vw, 28px);
+  line-height: 1.14;
   font-weight: 800;
   color: var(--primary-dark);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .brand-mark {
