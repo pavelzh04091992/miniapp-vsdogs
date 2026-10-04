@@ -2422,12 +2422,32 @@ img {
   stroke-linejoin: round;
 }
 
-.lesson-player-card__title {
-  margin: 10px 4px 0;
-  color: var(--primary-dark);
-  font-size: 14px;
-  line-height: 1.35;
-  font-weight: 700;
+.lesson-player-card__divider {
+  margin: 15px 7px 2px;
+  display: grid;
+  grid-template-columns: minmax(24px, 1fr) 36px minmax(24px, 1fr);
+  align-items: center;
+  gap: 15px;
+}
+
+.lesson-player-card__divider::before,
+.lesson-player-card__divider::after {
+  content: '';
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(20, 76, 148, 0.24));
+}
+
+.lesson-player-card__divider::after {
+  background: linear-gradient(90deg, rgba(20, 76, 148, 0.24), transparent);
+}
+
+.lesson-player-card__divider-dog {
+  width: 36px;
+  height: 32px;
+  display: block;
+  background: rgba(20, 76, 148, 0.58);
+  -webkit-mask: url('/assets/logo-dog.svg') center / contain no-repeat;
+  mask: url('/assets/logo-dog.svg') center / contain no-repeat;
 }
 
 .lesson-player-card__description {

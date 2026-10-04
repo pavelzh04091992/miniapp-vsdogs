@@ -3388,7 +3388,9 @@ function createLessonPlayerMarkup(video: LessonVideoEntry): string {
                   </div>
                 </div>
               </div>
-              <p class="lesson-player-card__title">${escapedTitle}</p>
+              <div class="lesson-player-card__divider" aria-hidden="true">
+                <span class="lesson-player-card__divider-dog"></span>
+              </div>
               ${descriptionMarkup}
             </div>
           </section>
