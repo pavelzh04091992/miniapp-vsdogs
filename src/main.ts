@@ -69,18 +69,14 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
-  const backButton = root.querySelector<HTMLButtonElement>(
-    '.subpage-header__inner--branded .back-button[data-route]',
-  );
-  const route = backButton?.dataset.route as AppRoute | undefined;
+  const backButton = root.querySelector<HTMLButtonElement>('.back-button[data-route]');
 
-  if (!route) {
+  if (!backButton) {
     return;
   }
 
   event.preventDefault();
-  pendingTransitionDirection = 'back';
-  navigateTo(route);
+  backButton.click();
 });
 
 document.addEventListener('click', (event) => {

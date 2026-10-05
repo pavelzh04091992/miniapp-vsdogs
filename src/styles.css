@@ -243,6 +243,7 @@ img {
 }
 
 .subpage-title {
+  min-width: 0;
   width: fit-content;
   max-width: min(100%, 30ch);
   margin: 0;
@@ -251,7 +252,9 @@ img {
   font-weight: 800;
   color: var(--primary-dark);
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
   text-wrap: balance;
 }
 
