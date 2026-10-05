@@ -3811,12 +3811,13 @@ function createComplexLevelsMarkup(mode: 'timed' | 'self-check'): string {
     <div class="app-shell app-shell--complex-levels app-shell--complex-levels--${modeClass}">
       <main class="screen-content complex-levels">
         <div class="content-frame complex-levels__frame">
-          <button class="back-button complex-levels__back" type="button" data-route="complex" aria-label="Назад">
-            <span class="back-button__icon" aria-hidden="true"></span>
-          </button>
-
           <header class="complex-levels__header">
-            <span class="complex-levels__mode">${modeTitle}</span>
+            <div class="complex-levels__toolbar">
+              <span class="complex-levels__mode">${modeTitle}</span>
+              <button class="back-button complex-levels__back" type="button" data-route="complex" aria-label="Назад">
+                <span class="back-button__icon" aria-hidden="true"></span>
+              </button>
+            </div>
             <h1>Выберите уровень</h1>
             <p>Начните с комфортной сложности — повысить её можно в любой момент.</p>
           </header>

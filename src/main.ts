@@ -86,43 +86,13 @@ window.addEventListener(
       return;
     }
 
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (event.button === 3) {
-      const backButton = root.querySelector<HTMLButtonElement>('.back-button[data-route]');
-
-      if (backButton) {
-        activateBackControl(backButton);
-      }
-
-      return;
-    }
-
-    pendingTransitionDirection = 'forward';
-    window.history.forward();
+    const direction: PageTransitionDirection = event.button === 3 ? 'back' : 'forward';
+    pendingTransitionDirection = direction;
     window.setTimeout(() => {
-      if (pendingTransitionDirection === 'forward') {
+      if (pendingTransitionDirection === direction) {
         pendingTransitionDirection = null;
       }
-    }, 150);
-  },
-  { capture: true },
-);
-
-window.addEventListener('auxclick', (event) => {
-  if (event.button === 3 || event.button === 4) {
-    event.preventDefault();
-  }
-});
-
-window.addEventListener(
-  'mouseup',
-  (event) => {
-    if (event.button === 3 || event.button === 4) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
+    }, 1000);
   },
   { capture: true },
 );
