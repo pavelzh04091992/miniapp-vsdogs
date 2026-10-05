@@ -76,8 +76,56 @@ document.addEventListener('keydown', (event) => {
   }
 
   event.preventDefault();
-  backButton.click();
+  activateBackControl(backButton);
 });
+
+window.addEventListener(
+  'mousedown',
+  (event) => {
+    if (event.button !== 3 && event.button !== 4) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (event.button === 3) {
+      const backButton = root.querySelector<HTMLButtonElement>('.back-button[data-route]');
+
+      if (backButton) {
+        activateBackControl(backButton);
+      }
+
+      return;
+    }
+
+    pendingTransitionDirection = 'forward';
+    window.history.forward();
+    window.setTimeout(() => {
+      if (pendingTransitionDirection === 'forward') {
+        pendingTransitionDirection = null;
+      }
+    }, 150);
+  },
+  { capture: true },
+);
+
+window.addEventListener('auxclick', (event) => {
+  if (event.button === 3 || event.button === 4) {
+    event.preventDefault();
+  }
+});
+
+window.addEventListener(
+  'mouseup',
+  (event) => {
+    if (event.button === 3 || event.button === 4) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  },
+  { capture: true },
+);
 
 document.addEventListener('click', (event) => {
   const target = event.target;
@@ -620,6 +668,10 @@ function navigateTo(route: AppRoute): void {
   const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
   window.history.pushState(null, '', nextUrl);
   void syncRouteState();
+}
+
+function activateBackControl(backButton: HTMLButtonElement): void {
+  backButton.click();
 }
 
 function isEditableElement(target: EventTarget | null): boolean {

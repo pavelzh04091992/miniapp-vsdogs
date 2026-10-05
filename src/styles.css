@@ -495,10 +495,11 @@ img {
   position: absolute;
   z-index: 2;
   top: calc(12px + env(safe-area-inset-top));
-  right: max(16px, calc(env(safe-area-inset-right) + 12px));
+  right: var(--frame-inner-padding);
 }
 
 .complex-levels__frame {
+  position: relative;
   min-height: 100%;
   padding-top: calc(84px + env(safe-area-inset-top));
   padding-bottom: calc(28px + env(safe-area-inset-bottom));

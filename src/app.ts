@@ -1543,8 +1543,8 @@ const adultLargeSituations: AdultLargeSituation[] = [
       { slug: 'adult-large-overaroused-play', title: 'Перевозбуждается при игре', description: 'Работа с чрезмерным возбуждением во время совместной игры', meta: '1 видео', imagePath: '/assets/icons/big_vozbud.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Перевозбуждается при игре', description: 'Учимся вовремя замечать перегруз и возвращать собаке спокойное состояние' },
       ]},
-      { slug: 'adult-large-resource-guarding', title: 'Охраняет чашку/вещи/игрушки', description: 'Безопасная работа с охраной ценных ресурсов', meta: '1 видео', imagePath: '/assets/icons/big_ohran.webp', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Охраняет чашку/вещи/игрушки', description: 'Снижаем напряжение вокруг еды, вещей и игрушек' },
+      { slug: 'adult-large-resource-guarding', title: 'Охраняет вещи', description: 'Безопасная работа с охраной ценных ресурсов', meta: '1 видео', imagePath: '/assets/icons/big_ohran.webp', cardClass: 'topic-card--blue', lessons: [
+        { title: 'Охраняет вещи', description: 'Снижаем напряжение вокруг еды, вещей и игрушек' },
       ]},
       { slug: 'adult-large-barks-at-people', title: 'Лает на людей или собак', description: 'Причины поведения и работа с реакцией', meta: '1 видео', imagePath: '/assets/icons/big_bark.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Лает на людей или собак', description: 'Определяем причины реакции и собираем безопасный протокол работы' },
@@ -1864,7 +1864,7 @@ const plannedLessonVideos = [
   ],
   [
     'adult-large-resource-guarding',
-    'Охраняет чашку/вещи/игрушки',
+    'Охраняет вещи',
     'map-adult-large-conflicts-guarding',
   ],
   [
@@ -2032,7 +2032,7 @@ const plannedLessonCovers = [
   ],
   [
     'adult-large-resource-guarding',
-    'Охраняет чашку/вещи/игрушки',
+    'Охраняет вещи',
     '/assets/covers/adult-resource-guarding.jpg',
   ],
   [
@@ -2397,7 +2397,7 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'adult-large-toilet', lessonTitle: 'Приучение к улице + режим', descriptionId: '35' },
   { topicSlug: 'adult-large-toilet', lessonTitle: 'Метки дома', descriptionId: '35' },
   { topicSlug: 'adult-large-overaroused-play', lessonTitle: 'Перевозбуждается при игре', descriptionId: '03' },
-  { topicSlug: 'adult-large-resource-guarding', lessonTitle: 'Охраняет чашку/вещи/игрушки', descriptionId: '14' },
+  { topicSlug: 'adult-large-resource-guarding', lessonTitle: 'Охраняет вещи', descriptionId: '14' },
   { topicSlug: 'adult-large-barks-at-people', lessonTitle: 'Лает на людей или собак', descriptionId: '30' },
   { topicSlug: 'adult-large-neutering', lessonTitle: 'Кастрировать/стерилизовать или нет?', descriptionId: '18' },
   { topicSlug: 'adult-large-place-space', lessonTitle: 'Команда «место»', descriptionId: '19' },
@@ -3810,11 +3810,11 @@ function createComplexLevelsMarkup(mode: 'timed' | 'self-check'): string {
   return `
     <div class="app-shell app-shell--complex-levels app-shell--complex-levels--${modeClass}">
       <main class="screen-content complex-levels">
-        <button class="back-button complex-levels__back" type="button" data-route="complex" aria-label="Назад">
-          <span class="back-button__icon" aria-hidden="true"></span>
-        </button>
-
         <div class="content-frame complex-levels__frame">
+          <button class="back-button complex-levels__back" type="button" data-route="complex" aria-label="Назад">
+            <span class="back-button__icon" aria-hidden="true"></span>
+          </button>
+
           <header class="complex-levels__header">
             <span class="complex-levels__mode">${modeTitle}</span>
             <h1>Выберите уровень</h1>
