@@ -30,9 +30,10 @@ let videosState: SituationVideosState = { status: 'idle' };
 let lastBottomNavIndicatorLeft = '50%';
 let lastRenderedRoute: AppRoute | null = null;
 let pendingTransitionDirection: PageTransitionDirection | null = null;
-let previousPageScroll: { route: AppRoute; scrollTop: number } | null = null;
+const pageScrollPositions = new Map<AppRoute, number>();
 let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
 let destroyLessonVideoPlayer: (() => void) | null = null;
+let playerTitleFitFrame: number | null = null;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -52,6 +53,7 @@ window.addEventListener('popstate', () => {
 });
 window.addEventListener('resize', () => {
   updateBottomNavIndicatorPosition();
+  schedulePlayerHeaderTitleFit();
 });
 
 document.addEventListener('keydown', (event) => {
@@ -167,7 +169,7 @@ function render(): void {
   const routeChanged = lastRenderedRoute !== null && lastRenderedRoute !== route;
   const direction = pendingTransitionDirection ?? getRouteTransitionDirection(lastRenderedRoute, route);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const savedScrollTop = routeChanged ? getPreviousPageScrollTop(route) : getCurrentScrollTop();
+  const savedScrollTop = routeChanged ? getSavedPageScrollTop(route) : getCurrentScrollTop();
   const markup = createAppMarkup(route, activeFilter, videosState);
   const isComplexTransition =
     routeChanged &&
@@ -183,6 +185,7 @@ function render(): void {
   const finishMarkupUpdate = (): void => {
     document.body.style.overflow = '';
     restoreScrollPosition(savedScrollTop);
+    schedulePlayerHeaderTitleFit();
     setupLiquidGlassCards();
     destroyLessonVideoPlayer = setupLessonVideoPlayer();
     const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
@@ -303,10 +306,7 @@ function rememberCurrentScrollPosition(routeChanged: boolean): void {
   const currentContent = root.querySelector<HTMLElement>(':scope > .app-shell > .screen-content');
 
   if (currentContent) {
-    previousPageScroll = {
-      route: lastRenderedRoute,
-      scrollTop: currentContent.scrollTop,
-    };
+    pageScrollPositions.set(lastRenderedRoute, currentContent.scrollTop);
   }
 }
 
@@ -316,8 +316,8 @@ function getCurrentScrollTop(): number {
   return currentContent?.scrollTop ?? 0;
 }
 
-function getPreviousPageScrollTop(route: AppRoute): number {
-  return previousPageScroll?.route === route ? previousPageScroll.scrollTop : 0;
+function getSavedPageScrollTop(route: AppRoute): number {
+  return pageScrollPositions.get(route) ?? 0;
 }
 
 function restoreScrollPosition(scrollTop: number): void {
@@ -326,6 +326,49 @@ function restoreScrollPosition(scrollTop: number): void {
   if (nextContent) {
     nextContent.scrollTop = scrollTop;
   }
+}
+
+function schedulePlayerHeaderTitleFit(): void {
+  if (playerTitleFitFrame !== null) {
+    window.cancelAnimationFrame(playerTitleFitFrame);
+  }
+
+  playerTitleFitFrame = window.requestAnimationFrame(() => {
+    playerTitleFitFrame = null;
+    fitPlayerHeaderTitle();
+  });
+}
+
+function fitPlayerHeaderTitle(): void {
+  const title = root.querySelector<HTMLElement>('.subpage-title--player');
+
+  if (!title || title.clientWidth === 0) {
+    return;
+  }
+
+  title.style.removeProperty('font-size');
+
+  const maximumFontSize = Number.parseFloat(window.getComputedStyle(title).fontSize);
+  const minimumFontSize = 12;
+  const lineHeightRatio = 1.14;
+  const maxLines = 2;
+  let fontSize = maximumFontSize;
+
+  while (fontSize > minimumFontSize) {
+    title.style.fontSize = `${fontSize}px`;
+
+    const maximumHeight = fontSize * lineHeightRatio * maxLines + 1;
+    const fitsVertically = title.scrollHeight <= maximumHeight;
+    const fitsHorizontally = title.scrollWidth <= title.clientWidth + 1;
+
+    if (fitsVertically && fitsHorizontally) {
+      return;
+    }
+
+    fontSize -= 0.5;
+  }
+
+  title.style.fontSize = `${minimumFontSize}px`;
 }
 
 function updatePageMarkup(markup: string): void {

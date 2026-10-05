@@ -484,7 +484,7 @@ const legacyPuppySituations: PuppySituation[] = [
       },
       {
         slug: 'conflicts-barks-at-people',
-        title: 'Лает на людей и собак',
+        title: 'Лает на людей или собак',
         description: 'Дистанция, безопасность и управляемый контакт без давления',
         meta: '1 видео',
         imagePath: '/assets/useful-warning.svg',
@@ -1055,14 +1055,14 @@ const puppySituations: PuppySituation[] = [
       },
       {
         slug: 'conflicts-barks-at-people',
-        title: 'Лает на людей и собак',
+        title: 'Лает на людей или собак',
         description: 'Разбираем причины поведения и первые шаги к более устойчивой реакции',
         meta: '1 видео',
         imagePath: '/assets/icons/lai_puppy.webp',
         cardClass: 'topic-card--rose',
         lessons: [
           {
-            title: 'Лает на людей и собак',
+            title: 'Лает на людей или собак',
             description: 'Смотрим, как снизить перегруз и начать более экологичную работу с реакцией',
           },
         ],
@@ -1126,14 +1126,14 @@ const puppySituations: PuppySituation[] = [
       },
       {
         slug: 'fears-new-places',
-        title: 'Страх лестницы/лифта',
+        title: 'Страх лестницы и лифта',
         description: 'Новые места, незнакомые поверхности и базовая техника безопасности',
         meta: '1 видео',
         imagePath: '/assets/icons/stair_puppy.webp',
         cardClass: 'topic-card--blue',
         lessons: [
           {
-            title: 'Страх лестницы/лифта',
+            title: 'Страх лестницы и лифта',
             description: 'Вводим лестницы и лифт в комфортном темпе без перегруза и форсирования',
           },
         ],
@@ -1546,14 +1546,14 @@ const adultLargeSituations: AdultLargeSituation[] = [
       { slug: 'adult-large-resource-guarding', title: 'Охраняет чашку/вещи/игрушки', description: 'Безопасная работа с охраной ценных ресурсов', meta: '1 видео', imagePath: '/assets/icons/big_ohran.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Охраняет чашку/вещи/игрушки', description: 'Снижаем напряжение вокруг еды, вещей и игрушек' },
       ]},
-      { slug: 'adult-large-barks-at-people', title: 'Лает на людей/собак', description: 'Причины поведения и работа с реакцией', meta: '1 видео', imagePath: '/assets/icons/big_bark.webp', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Лает на людей/собак', description: 'Определяем причины реакции и собираем безопасный протокол работы' },
+      { slug: 'adult-large-barks-at-people', title: 'Лает на людей или собак', description: 'Причины поведения и работа с реакцией', meta: '1 видео', imagePath: '/assets/icons/big_bark.webp', cardClass: 'topic-card--rose', lessons: [
+        { title: 'Лает на людей или собак', description: 'Определяем причины реакции и собираем безопасный протокол работы' },
       ]},
       { slug: 'adult-large-neutering', title: 'Кастрировать/стерилизовать или нет?', description: 'Реальные ожидания и ограничения такого решения', meta: '1 видео', imagePath: '/assets/icons/voprox_puppy.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Кастрировать/стерилизовать или нет?', description: 'Разбираем ожидания, ограничения и вопросы к специалистам' },
       ]},
-      { slug: 'adult-large-scooters-bikes', title: 'Бросается на самокаты/велосипеды', description: 'Работа со страхом, напряжением и погоней за движущимися объектами', meta: '1 видео', imagePath: '/assets/icons/big_velo.webp', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Бросается на самокаты/велосипеды', description: 'Учимся отличать мотивацию и выбирать корректную стратегию работы' },
+      { slug: 'adult-large-scooters-bikes', title: 'Бросается на самокаты и велосипеды', description: 'Работа со страхом, напряжением и погоней за движущимися объектами', meta: '1 видео', imagePath: '/assets/icons/big_velo.webp', cardClass: 'topic-card--rose', lessons: [
+        { title: 'Бросается на самокаты и велосипеды', description: 'Учимся отличать мотивацию и выбирать корректную стратегию работы' },
       ]},
     ],
   },
@@ -1584,8 +1584,8 @@ const adultLargeSituations: AdultLargeSituation[] = [
       { slug: 'adult-large-cars', title: 'Приучаем постепенно к машине', description: 'Постепенное знакомство с машиной и поездками', meta: '1 видео', imagePath: '/assets/icons/big_car.webp', cardClass: 'topic-card--blue', lessons: [
         { title: 'Приучаем постепенно к машине', description: 'Двигаемся от знакомства к коротким безопасным поездкам' },
       ]},
-      { slug: 'adult-large-new-places', title: 'Страх лестницы/лифта', description: 'Постепенное знакомство с лестницей и лифтом', meta: '1 видео', imagePath: '/assets/icons/big_lift.webp', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Страх лестницы/лифта', description: 'Знакомим собаку с лестницей и лифтом в комфортном темпе' },
+      { slug: 'adult-large-new-places', title: 'Страх лестницы и лифта', description: 'Постепенное знакомство с лестницей и лифтом', meta: '1 видео', imagePath: '/assets/icons/big_lift.webp', cardClass: 'topic-card--rose', lessons: [
+        { title: 'Страх лестницы и лифта', description: 'Знакомим собаку с лестницей и лифтом в комфортном темпе' },
       ]},
     ],
   },
@@ -1728,7 +1728,7 @@ const plannedLessonVideos = [
   ],
   [
     'conflicts-barks-at-people',
-    'Лает на людей и собак',
+    'Лает на людей или собак',
     'map-puppy-conflicts-barking',
   ],
   [
@@ -1743,7 +1743,7 @@ const plannedLessonVideos = [
   ],
   [
     'fears-new-places',
-    'Страх лестницы/лифта',
+    'Страх лестницы и лифта',
     'map-puppy-fears-stairs-lift',
   ],
   [
@@ -1869,7 +1869,7 @@ const plannedLessonVideos = [
   ],
   [
     'adult-large-barks-at-people',
-    'Лает на людей/собак',
+    'Лает на людей или собак',
     'map-adult-large-conflicts-barking',
   ],
   [
@@ -1879,7 +1879,7 @@ const plannedLessonVideos = [
   ],
   [
     'adult-large-scooters-bikes',
-    'Бросается на самокаты/велосипеды',
+    'Бросается на самокаты и велосипеды',
     'map-adult-large-conflicts-scooters',
   ],
   [
@@ -1899,7 +1899,7 @@ const plannedLessonVideos = [
   ],
   [
     'adult-large-new-places',
-    'Страх лестницы/лифта',
+    'Страх лестницы и лифта',
     'map-adult-large-fears-stairs-lift',
   ],
   [
@@ -1963,15 +1963,20 @@ const plannedLessonCovers = [
     'Охраняет чашку, вещи и игрушки',
     '/assets/covers/puppy-resource-guarding.jpg',
   ],
-  ['conflicts-barks-at-people', 'Лает на людей и собак', '/assets/covers/barking-triggers.jpg'],
+  ['conflicts-barks-at-people', 'Лает на людей или собак', '/assets/covers/barking-triggers.jpg'],
   ['conflicts-neutering', 'Кастрировать или стерилизовать?', '/assets/covers/neutering.jpg'],
   [
     'fears-sounds',
     'Боязнь звуков (собака боится салютов, пылесосов, лая других собак и звука фена)',
     '/assets/covers/puppy-fears-sounds.jpg',
   ],
-  ['fears-new-places', 'Страх лестницы/лифта', '/assets/covers/puppy-stairs-lift.jpg'],
+  ['fears-new-places', 'Страх лестницы и лифта', '/assets/covers/puppy-stairs-lift.jpg'],
   ['fears-space-organization', 'Щенок дома', '/assets/covers/puppy-home.jpg'],
+  [
+    'fears-follows-tail',
+    'Ходит хвостиком + Как минимизировать тревожность?',
+    '/assets/covers/adult-anxiety.jpg',
+  ],
   ['care-claws', 'Когти: анатомия когтя и стрижка', '/assets/covers/kogti.jpg'],
   ['fitness-bow', 'Поклон', '/assets/covers/bow.jpg'],
   ['fitness-bunny', 'Зайка', '/assets/covers/puppy-bunny.jpg'],
@@ -2032,7 +2037,7 @@ const plannedLessonCovers = [
   ],
   [
     'adult-large-barks-at-people',
-    'Лает на людей/собак',
+    'Лает на людей или собак',
     '/assets/covers/barking-triggers.jpg',
   ],
   [
@@ -2042,7 +2047,7 @@ const plannedLessonCovers = [
   ],
   [
     'adult-large-scooters-bikes',
-    'Бросается на самокаты/велосипеды',
+    'Бросается на самокаты и велосипеды',
     '/assets/covers/adult-scooters.jpg',
   ],
   [
@@ -2052,7 +2057,7 @@ const plannedLessonCovers = [
   ],
   ['adult-large-sounds', 'Боязнь звуков', '/assets/covers/adult-fears-sounds.jpg'],
   ['adult-large-cars', 'Приучаем постепенно к машине', '/assets/covers/maschin.jpg'],
-  ['adult-large-new-places', 'Страх лестницы/лифта', '/assets/covers/adult-stairs-lift.jpg'],
+  ['adult-large-new-places', 'Страх лестницы и лифта', '/assets/covers/adult-stairs-lift.jpg'],
   ['adult-large-claws', 'Когти', '/assets/covers/kogti-bolsh.jpg'],
   ['adult-large-eight', 'Восемь', '/assets/covers/adult-eight.jpg'],
   ['adult-large-go-around', 'Обойди', '/assets/covers/adult-go-around.jpg'],
@@ -2221,14 +2226,14 @@ const adultSmallSituations: AdultSmallSituation[] = [
         { title: 'Охраняет вещи', description: 'Разбираем работу с бытовыми предметами' },
         { title: 'Охраняет игрушки', description: 'Строим безопасное взаимодействие с ценными объектами' },
       ]},
-      { slug: 'adult-small-barks-at-people', title: 'Лает на людей / собак', description: 'Причины поведения и коррекция реакции', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-small-barks-at-people', title: 'Лает на людей или собак', description: 'Причины поведения и коррекция реакции', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
         { title: 'Причины поведения', description: 'Определяем, что лежит под реакцией' },
         { title: 'Работа с реакцией', description: 'Собираем первые шаги к более спокойному поведению' },
       ]},
       { slug: 'adult-small-neutering', title: 'Кастрация / стерилизация', description: 'Что ожидать от решения и что оно не решает само по себе', meta: '1 видео', imagePath: '/assets/useful-heart.svg', cardClass: 'topic-card--blue', lessons: [
         { title: 'Кастрировать / стерилизовать или нет?', description: 'Разбираем ожидания и контекст решения' },
       ]},
-      { slug: 'adult-small-scooters-bikes', title: 'Бросается на самокаты / велосипеды', description: 'Страх, возбуждение или желание догнать как основа реакции', meta: '2 видео', imagePath: '/assets/images/programs/teen_dog.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-small-scooters-bikes', title: 'Бросается на самокаты и велосипеды', description: 'Страх, возбуждение или желание догнать как основа реакции', meta: '2 видео', imagePath: '/assets/images/programs/teen_dog.webp', cardClass: 'topic-card--rose', lessons: [
         { title: 'Разбор причин поведения', description: 'Учимся отличать мотивацию под реакцией' },
         { title: 'Работа со страхом / возбуждением / желанием догнать', description: 'Подбираем стратегию под конкретный сценарий' },
       ]},
@@ -2356,11 +2361,11 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'home-toilet', lessonTitle: 'Метки дома', descriptionId: '35' },
   { topicSlug: 'conflicts-biting-hands', lessonTitle: 'Грызёт руки и ноги: спокойная и правильная игра', descriptionId: '03' },
   { topicSlug: 'conflicts-resource-guarding', lessonTitle: 'Охраняет чашку, вещи и игрушки', descriptionId: '14' },
-  { topicSlug: 'conflicts-barks-at-people', lessonTitle: 'Лает на людей и собак', descriptionId: '29' },
+  { topicSlug: 'conflicts-barks-at-people', lessonTitle: 'Лает на людей или собак', descriptionId: '29' },
   { topicSlug: 'conflicts-neutering', lessonTitle: 'Кастрировать или стерилизовать?', descriptionId: '18' },
   { topicSlug: 'fears-sounds', lessonTitle: 'Боязнь звуков (собака боится салютов, пылесосов, лая других собак и звука фена)', descriptionId: '31' },
   { topicSlug: 'fears-cars', lessonTitle: 'Приучаем постепенно к машине', descriptionId: '16' },
-  { topicSlug: 'fears-new-places', lessonTitle: 'Страх лестницы/лифта', descriptionId: '17' },
+  { topicSlug: 'fears-new-places', lessonTitle: 'Страх лестницы и лифта', descriptionId: '17' },
   { topicSlug: 'fears-place-command', lessonTitle: 'Команда «место»', descriptionId: '19' },
   { topicSlug: 'fears-space-organization', lessonTitle: 'Щенок дома', descriptionId: '02' },
   { topicSlug: 'fears-follows-tail', lessonTitle: 'Ходит хвостиком + Как минимизировать тревожность?', descriptionId: '20' },
@@ -2393,13 +2398,13 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'adult-large-toilet', lessonTitle: 'Метки дома', descriptionId: '35' },
   { topicSlug: 'adult-large-overaroused-play', lessonTitle: 'Перевозбуждается при игре', descriptionId: '03' },
   { topicSlug: 'adult-large-resource-guarding', lessonTitle: 'Охраняет чашку/вещи/игрушки', descriptionId: '14' },
-  { topicSlug: 'adult-large-barks-at-people', lessonTitle: 'Лает на людей/собак', descriptionId: '30' },
+  { topicSlug: 'adult-large-barks-at-people', lessonTitle: 'Лает на людей или собак', descriptionId: '30' },
   { topicSlug: 'adult-large-neutering', lessonTitle: 'Кастрировать/стерилизовать или нет?', descriptionId: '18' },
   { topicSlug: 'adult-large-place-space', lessonTitle: 'Команда «место»', descriptionId: '19' },
   { topicSlug: 'adult-large-follows-tail', lessonTitle: 'Ходит хвостиком + Как минимизировать тревожность?', descriptionId: '20' },
   { topicSlug: 'adult-large-sounds', lessonTitle: 'Боязнь звуков', descriptionId: '31' },
   { topicSlug: 'adult-large-cars', lessonTitle: 'Приучаем постепенно к машине', descriptionId: '32' },
-  { topicSlug: 'adult-large-new-places', lessonTitle: 'Страх лестницы/лифта', descriptionId: '33' },
+  { topicSlug: 'adult-large-new-places', lessonTitle: 'Страх лестницы и лифта', descriptionId: '33' },
   { topicSlug: 'adult-large-paws', lessonTitle: 'Лапы', descriptionId: '44' },
   { topicSlug: 'adult-large-eight', lessonTitle: 'Восемь', descriptionId: '45' },
   { topicSlug: 'adult-large-go-around', lessonTitle: 'Обойди', descriptionId: '46' },
@@ -3204,6 +3209,7 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
 
 function createLessonPlayerMarkup(video: LessonVideoEntry): string {
   const escapedTitle = escapeHtml(video.title);
+  const titleMarkup = createPlayerTitleMarkup(video.title);
   const descriptionMarkup = video.description
     ? createLessonDescriptionMarkup(video.description)
     : '';
@@ -3214,8 +3220,8 @@ function createLessonPlayerMarkup(video: LessonVideoEntry): string {
     <div class="app-shell">
       <header class="subpage-header">
         <div class="content-frame">
-          <div class="subpage-header__inner">
-            <h1 class="subpage-title">${escapedTitle}</h1>
+          <div class="subpage-header__inner subpage-header__inner--player">
+            <h1 class="subpage-title subpage-title--player">${titleMarkup}</h1>
             <button class="back-button" type="button" data-route="${video.backRoute}" aria-label="Назад">
               <span class="back-button__icon" aria-hidden="true"></span>
             </button>
@@ -3320,6 +3326,31 @@ function createLessonPlayerMarkup(video: LessonVideoEntry): string {
       ${createBottomNav('lessons')}
     </div>
   `;
+}
+
+function createPlayerTitleMarkup(title: string): string {
+  const parts = title.match(/\S+|\s+/gu) ?? [];
+  const markup: string[] = [];
+
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index];
+
+    if (!part.includes('/')) {
+      markup.push(escapeHtml(part));
+      continue;
+    }
+
+    let nonBreakingText = part;
+
+    if (part.endsWith('/') && /^\s+$/u.test(parts[index + 1] ?? '') && parts[index + 2]) {
+      nonBreakingText += `${parts[index + 1]}${parts[index + 2]}`;
+      index += 2;
+    }
+
+    markup.push(`<span class="subpage-title__no-break">${escapeHtml(nonBreakingText)}</span>`);
+  }
+
+  return markup.join('');
 }
 
 type LessonDescriptionTone = 'default' | 'mistakes' | 'note';
@@ -3481,9 +3512,12 @@ function createLessonDescriptionBlocksMarkup(lines: string[]): string {
       return;
     }
 
-    if (line.startsWith('💬')) {
+    if (line.startsWith('💬') || line.endsWith('💬')) {
       flushAll();
-      blocks.push({ type: 'callout', text: line.replace(/^💬\s*/, '') });
+      blocks.push({
+        type: 'callout',
+        text: line.replace(/^(?:💬\s*)|(?:\s*💬)$/gu, '').trim(),
+      });
       return;
     }
 
