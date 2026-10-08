@@ -6,6 +6,7 @@ dist/
 .DS_Store
 .idea/
 *.log
+HANDOFF_AUTH_OPTION_2.md
 data/*
 !data/.gitkeep
 letsencrypt/

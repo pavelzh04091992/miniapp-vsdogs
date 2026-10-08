@@ -10,7 +10,7 @@ const webhookUrl = `${publicBaseUrl}${webhookPath}`;
 
 const payload = {
   url: webhookUrl,
-  allowed_updates: ['channel_post', 'edited_channel_post'],
+  allowed_updates: ['message', 'callback_query', 'channel_post', 'edited_channel_post'],
 };
 
 if (webhookSecret) {

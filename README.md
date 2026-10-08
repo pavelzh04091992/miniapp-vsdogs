@@ -28,6 +28,7 @@ Vite доступен на `http://localhost:3000`. Запросы `/media/` п�
 ```bash
 npm run typecheck
 npm run build
+npm run test:auth
 npm run verify
 ```
 
@@ -164,16 +165,18 @@ media/<video-id>/
 
 ## Telegram webhook
 
-Webhook не участвует в воспроизведении локальных видео. Он нужен только для прежнего сценария,
-в котором посты Telegram добавляются в каталог `/data/videos.json`.
+Один webhook обслуживает публикации канала, личные сообщения бота и callback-кнопки.
+Бот хранит пользователей и выданные доступы в `data/auth.sqlite`.
 
 Для его включения задайте как минимум:
 
 ```dotenv
 TELEGRAM_WEBHOOK_SECRET=long-random-secret
-PUBLIC_CHANNEL_USERNAME=channel_username
 PUBLIC_BASE_URL=https://example.com
 BOT_TOKEN=telegram-bot-token
+BOT_USERNAME=your_bot_username
+ADMIN_TELEGRAM_ID=123456789
+MINI_APP_URL=https://example.com
 ```
 
 Затем зарегистрируйте webhook:
@@ -182,13 +185,26 @@ BOT_TOKEN=telegram-bot-token
 npm run bot:set-webhook
 ```
 
-`BOT_TOKEN` используется только вспомогательными командами регистрации webhook и отправки
-сообщений; в контейнер приложения он не передаётся.
+После `/start` администратор получает меню выдачи и отзыва доступа. Если указанный пользователь
+уже запускал бота, он сразу получит уведомление и кнопку Mini App. Иначе администратор получит
+персональную deep link, которую нужно передать пользователю. При переходе бот проверяет, что
+приглашение открыто тем Telegram ID, которому оно выдано.
+
+Сервер предоставляет API для следующего этапа интеграции фронтенда:
+
+- `POST /api/auth/telegram` — принимает `{ "initData": "..." }`, проверяет подпись Telegram,
+  срок `auth_date` и наличие активного доступа, затем создаёт HttpOnly-сессию;
+- `GET /api/me` — возвращает пользователя текущей сессии;
+- `POST /api/logout` — отзывает текущую сессию.
+
+Текущий фронтенд пока не вызывает эти endpoints и остаётся публичным. Каталог и `/media/` также
+пока не закрыты — это отдельный следующий этап.
 
 ## Хранение данных и резервные копии
 
 - `media/` — видеофайлы; монтируется в media-контейнер только для чтения.
-- `data/` — изменяемый каталог Telegram-видео; монтируется в app-контейнер для записи.
+- `data/` — изменяемый каталог Telegram-видео и SQLite-база `auth.sqlite`; монтируется в
+  app-контейнер для записи.
 - `letsencrypt/` — сертификаты Traefik.
 
 Перед обновлением сервера сохраняйте эти три каталога. На Linux пользователь контейнера
@@ -207,7 +223,10 @@ infra/
   local-gateway-nginx.conf  # HTTP gateway для локального и тестового запуска
   media-nginx.conf          # Раздача MP4/HLS с поддержкой Range
 scripts/
-  app-server.mjs            # Фронтенд, healthcheck и Telegram webhook
+  app-server.mjs            # Фронтенд, auth API, healthcheck и Telegram webhook
+  auth-database.mjs         # SQLite: пользователи, приглашения и сессии
+  telegram-auth.mjs         # Проверка Telegram initData
+  telegram-bot.mjs          # Админское и пользовательское меню бота
   prepare-video.mjs         # Подготовка HLS/MP4/poster через FFmpeg
   smoke-test.mjs            # Проверка развёрнутого стека
 src/

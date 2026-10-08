@@ -46,11 +46,21 @@ services:
     init: true
     environment:
       APP_SERVER_PORT: "8787"
+      ADMIN_TELEGRAM_ID: "${ADMIN_TELEGRAM_ID:-}"
+      AUTH_DATABASE_PATH: "/app/data/auth.sqlite"
+      BOT_TOKEN: "${BOT_TOKEN:-}"
+      BOT_USERNAME: "${BOT_USERNAME:-}"
       DEFAULT_VIDEO_SITUATION_SLUG: "${DEFAULT_VIDEO_SITUATION_SLUG:-puppy-toilet-home}"
+      INVITE_TTL_SECONDS: "${INVITE_TTL_SECONDS:-86400}"
       KNOWN_VIDEO_SITUATION_SLUGS: "${KNOWN_VIDEO_SITUATION_SLUGS:-puppy-toilet-home}"
+      MINI_APP_URL: "${MINI_APP_URL:-}"
       PUBLIC_CHANNEL_USERNAME: "${PUBLIC_CHANNEL_USERNAME:-}"
+      SESSION_COOKIE_NAME: "${SESSION_COOKIE_NAME:-miniapp_session}"
+      SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:-true}"
+      SESSION_TTL_SECONDS: "${SESSION_TTL_SECONDS:-604800}"
       TELEGRAM_WEBHOOK_PATH: "${TELEGRAM_WEBHOOK_PATH:-/telegram/webhook}"
       TELEGRAM_WEBHOOK_SECRET: "${TELEGRAM_WEBHOOK_SECRET:-}"
+      TELEGRAM_INIT_DATA_MAX_AGE_SECONDS: "${TELEGRAM_INIT_DATA_MAX_AGE_SECONDS:-900}"
       WEBHOOK_MAX_BODY_BYTES: "${WEBHOOK_MAX_BODY_BYTES:-1048576}"
     expose:
       - "8787"
@@ -69,6 +79,7 @@ services:
       - "traefik.http.middlewares.security-headers.headers.stsseconds=31536000"
       - "traefik.http.middlewares.security-headers.headers.stsincludesubdomains=true"
     volumes:
+      - "./data:/app/data:rw"
       - "./data:/app/public/data:rw"
     healthcheck:
       test:

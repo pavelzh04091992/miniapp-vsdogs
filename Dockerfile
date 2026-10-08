@@ -15,10 +15,10 @@ WORKDIR /app
 ENV NODE_ENV=production \
     APP_SERVER_PORT=8787
 
-COPY --chown=node:node scripts/app-server.mjs scripts/video-catalog.mjs ./scripts/
+COPY --chown=node:node scripts/app-server.mjs scripts/auth-database.mjs scripts/telegram-auth.mjs scripts/telegram-bot.mjs scripts/video-catalog.mjs ./scripts/
 COPY --from=build --chown=node:node /app/dist ./dist
 
-RUN mkdir -p public/data && chown -R node:node public
+RUN mkdir -p data public/data && chown -R node:node data public
 
 EXPOSE 8787
 USER node

@@ -14,6 +14,7 @@ services:
     init: true
     environment:
       APP_SERVER_PORT: "8787"
+      AUTH_DATABASE_PATH: "/app/data/auth.sqlite"
       DEFAULT_VIDEO_SITUATION_SLUG: "${DEFAULT_VIDEO_SITUATION_SLUG:-puppy-toilet-home}"
       KNOWN_VIDEO_SITUATION_SLUGS: "${KNOWN_VIDEO_SITUATION_SLUGS:-puppy-toilet-home}"
       PUBLIC_CHANNEL_USERNAME: "${PUBLIC_CHANNEL_USERNAME:-}"
@@ -23,6 +24,7 @@ services:
     expose:
       - "8787"
     volumes:
+      - "${TEST_DATA_PATH:-./data}:/app/data:rw"
       - "${TEST_DATA_PATH:-./data}:/app/public/data:rw"
     healthcheck:
       test:

@@ -2,6 +2,13 @@ import { timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
+import { createAuthDatabase } from './auth-database.mjs';
+import { createTelegramBot } from './telegram-bot.mjs';
+import {
+  TelegramAuthError,
+  normalizeTelegramId,
+  validateTelegramInitData,
+} from './telegram-auth.mjs';
 import { loadDotEnv, loadVideoCatalog, upsertChannelVideo } from './video-catalog.mjs';
 
 loadDotEnv();
@@ -14,6 +21,34 @@ const maxWebhookBodyBytes = parsePositiveInteger(
 );
 const webhookPath = normalizeWebhookPath(process.env.TELEGRAM_WEBHOOK_PATH);
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim() || '';
+const botToken = process.env.BOT_TOKEN?.trim() || '';
+const botUsername = process.env.BOT_USERNAME?.trim() || '';
+const adminTelegramId = normalizeOptionalTelegramId(process.env.ADMIN_TELEGRAM_ID);
+const miniAppUrl = (process.env.MINI_APP_URL || process.env.PUBLIC_BASE_URL || '').trim();
+const configuredAuthDatabasePath = process.env.AUTH_DATABASE_PATH || 'data/auth.sqlite';
+const authDatabasePath = configuredAuthDatabasePath === ':memory:'
+  ? configuredAuthDatabasePath
+  : resolve(process.cwd(), configuredAuthDatabasePath);
+const telegramInitDataMaxAgeSeconds = parsePositiveInteger(
+  process.env.TELEGRAM_INIT_DATA_MAX_AGE_SECONDS,
+  900,
+  'TELEGRAM_INIT_DATA_MAX_AGE_SECONDS',
+);
+const sessionTtlSeconds = parsePositiveInteger(
+  process.env.SESSION_TTL_SECONDS,
+  7 * 24 * 60 * 60,
+  'SESSION_TTL_SECONDS',
+);
+const inviteTtlSeconds = parsePositiveInteger(
+  process.env.INVITE_TTL_SECONDS,
+  24 * 60 * 60,
+  'INVITE_TTL_SECONDS',
+);
+const sessionCookieName = normalizeCookieName(process.env.SESSION_COOKIE_NAME);
+const secureSessionCookie = parseBoolean(
+  process.env.SESSION_COOKIE_SECURE,
+  miniAppUrl.startsWith('https://') || process.env.NODE_ENV === 'production',
+);
 const publicChannelUsername = process.env.PUBLIC_CHANNEL_USERNAME || '';
 const defaultSituationSlug = process.env.DEFAULT_VIDEO_SITUATION_SLUG || 'puppy-toilet-home';
 const distPath = resolve(process.cwd(), 'dist');
@@ -45,6 +80,20 @@ const securityHeaders = {
 
 // Validate the writable catalog mount before the service starts accepting traffic.
 loadVideoCatalog();
+const authDatabase = createAuthDatabase(authDatabasePath);
+
+if (adminTelegramId) {
+  authDatabase.ensureAdmin(adminTelegramId);
+}
+
+const telegramBot = createTelegramBot({
+  botToken,
+  botUsername,
+  miniAppUrl,
+  adminTelegramId,
+  database: authDatabase,
+  inviteTtlSeconds,
+});
 
 const server = createServer((request, response) => {
   void handleRequest(request, response).catch((error) => {
@@ -69,6 +118,21 @@ async function handleRequest(request, response) {
 
   if (request.method === 'GET' && pathname === '/data/videos.json') {
     respondJson(response, 200, loadVideoCatalog());
+    return;
+  }
+
+  if (pathname === '/api/auth/telegram') {
+    await handleTelegramAuth(request, response);
+    return;
+  }
+
+  if (pathname === '/api/me') {
+    handleCurrentUser(request, response);
+    return;
+  }
+
+  if (pathname === '/api/logout') {
+    handleLogout(request, response);
     return;
   }
 
@@ -98,6 +162,12 @@ server.listen(port, '0.0.0.0', () => {
     console.log(`[app-server] Telegram webhook enabled: ${webhookPath}`);
   } else {
     console.log('[app-server] Telegram webhook disabled: TELEGRAM_WEBHOOK_SECRET is empty');
+  }
+
+  if (botToken && adminTelegramId) {
+    console.log('[app-server] Telegram access bot and initData authentication enabled');
+  } else {
+    console.log('[app-server] Telegram access bot disabled: BOT_TOKEN or ADMIN_TELEGRAM_ID is empty');
   }
 });
 
@@ -129,10 +199,17 @@ async function handleTelegramWebhook(request, response) {
 
   try {
     const body = await readJsonBody(request);
-    const message = body.channel_post || body.edited_channel_post;
+    const updateId = body.update_id;
 
-    if (message) {
-      const result = upsertChannelVideo(message, {
+    if (authDatabase.isTelegramUpdateProcessed(updateId)) {
+      respondJson(response, 200, { ok: true, duplicate: true });
+      return;
+    }
+
+    const channelMessage = body.channel_post || body.edited_channel_post;
+
+    if (channelMessage) {
+      const result = upsertChannelVideo(channelMessage, {
         knownSlugs,
         defaultSituationSlug,
         publicChannelUsername,
@@ -145,9 +222,15 @@ async function handleTelegramWebhook(request, response) {
       } else {
         console.log(`[video-catalog] skipped update: ${result.reason}`);
       }
-    } else {
-      console.log('[video-catalog] skipped non-channel update');
     }
+
+    if (telegramBot.enabled) {
+      await telegramBot.handleUpdate(body);
+    } else if (!channelMessage) {
+      console.log('[telegram-bot] skipped update: access bot is disabled');
+    }
+
+    authDatabase.markTelegramUpdateProcessed(updateId);
 
     respondJson(response, 200, { ok: true });
   } catch (error) {
@@ -156,9 +239,122 @@ async function handleTelegramWebhook(request, response) {
       return;
     }
 
-    console.error('[video-catalog] webhook error', error);
+    console.error('[telegram-webhook] update failed', error);
     respondJson(response, 500, { ok: false, error: 'internal_error' });
   }
+}
+
+async function handleTelegramAuth(request, response) {
+  if (request.method !== 'POST') {
+    respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'POST' });
+    return;
+  }
+
+  if (!botToken || !adminTelegramId) {
+    respondJson(response, 503, { ok: false, error: 'telegram_auth_disabled' });
+    return;
+  }
+
+  if (!hasAllowedOrigin(request)) {
+    respondJson(response, 403, { ok: false, error: 'invalid_origin' });
+    return;
+  }
+
+  try {
+    const body = await readJsonBody(request);
+    const verified = validateTelegramInitData(body.initData, botToken, {
+      maxAgeSeconds: telegramInitDataMaxAgeSeconds,
+    });
+
+    if (verified.user.id === adminTelegramId) {
+      authDatabase.ensureAdmin(adminTelegramId);
+    }
+
+    const knownUser = authDatabase.getUser(verified.user.id);
+
+    if (!knownUser || knownUser.status !== 'active') {
+      respondJson(response, 403, { ok: false, error: 'access_denied' });
+      return;
+    }
+
+    authDatabase.touchTelegramUser(verified.user);
+    const session = authDatabase.createSession(verified.user.id, sessionTtlSeconds);
+
+    if (!session) {
+      respondJson(response, 403, { ok: false, error: 'access_denied' });
+      return;
+    }
+
+    respondJson(
+      response,
+      200,
+      { ok: true, user: publicUser(authDatabase.getUser(verified.user.id)) },
+      { 'Set-Cookie': serializeSessionCookie(session.token, session.expiresAt) },
+    );
+  } catch (error) {
+    if (error instanceof RequestError) {
+      respondJson(response, error.statusCode, { ok: false, error: error.publicCode });
+      return;
+    }
+
+    if (error instanceof TelegramAuthError) {
+      respondJson(response, 401, { ok: false, error: error.code });
+      return;
+    }
+
+    console.error('[telegram-auth] authentication failed', error);
+    respondJson(response, 500, { ok: false, error: 'internal_error' });
+  }
+}
+
+function handleCurrentUser(request, response) {
+  if (request.method !== 'GET') {
+    respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET' });
+    return;
+  }
+
+  const user = getSessionUser(request);
+
+  if (!user) {
+    respondJson(response, 401, { ok: false, error: 'not_authenticated' });
+    return;
+  }
+
+  respondJson(response, 200, { ok: true, user: publicUser(user) });
+}
+
+function handleLogout(request, response) {
+  if (request.method !== 'POST') {
+    respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'POST' });
+    return;
+  }
+
+  if (!hasAllowedOrigin(request)) {
+    respondJson(response, 403, { ok: false, error: 'invalid_origin' });
+    return;
+  }
+
+  const token = parseCookies(request.headers.cookie)[sessionCookieName];
+  authDatabase.revokeSession(token);
+  respondJson(response, 200, { ok: true }, {
+    'Set-Cookie': serializeSessionCookie('', 0),
+  });
+}
+
+function getSessionUser(request) {
+  const token = parseCookies(request.headers.cookie)[sessionCookieName];
+  return token ? authDatabase.getSessionUser(token) : null;
+}
+
+function publicUser(user) {
+  return {
+    telegramId: user.telegramId,
+    role: user.role,
+    status: user.status,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+  };
 }
 
 function hasValidWebhookSecret(providedSecret) {
@@ -348,6 +544,7 @@ function writeResponseHead(response, statusCode, headers) {
 function isSpaRoute(pathname) {
   return (
     !extname(pathname) &&
+    !pathname.startsWith('/api/') &&
     !pathname.startsWith('/assets/') &&
     !pathname.startsWith('/data/') &&
     !pathname.startsWith('/media/') &&
@@ -399,6 +596,97 @@ function parsePositiveInteger(value, fallback, name) {
   return parsed;
 }
 
+function normalizeOptionalTelegramId(value) {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const id = normalizeTelegramId(value);
+
+  if (!id) {
+    throw new Error('ADMIN_TELEGRAM_ID must be a positive numeric Telegram ID');
+  }
+
+  return id;
+}
+
+function normalizeCookieName(value) {
+  const name = value?.trim() || 'miniapp_session';
+
+  if (!/^[A-Za-z0-9_-]+$/.test(name)) {
+    throw new Error('SESSION_COOKIE_NAME contains unsupported characters');
+  }
+
+  return name;
+}
+
+function parseBoolean(value, fallback) {
+  if (!value) {
+    return fallback;
+  }
+
+  if (value === 'true' || value === '1') {
+    return true;
+  }
+
+  if (value === 'false' || value === '0') {
+    return false;
+  }
+
+  throw new Error('Boolean environment value must be true/false or 1/0');
+}
+
+function parseCookies(cookieHeader) {
+  if (typeof cookieHeader !== 'string') {
+    return {};
+  }
+
+  return Object.fromEntries(
+    cookieHeader
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const separator = part.indexOf('=');
+        return separator === -1
+          ? [part, '']
+          : [part.slice(0, separator), part.slice(separator + 1)];
+      }),
+  );
+}
+
+function serializeSessionCookie(token, expiresAt) {
+  const maxAge = token ? Math.max(0, expiresAt - Math.floor(Date.now() / 1000)) : 0;
+  const parts = [
+    `${sessionCookieName}=${token}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${maxAge}`,
+  ];
+
+  if (secureSessionCookie) {
+    parts.push('Secure');
+  }
+
+  return parts.join('; ');
+}
+
+function hasAllowedOrigin(request) {
+  const origin = request.headers.origin;
+
+  if (!origin) {
+    return true;
+  }
+
+  try {
+    const originUrl = new URL(origin);
+    return originUrl.host === request.headers.host;
+  } catch {
+    return false;
+  }
+}
+
 function shutdown(signal) {
   console.log(`[app-server] received ${signal}, shutting down`);
 
@@ -407,6 +695,8 @@ function shutdown(signal) {
       console.error('[app-server] graceful shutdown failed', error);
       process.exitCode = 1;
     }
+
+    authDatabase.close();
   });
   server.closeIdleConnections();
 
