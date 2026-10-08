@@ -24,7 +24,8 @@ const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim() || '';
 const botToken = process.env.BOT_TOKEN?.trim() || '';
 const botUsername = process.env.BOT_USERNAME?.trim() || '';
 const adminTelegramId = normalizeOptionalTelegramId(process.env.ADMIN_TELEGRAM_ID);
-const miniAppUrl = (process.env.MINI_APP_URL || process.env.PUBLIC_BASE_URL || '').trim();
+const publicBaseUrl = (process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
+const miniAppUrl = (process.env.MINI_APP_URL || publicBaseUrl).trim();
 const configuredAuthDatabasePath = process.env.AUTH_DATABASE_PATH || 'data/auth.sqlite';
 const authDatabasePath = configuredAuthDatabasePath === ':memory:'
   ? configuredAuthDatabasePath
@@ -43,6 +44,11 @@ const inviteTtlSeconds = parsePositiveInteger(
   process.env.INVITE_TTL_SECONDS,
   24 * 60 * 60,
   'INVITE_TTL_SECONDS',
+);
+const magicLinkTtlSeconds = parsePositiveInteger(
+  process.env.MAGIC_LINK_TTL_SECONDS,
+  10 * 60,
+  'MAGIC_LINK_TTL_SECONDS',
 );
 const sessionCookieName = normalizeCookieName(process.env.SESSION_COOKIE_NAME);
 const secureSessionCookie = parseBoolean(
@@ -90,9 +96,11 @@ const telegramBot = createTelegramBot({
   botToken,
   botUsername,
   miniAppUrl,
+  publicBaseUrl,
   adminTelegramId,
   database: authDatabase,
   inviteTtlSeconds,
+  magicLinkTtlSeconds,
 });
 
 const server = createServer((request, response) => {
@@ -126,6 +134,11 @@ async function handleRequest(request, response) {
     return;
   }
 
+  if (pathname === '/api/auth/config') {
+    handleAuthConfig(request, response);
+    return;
+  }
+
   if (pathname === '/api/me') {
     handleCurrentUser(request, response);
     return;
@@ -133,6 +146,11 @@ async function handleRequest(request, response) {
 
   if (pathname === '/api/logout') {
     handleLogout(request, response);
+    return;
+  }
+
+  if (pathname === '/auth/magic') {
+    handleMagicLink(request, response);
     return;
   }
 
@@ -321,6 +339,38 @@ function handleCurrentUser(request, response) {
   }
 
   respondJson(response, 200, { ok: true, user: publicUser(user) });
+}
+
+function handleAuthConfig(request, response) {
+  if (request.method !== 'GET') {
+    respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET' });
+    return;
+  }
+
+  respondJson(response, 200, {
+    ok: true,
+    botUrl: getPublicBotUrl(),
+  });
+}
+
+function handleMagicLink(request, response) {
+  if (request.method !== 'GET') {
+    respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET' });
+    return;
+  }
+
+  const tokens = getRequestUrl(request).searchParams.getAll('token');
+  const token = tokens.length === 1 ? tokens[0] : null;
+  const session = authDatabase.consumeMagicLink(token, sessionTtlSeconds);
+
+  if (!session) {
+    redirect(response, '/?auth=invalid-link');
+    return;
+  }
+
+  redirect(response, '/?auth=success', {
+    'Set-Cookie': serializeSessionCookie(session.token, session.expiresAt),
+  });
 }
 
 function handleLogout(request, response) {
@@ -515,10 +565,14 @@ function safeDecodeURIComponent(value) {
 }
 
 function getRequestPathname(request) {
+  return getRequestUrl(request).pathname;
+}
+
+function getRequestUrl(request) {
   try {
-    return new URL(request.url || '/', 'http://localhost').pathname;
+    return new URL(request.url || '/', 'http://localhost');
   } catch {
-    return '/';
+    return new URL('http://localhost/');
   }
 }
 
@@ -596,6 +650,15 @@ function parsePositiveInteger(value, fallback, name) {
   return parsed;
 }
 
+function redirect(response, location, extraHeaders = {}) {
+  writeResponseHead(response, 303, {
+    'Cache-Control': 'no-store',
+    Location: location,
+    ...extraHeaders,
+  });
+  response.end();
+}
+
 function normalizeOptionalTelegramId(value) {
   if (!value?.trim()) {
     return null;
@@ -618,6 +681,11 @@ function normalizeCookieName(value) {
   }
 
   return name;
+}
+
+function getPublicBotUrl() {
+  const username = botUsername.replace(/^@/, '');
+  return /^[A-Za-z\d_]{5,32}$/.test(username) ? `https://t.me/${username}` : null;
 }
 
 function parseBoolean(value, fallback) {

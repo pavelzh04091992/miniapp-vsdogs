@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "start": "node scripts/app-server.mjs",
     "test:smoke": "node scripts/smoke-test.mjs",
-    "test:auth": "node --test --experimental-test-isolation=none scripts/telegram-auth.test.mjs scripts/auth-database.test.mjs scripts/telegram-bot.test.mjs",
+    "test:auth": "node --test --experimental-test-isolation=none scripts/telegram-auth.test.mjs scripts/auth-database.test.mjs scripts/telegram-bot.test.mjs scripts/frontend-auth.test.mjs",
     "send:channel-message": "node scripts/send-channel-message.mjs",
     "bot:server": "node scripts/app-server.mjs",
     "bot:set-webhook": "node scripts/set-webhook.mjs",

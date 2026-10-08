@@ -16,12 +16,15 @@
 ```bash
 npm ci
 npm run dev:media
+npm start
 npm run dev
 ```
 
 Vite доступен на `http://localhost:3000`. Запросы `/media/` проксируются на media-контейнер
-через порт `8081`; тестовый каталог `/data/videos.json` берётся из `public/`. Полный Docker-стек
-доступен на `http://localhost:8080` после `docker compose up -d --build`.
+через порт `8081`, а `/api/` и `/auth/` — на Node-сервер через `8787`; тестовый каталог
+`/data/videos.json` берётся из `public/`. Для входа нужны Telegram-настройки из `.env` и активный
+доступ в боте. Полный Docker-стек доступен на `http://localhost:8080` после
+`docker compose up -d --build`.
 
 Проверки без Docker:
 
@@ -177,6 +180,7 @@ BOT_TOKEN=telegram-bot-token
 BOT_USERNAME=your_bot_username
 ADMIN_TELEGRAM_ID=123456789
 MINI_APP_URL=https://example.com
+MAGIC_LINK_TTL_SECONDS=600
 ```
 
 Затем зарегистрируйте webhook:
@@ -194,11 +198,16 @@ npm run bot:set-webhook
 
 - `POST /api/auth/telegram` — принимает `{ "initData": "..." }`, проверяет подпись Telegram,
   срок `auth_date` и наличие активного доступа, затем создаёт HttpOnly-сессию;
+- `GET /api/auth/config` — возвращает публичную ссылку на бота для экрана входа;
 - `GET /api/me` — возвращает пользователя текущей сессии;
 - `POST /api/logout` — отзывает текущую сессию.
 
-Текущий фронтенд пока не вызывает эти endpoints и остаётся публичным. Каталог и `/media/` также
-пока не закрыты — это отдельный следующий этап.
+Mini App обменивает проверенный `initData` на серверную сессию. В обычном браузере пользователь
+нажимает в боте «Войти в браузере», получает одноразовую ссылку и после перехода также получает
+HttpOnly-сессию. До успешной проверки frontend показывает только экран входа или отказа в доступе.
+
+Статическая оболочка, каталог `/data/videos.json` и `/media/` пока технически публичны — их
+серверная защита является отдельным следующим этапом.
 
 ## Хранение данных и резервные копии
 

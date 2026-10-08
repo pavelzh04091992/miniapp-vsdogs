@@ -5,10 +5,12 @@ export function createTelegramBot(options) {
     botToken,
     botUsername,
     miniAppUrl,
+    publicBaseUrl,
     adminTelegramId,
     database,
     fetchImpl = fetch,
     inviteTtlSeconds = 86_400,
+    magicLinkTtlSeconds = 600,
   } = options;
 
   if (!botToken || !adminTelegramId) {
@@ -169,6 +171,19 @@ export function createTelegramBot(options) {
       return;
     }
 
+    if (action === 'user:browser') {
+      const magicLink = database.createMagicLink(sender.id, sender.id, magicLinkTtlSeconds);
+      const url = magicLink ? buildMagicLink(magicLink.token) : null;
+
+      await api.sendMessage(
+        chatId,
+        url
+          ? `Одноразовая ссылка для входа в браузере действует ${formatTtl(magicLinkTtlSeconds)}:\n${url}`
+          : 'Не удалось создать безопасную ссылку. Проверьте PUBLIC_BASE_URL или обратитесь к администратору.',
+      );
+      return;
+    }
+
     if (user.role !== 'admin') {
       await api.sendMessage(chatId, 'Эта команда доступна только администратору.');
       return;
@@ -267,12 +282,20 @@ export function createTelegramBot(options) {
       rows.unshift([openButton]);
     }
 
+    const browserButton = createBrowserLoginButton();
+
+    if (browserButton) {
+      rows.splice(openButton ? 1 : 0, 0, [browserButton]);
+    }
+
     return { inline_keyboard: rows };
   }
 
   function userKeyboard() {
     const openButton = createOpenAppButton();
-    return openButton ? { inline_keyboard: [[openButton]] } : undefined;
+    const browserButton = createBrowserLoginButton();
+    const rows = [openButton, browserButton].filter(Boolean).map((button) => [button]);
+    return rows.length ? { inline_keyboard: rows } : undefined;
   }
 
   function createOpenAppButton() {
@@ -292,12 +315,38 @@ export function createTelegramBot(options) {
     };
   }
 
+  function createBrowserLoginButton() {
+    return buildMagicLink('preview')
+      ? { text: '🌐 Войти в браузере', callback_data: 'user:browser' }
+      : null;
+  }
+
+  function buildMagicLink(token) {
+    try {
+      const url = new URL('/auth/magic', publicBaseUrl);
+
+      if (url.protocol !== 'https:') {
+        return null;
+      }
+
+      url.searchParams.set('token', token);
+      return url.toString();
+    } catch {
+      return null;
+    }
+  }
+
   function buildInviteLink(token) {
     const username = String(botUsername || '').replace(/^@/, '').trim();
     return /^[A-Za-z\d_]{5,32}$/.test(username)
       ? `https://t.me/${username}?start=invite_${token}`
       : null;
   }
+}
+
+function formatTtl(ttlSeconds) {
+  const minutes = Math.max(1, Math.ceil(ttlSeconds / 60));
+  return `${minutes} мин.`;
 }
 
 export function createTelegramApi(botToken, fetchImpl = fetch) {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { createAuthDatabase } from './auth-database.mjs';
 
@@ -54,6 +55,46 @@ test('stores access, profiles, invitations and revocable sessions', () => {
     const expiringSession = database.createSession('20002', 60);
     currentTime += 61;
     assert.equal(database.getSessionUser(expiringSession.token), null);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('magic links are hashed, short-lived, single-use and revoke previous links', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-magic-'));
+  const databasePath = join(directory, 'auth.sqlite');
+  let currentTime = 1_800_000_000;
+  const database = createAuthDatabase(databasePath, { now: () => currentTime });
+
+  try {
+    database.ensureAdmin('10001');
+    database.grantUser('20002', '10001');
+
+    const first = database.createMagicLink('20002', '20002', 600);
+    const inspector = new DatabaseSync(databasePath, { readOnly: true });
+    const stored = inspector.prepare('SELECT token_hash FROM magic_links').get();
+    inspector.close();
+    assert.notEqual(stored.token_hash, first.token);
+    assert.match(stored.token_hash, /^[a-f\d]{64}$/);
+
+    const second = database.createMagicLink('20002', '20002', 600);
+    assert.equal(database.consumeMagicLink(first.token), null);
+
+    const attempts = await Promise.all([
+      Promise.resolve(database.consumeMagicLink(second.token, 120)),
+      Promise.resolve(database.consumeMagicLink(second.token, 120)),
+    ]);
+    assert.equal(attempts.filter(Boolean).length, 1);
+    assert.equal(database.getSessionUser(attempts.find(Boolean).token).telegramId, '20002');
+
+    const expired = database.createMagicLink('20002', '20002', 10);
+    currentTime += 11;
+    assert.equal(database.consumeMagicLink(expired.token), null);
+
+    const revoked = database.createMagicLink('20002', '20002', 600);
+    database.setUserStatus('20002', 'revoked', '10001');
+    assert.equal(database.consumeMagicLink(revoked.token), null);
   } finally {
     database.close();
     rmSync(directory, { recursive: true, force: true });

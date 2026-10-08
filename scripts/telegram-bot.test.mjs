@@ -27,6 +27,7 @@ test('admin grants and revokes access through the bot interface', async () => {
     botToken: 'test-token',
     botUsername: 'access_bot',
     miniAppUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
     adminTelegramId: '10001',
     database,
     fetchImpl,
@@ -44,8 +45,21 @@ test('admin grants and revokes access through the bot interface', async () => {
     await bot.handleUpdate(privateMessage('20002', '/start', 'User'));
     assert.equal(database.getUser('20002').firstName, 'User');
 
+    await bot.handleUpdate(callback('20002', 'user:browser', 'User'));
+    assert.ok(requests.some(({ payload }) =>
+      typeof payload.text === 'string' &&
+      payload.text.includes('https://example.com/auth/magic?token=')));
+    const magicLinkMessages = requests.filter(({ payload }) =>
+      typeof payload.text === 'string' && payload.text.includes('/auth/magic?token=')).length;
+
     await bot.handleUpdate(callback('10001', 'admin:revoke:20002'));
     assert.equal(database.getUser('20002').status, 'revoked');
+    await bot.handleUpdate(callback('20002', 'user:browser', 'User'));
+    assert.equal(
+      requests.filter(({ payload }) =>
+        typeof payload.text === 'string' && payload.text.includes('/auth/magic?token=')).length,
+      magicLinkMessages,
+    );
   } finally {
     database.close();
     rmSync(directory, { recursive: true, force: true });
@@ -62,11 +76,11 @@ function privateMessage(userId, text, firstName) {
   };
 }
 
-function callback(userId, data) {
+function callback(userId, data, firstName = 'Admin') {
   return {
     callback_query: {
       id: `callback-${data}`,
-      from: { id: Number(userId), first_name: 'Admin' },
+      from: { id: Number(userId), first_name: firstName },
       message: { chat: { id: Number(userId), type: 'private' } },
       data,
     },

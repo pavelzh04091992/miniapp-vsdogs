@@ -87,6 +87,7 @@ export function createAuthDatabase(databasePath, options = {}) {
         statements.setStatus.run(status, timestamp, targetId);
         statements.revokeSessions.run(timestamp, targetId);
         statements.revokeInvitesForUser.run(timestamp, targetId);
+        statements.revokeMagicLinksForUser.run(timestamp, targetId);
         statements.insertAudit.run(actorId, status === 'active' ? 'grant' : status, targetId, null, timestamp);
       });
 
@@ -190,6 +191,91 @@ export function createAuthDatabase(databasePath, options = {}) {
       return { token, expiresAt };
     },
 
+    createMagicLink(telegramId, actorTelegramId, ttlSeconds = 600) {
+      const userId = requireTelegramId(telegramId);
+      const actorId = requireTelegramId(actorTelegramId);
+      const user = statements.getUser.get(userId);
+
+      if (!user || user.status !== 'active') {
+        return null;
+      }
+
+      const token = createOpaqueToken();
+      const timestamp = now();
+      const expiresAt = timestamp + ttlSeconds;
+
+      transaction(database, () => {
+        statements.revokeMagicLinksForUser.run(timestamp, userId);
+        statements.insertMagicLink.run(
+          hashOpaqueToken(token),
+          userId,
+          expiresAt,
+          timestamp,
+        );
+        statements.insertAudit.run(
+          actorId,
+          'magic_link_created',
+          userId,
+          JSON.stringify({ expiresAt }),
+          timestamp,
+        );
+      });
+
+      return { token, expiresAt };
+    },
+
+    consumeMagicLink(token, sessionTtl = 7 * 86_400) {
+      if (typeof token !== 'string' || token.length < 32 || token.length > 128) {
+        return null;
+      }
+
+      const tokenHash = hashOpaqueToken(token);
+      const timestamp = now();
+
+      return transaction(database, () => {
+        const link = statements.getMagicLink.get(tokenHash);
+
+        if (
+          !link ||
+          link.used_at !== null ||
+          link.revoked_at !== null ||
+          link.expires_at <= timestamp ||
+          link.user_status !== 'active'
+        ) {
+          return null;
+        }
+
+        const consumed = statements.consumeMagicLink.run(timestamp, link.id, timestamp);
+
+        if (consumed.changes !== 1) {
+          return null;
+        }
+
+        const sessionToken = createOpaqueToken();
+        const sessionExpiresAt = timestamp + sessionTtl;
+        statements.insertSession.run(
+          hashOpaqueToken(sessionToken),
+          link.telegram_id,
+          sessionExpiresAt,
+          timestamp,
+          timestamp,
+        );
+        statements.insertAudit.run(
+          link.telegram_id,
+          'login_success',
+          link.telegram_id,
+          JSON.stringify({ method: 'magic_link' }),
+          timestamp,
+        );
+
+        return {
+          token: sessionToken,
+          expiresAt: sessionExpiresAt,
+          user: mapUser(link),
+        };
+      });
+    },
+
     getSessionUser(token) {
       if (typeof token !== 'string' || token.length < 32 || token.length > 128) {
         return null;
@@ -264,6 +350,16 @@ function migrate(database) {
       revoked_at INTEGER
     ) STRICT;
 
+    CREATE TABLE IF NOT EXISTS magic_links (
+      id INTEGER PRIMARY KEY,
+      token_hash TEXT NOT NULL UNIQUE,
+      telegram_id TEXT NOT NULL REFERENCES users(telegram_id),
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      used_at INTEGER,
+      revoked_at INTEGER
+    ) STRICT;
+
     CREATE TABLE IF NOT EXISTS audit_log (
       id INTEGER PRIMARY KEY,
       actor_telegram_id TEXT NOT NULL,
@@ -287,6 +383,7 @@ function migrate(database) {
     CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(telegram_id);
     CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS invites_target_idx ON invites(target_telegram_id, status);
+    CREATE INDEX IF NOT EXISTS magic_links_user_idx ON magic_links(telegram_id, expires_at);
   `);
 }
 
@@ -350,6 +447,26 @@ function prepareStatements(database) {
     revokeSession: database.prepare('UPDATE sessions SET revoked_at = ? WHERE id_hash = ?'),
     revokeSessions: database.prepare(`
       UPDATE sessions SET revoked_at = ? WHERE telegram_id = ? AND revoked_at IS NULL
+    `),
+    insertMagicLink: database.prepare(`
+      INSERT INTO magic_links (token_hash, telegram_id, expires_at, created_at)
+      VALUES (?, ?, ?, ?)
+    `),
+    getMagicLink: database.prepare(`
+      SELECT magic_links.id, magic_links.telegram_id, magic_links.expires_at,
+        magic_links.used_at, magic_links.revoked_at, users.role,
+        users.status AS user_status, users.status, users.username,
+        users.first_name, users.last_name, users.created_at, users.last_seen_at
+      FROM magic_links JOIN users ON users.telegram_id = magic_links.telegram_id
+      WHERE magic_links.token_hash = ?
+    `),
+    consumeMagicLink: database.prepare(`
+      UPDATE magic_links SET used_at = ?
+      WHERE id = ? AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?
+    `),
+    revokeMagicLinksForUser: database.prepare(`
+      UPDATE magic_links SET revoked_at = ?
+      WHERE telegram_id = ? AND used_at IS NULL AND revoked_at IS NULL
     `),
     insertAudit: database.prepare(`
       INSERT INTO audit_log (actor_telegram_id, action, target_telegram_id, metadata_json, created_at)
