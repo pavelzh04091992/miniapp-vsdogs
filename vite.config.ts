@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
         '/api': `http://127.0.0.1:${appServerPort}`,
         '/auth': `http://127.0.0.1:${appServerPort}`,
         '/media': `http://127.0.0.1:${mediaPort}`,
+        '/telegram': `http://127.0.0.1:${appServerPort}`,
       },
     },
     preview: {
