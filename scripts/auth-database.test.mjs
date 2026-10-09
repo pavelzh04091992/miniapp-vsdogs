@@ -79,6 +79,8 @@ test('magic links are hashed, short-lived, single-use and revoke previous links'
     assert.match(stored.token_hash, /^[a-f\d]{64}$/);
 
     const second = database.createMagicLink('20002', '20002', 600);
+    assert.equal(database.isMagicLinkUsable(first.token), false);
+    assert.equal(database.isMagicLinkUsable(second.token), true);
     assert.equal(database.consumeMagicLink(first.token), null);
 
     const attempts = await Promise.all([
@@ -86,6 +88,7 @@ test('magic links are hashed, short-lived, single-use and revoke previous links'
       Promise.resolve(database.consumeMagicLink(second.token, 120)),
     ]);
     assert.equal(attempts.filter(Boolean).length, 1);
+    assert.equal(database.isMagicLinkUsable(second.token), false);
     assert.equal(database.getSessionUser(attempts.find(Boolean).token).telegramId, '20002');
 
     const expired = database.createMagicLink('20002', '20002', 10);

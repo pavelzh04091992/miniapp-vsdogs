@@ -47,17 +47,19 @@ test('admin grants and revokes access through the bot interface', async () => {
 
     await bot.handleUpdate(callback('20002', 'user:browser', 'User'));
     assert.ok(requests.some(({ payload }) =>
-      typeof payload.text === 'string' &&
-      payload.text.includes('https://example.com/auth/magic?token=')));
+      payload.reply_markup?.inline_keyboard?.some((row) =>
+        row.some((button) => button.url?.startsWith('https://example.com/auth/magic?token=')))));
     const magicLinkMessages = requests.filter(({ payload }) =>
-      typeof payload.text === 'string' && payload.text.includes('/auth/magic?token=')).length;
+      payload.reply_markup?.inline_keyboard?.some((row) =>
+        row.some((button) => button.url?.includes('/auth/magic?token=')))).length;
 
     await bot.handleUpdate(callback('10001', 'admin:revoke:20002'));
     assert.equal(database.getUser('20002').status, 'revoked');
     await bot.handleUpdate(callback('20002', 'user:browser', 'User'));
     assert.equal(
       requests.filter(({ payload }) =>
-        typeof payload.text === 'string' && payload.text.includes('/auth/magic?token=')).length,
+        payload.reply_markup?.inline_keyboard?.some((row) =>
+          row.some((button) => button.url?.includes('/auth/magic?token=')))).length,
       magicLinkMessages,
     );
   } finally {

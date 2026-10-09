@@ -354,13 +354,24 @@ function handleAuthConfig(request, response) {
 }
 
 function handleMagicLink(request, response) {
-  if (request.method !== 'GET') {
-    respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET' });
+  if (request.method !== 'GET' && request.method !== 'POST') {
+    respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET, POST' });
     return;
   }
 
   const tokens = getRequestUrl(request).searchParams.getAll('token');
   const token = tokens.length === 1 ? tokens[0] : null;
+
+  if (request.method === 'GET') {
+    if (!authDatabase.isMagicLinkUsable(token)) {
+      redirect(response, '/?auth=invalid-link');
+      return;
+    }
+
+    respondMagicLinkConfirmation(response, token);
+    return;
+  }
+
   const session = authDatabase.consumeMagicLink(token, sessionTtlSeconds);
 
   if (!session) {
@@ -371,6 +382,37 @@ function handleMagicLink(request, response) {
   redirect(response, '/?auth=success', {
     'Set-Cookie': serializeSessionCookie(session.token, session.expiresAt),
   });
+}
+
+function respondMagicLinkConfirmation(response, token) {
+  const action = `/auth/magic?token=${encodeURIComponent(token)}`;
+  const payload = Buffer.from(`<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Вход в Puppys</title>
+</head>
+<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#eef5fc;font-family:system-ui,sans-serif;color:#17324f">
+  <main style="width:min(86vw,380px);padding:32px 24px;border-radius:24px;background:#fff;text-align:center;box-shadow:0 20px 50px rgba(26,74,123,.14)">
+    <div style="font-size:42px" aria-hidden="true">🐾</div>
+    <h1 style="margin:14px 0 8px;font-size:26px">Войти в приложение?</h1>
+    <p style="margin:0 0 24px;color:#607086;line-height:1.5">Ссылка одноразовая. Нажмите кнопку, чтобы подтвердить вход в этом браузере.</p>
+    <form method="post" action="${action}">
+      <button type="submit" style="width:100%;min-height:50px;border:0;border-radius:16px;background:#1150a1;color:#fff;font:inherit;font-weight:700;cursor:pointer">Войти</button>
+    </form>
+  </main>
+</body>
+</html>`);
+
+  writeResponseHead(response, 200, {
+    'Cache-Control': 'no-store',
+    'Content-Length': String(payload.byteLength),
+    'Content-Type': 'text/html; charset=utf-8',
+    'Referrer-Policy': 'no-referrer',
+  });
+  response.end(payload);
 }
 
 function handleLogout(request, response) {
@@ -749,7 +791,8 @@ function hasAllowedOrigin(request) {
 
   try {
     const originUrl = new URL(origin);
-    return originUrl.host === request.headers.host;
+    const configuredOrigin = publicBaseUrl ? new URL(publicBaseUrl).origin : null;
+    return originUrl.host === request.headers.host || originUrl.origin === configuredOrigin;
   } catch {
     return false;
   }

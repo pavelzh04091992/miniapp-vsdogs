@@ -224,6 +224,22 @@ export function createAuthDatabase(databasePath, options = {}) {
       return { token, expiresAt };
     },
 
+    isMagicLinkUsable(token) {
+      if (typeof token !== 'string' || token.length < 32 || token.length > 128) {
+        return false;
+      }
+
+      const link = statements.getMagicLink.get(hashOpaqueToken(token));
+      const timestamp = now();
+      return Boolean(
+        link &&
+        link.used_at === null &&
+        link.revoked_at === null &&
+        link.expires_at > timestamp &&
+        link.user_status === 'active'
+      );
+    },
+
     consumeMagicLink(token, sessionTtl = 7 * 86_400) {
       if (typeof token !== 'string' || token.length < 32 || token.length > 128) {
         return null;

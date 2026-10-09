@@ -178,8 +178,14 @@ export function createTelegramBot(options) {
       await api.sendMessage(
         chatId,
         url
-          ? `Одноразовая ссылка для входа в браузере действует ${formatTtl(magicLinkTtlSeconds)}:\n${url}`
+          ? `Одноразовая ссылка для входа в браузере действует ${formatTtl(magicLinkTtlSeconds)}.`
           : 'Не удалось создать безопасную ссылку. Проверьте PUBLIC_BASE_URL или обратитесь к администратору.',
+        url ? {
+          link_preview_options: { is_disabled: true },
+          reply_markup: {
+            inline_keyboard: [[{ text: 'Войти в браузере', url }]],
+          },
+        } : {},
       );
       return;
     }
