@@ -69,6 +69,18 @@ test('rejects duplicate fields', () => {
   );
 });
 
+test('rejects signed initData without a Telegram user', () => {
+  const initData = createInitData({
+    auth_date: String(NOW),
+    query_id: 'query-without-user',
+  });
+
+  assert.throws(
+    () => validateTelegramInitData(initData, BOT_TOKEN, { nowSeconds: NOW }),
+    (error) => error instanceof TelegramAuthError && error.code === 'invalid_telegram_user',
+  );
+});
+
 function createInitData(values) {
   const params = new URLSearchParams(values);
   const dataCheckString = [...params.entries()]

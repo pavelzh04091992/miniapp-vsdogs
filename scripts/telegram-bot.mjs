@@ -1,4 +1,5 @@
 import { normalizeTelegramId } from './telegram-auth.mjs';
+import { createRateLimiter } from './rate-limit.mjs';
 
 export function createTelegramBot(options) {
   const {
@@ -11,6 +12,8 @@ export function createTelegramBot(options) {
     fetchImpl = fetch,
     inviteTtlSeconds = 86_400,
     magicLinkTtlSeconds = 600,
+    commandRateLimitMax = 40,
+    commandRateLimitWindowMs = 60_000,
   } = options;
 
   if (!botToken || !adminTelegramId) {
@@ -18,11 +21,26 @@ export function createTelegramBot(options) {
   }
 
   const api = createTelegramApi(botToken, fetchImpl);
+  const commandRateLimiter = createRateLimiter({
+    limit: commandRateLimitMax,
+    windowMs: commandRateLimitWindowMs,
+  });
 
   return {
     enabled: true,
 
     async handleUpdate(update) {
+      const privateSender = getPrivateSender(update);
+
+      if (privateSender && !commandRateLimiter.consume(privateSender.id).allowed) {
+        if (update.callback_query?.id) {
+          await api.answerCallbackQuery(update.callback_query.id, {
+            text: 'Слишком много запросов. Попробуйте через минуту.',
+          }).catch(() => {});
+        }
+        return;
+      }
+
       if (update.callback_query) {
         await handleCallbackQuery(update.callback_query);
         return;
@@ -372,8 +390,9 @@ export function createTelegramApi(botToken, fetchImpl = fetch) {
   }
 
   return {
-    answerCallbackQuery: (callbackQueryId) => request('answerCallbackQuery', {
+    answerCallbackQuery: (callbackQueryId, extra = {}) => request('answerCallbackQuery', {
       callback_query_id: callbackQueryId,
+      ...extra,
     }),
     sendMessage: (chatId, text, extra = {}) => request('sendMessage', {
       chat_id: chatId,
@@ -381,6 +400,18 @@ export function createTelegramApi(botToken, fetchImpl = fetch) {
       ...extra,
     }),
   };
+}
+
+function getPrivateSender(update) {
+  if (update?.callback_query?.message?.chat?.type === 'private') {
+    return toProfile(update.callback_query.from);
+  }
+
+  if (update?.message?.chat?.type === 'private') {
+    return toProfile(update.message.from);
+  }
+
+  return null;
 }
 
 function toProfile(user) {

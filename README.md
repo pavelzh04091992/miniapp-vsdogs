@@ -206,6 +206,9 @@ npm run bot:set-webhook
 Mini App обменивает проверенный `initData` на серверную сессию. В обычном браузере пользователь
 нажимает в боте «Войти в браузере», получает одноразовую ссылку и после перехода также получает
 HttpOnly-сессию. До успешной проверки frontend показывает только экран входа или отказа в доступе.
+Запросы Telegram-auth, magic link и приватные команды бота ограничены по частоте; лимиты и общее
+окно настраиваются переменными `AUTH_RATE_LIMIT_MAX`, `MAGIC_LINK_RATE_LIMIT_MAX`,
+`BOT_COMMAND_RATE_LIMIT_MAX` и `RATE_LIMIT_WINDOW_SECONDS`.
 
 Статическая оболочка остаётся публичной, чтобы показать экран входа. Каталог
 `/data/videos.json` и файлы `/media/` доступны только с действующей HttpOnly-сессией. Для медиа
@@ -238,6 +241,7 @@ infra/
 scripts/
   app-server.mjs            # Фронтенд, auth API, healthcheck и Telegram webhook
   auth-database.mjs         # SQLite: пользователи, приглашения и сессии
+  rate-limit.mjs            # Ограничение частоты auth и bot-запросов
   telegram-auth.mjs         # Проверка Telegram initData
   telegram-bot.mjs          # Админское и пользовательское меню бота
   prepare-video.mjs         # Подготовка HLS/MP4/poster через FFmpeg

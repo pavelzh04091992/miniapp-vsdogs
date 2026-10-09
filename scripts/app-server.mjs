@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { createAuthDatabase } from './auth-database.mjs';
+import { createRateLimiter } from './rate-limit.mjs';
 import { createTelegramBot } from './telegram-bot.mjs';
 import {
   TelegramAuthError,
@@ -49,6 +50,26 @@ const magicLinkTtlSeconds = parsePositiveInteger(
   process.env.MAGIC_LINK_TTL_SECONDS,
   10 * 60,
   'MAGIC_LINK_TTL_SECONDS',
+);
+const rateLimitWindowSeconds = parsePositiveInteger(
+  process.env.RATE_LIMIT_WINDOW_SECONDS,
+  60,
+  'RATE_LIMIT_WINDOW_SECONDS',
+);
+const authRateLimitMax = parsePositiveInteger(
+  process.env.AUTH_RATE_LIMIT_MAX,
+  20,
+  'AUTH_RATE_LIMIT_MAX',
+);
+const magicLinkRateLimitMax = parsePositiveInteger(
+  process.env.MAGIC_LINK_RATE_LIMIT_MAX,
+  30,
+  'MAGIC_LINK_RATE_LIMIT_MAX',
+);
+const botCommandRateLimitMax = parsePositiveInteger(
+  process.env.BOT_COMMAND_RATE_LIMIT_MAX,
+  40,
+  'BOT_COMMAND_RATE_LIMIT_MAX',
 );
 const sessionCookieName = normalizeCookieName(process.env.SESSION_COOKIE_NAME);
 const secureSessionCookie = parseBoolean(
@@ -101,6 +122,17 @@ const telegramBot = createTelegramBot({
   database: authDatabase,
   inviteTtlSeconds,
   magicLinkTtlSeconds,
+  commandRateLimitMax: botCommandRateLimitMax,
+  commandRateLimitWindowMs: rateLimitWindowSeconds * 1000,
+});
+
+const telegramAuthRateLimiter = createRateLimiter({
+  limit: authRateLimitMax,
+  windowMs: rateLimitWindowSeconds * 1000,
+});
+const magicLinkRateLimiter = createRateLimiter({
+  limit: magicLinkRateLimitMax,
+  windowMs: rateLimitWindowSeconds * 1000,
 });
 
 const server = createServer((request, response) => {
@@ -293,6 +325,10 @@ async function handleTelegramAuth(request, response) {
     return;
   }
 
+  if (!allowRateLimitedRequest(telegramAuthRateLimiter, request, response)) {
+    return;
+  }
+
   if (!hasAllowedOrigin(request)) {
     respondJson(response, 403, { ok: false, error: 'invalid_origin' });
     return;
@@ -376,6 +412,10 @@ function handleAuthConfig(request, response) {
 function handleMagicLink(request, response) {
   if (request.method !== 'GET' && request.method !== 'POST') {
     respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET, POST' });
+    return;
+  }
+
+  if (!allowRateLimitedRequest(magicLinkRateLimiter, request, response)) {
     return;
   }
 
@@ -473,6 +513,38 @@ function handleMediaAuth(request, response) {
 function getSessionUser(request, options = {}) {
   const token = parseCookies(request.headers.cookie)[sessionCookieName];
   return token ? authDatabase.getSessionUser(token, options) : null;
+}
+
+function allowRateLimitedRequest(limiter, request, response) {
+  const result = limiter.consume(getClientIdentifier(request));
+
+  if (result.allowed) {
+    return true;
+  }
+
+  respondJson(
+    response,
+    429,
+    { ok: false, error: 'rate_limited' },
+    { 'Retry-After': String(result.retryAfterSeconds) },
+  );
+  return false;
+}
+
+function getClientIdentifier(request) {
+  const realIp = request.headers['x-real-ip'];
+  const normalizedRealIp = (Array.isArray(realIp) ? realIp[0] : realIp)?.trim();
+
+  if (normalizedRealIp) {
+    return normalizedRealIp.slice(0, 128);
+  }
+
+  const forwarded = request.headers['x-forwarded-for'];
+  const firstForwarded = (Array.isArray(forwarded) ? forwarded[0] : forwarded)
+    ?.split(',', 1)[0]
+    ?.trim();
+
+  return (firstForwarded || request.socket.remoteAddress || 'unknown').slice(0, 128);
 }
 
 function publicUser(user) {

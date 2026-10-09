@@ -68,6 +68,47 @@ test('admin grants and revokes access through the bot interface', async () => {
   }
 });
 
+test('rate limits repeated private bot commands per Telegram user', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-bot-rate-'));
+  const database = createAuthDatabase(join(directory, 'auth.sqlite'));
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push({
+      method: url.split('/').at(-1),
+      payload: JSON.parse(options.body),
+    });
+    return fakeResponse(true, 200, { ok: true, result: true });
+  };
+  database.ensureAdmin('10001');
+  const bot = createTelegramBot({
+    botToken: 'test-token',
+    botUsername: 'access_bot',
+    miniAppUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
+    adminTelegramId: '10001',
+    database,
+    fetchImpl,
+    commandRateLimitMax: 1,
+  });
+
+  try {
+    await bot.handleUpdate(callback('10001', 'user:menu'));
+    const messagesAfterFirstCommand = requests.filter(({ method }) => method === 'sendMessage').length;
+
+    await bot.handleUpdate(callback('10001', 'user:menu'));
+
+    assert.equal(
+      requests.filter(({ method }) => method === 'sendMessage').length,
+      messagesAfterFirstCommand,
+    );
+    assert.ok(requests.some(({ method, payload }) =>
+      method === 'answerCallbackQuery' && payload.text?.includes('Слишком много запросов')));
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 function privateMessage(userId, text, firstName) {
   return {
     message: {
