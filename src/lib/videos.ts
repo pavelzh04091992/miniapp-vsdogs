@@ -41,6 +41,7 @@ const VIDEO_CATALOG_URL = '/data/videos.json';
 export async function fetchSituationVideos(slug: SituationSlug): Promise<SituationVideo[]> {
   const response = await fetch(`${VIDEO_CATALOG_URL}?t=${Date.now()}`, {
     cache: 'no-store',
+    credentials: 'same-origin',
     headers: {
       Accept: 'application/json',
     },

@@ -3,7 +3,7 @@ import { defineConfig, loadEnv } from 'vite';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const mediaPort = env.MEDIA_PORT || '8081';
-  const appServerPort = env.APP_SERVER_PORT || '8787';
+  const appServerPort = env.LOCAL_API_PORT || env.APP_SERVER_PORT || '8787';
 
   return {
     build: {
@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': `http://127.0.0.1:${appServerPort}`,
         '/auth': `http://127.0.0.1:${appServerPort}`,
+        '/data': `http://127.0.0.1:${appServerPort}`,
         '/media': `http://127.0.0.1:${mediaPort}`,
         '/telegram': `http://127.0.0.1:${appServerPort}`,
       },

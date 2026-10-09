@@ -292,7 +292,7 @@ export function createAuthDatabase(databasePath, options = {}) {
       });
     },
 
-    getSessionUser(token) {
+    getSessionUser(token, sessionOptions = {}) {
       if (typeof token !== 'string' || token.length < 32 || token.length > 128) {
         return null;
       }
@@ -304,7 +304,9 @@ export function createAuthDatabase(databasePath, options = {}) {
         return null;
       }
 
-      statements.touchSession.run(timestamp, row.session_hash);
+      if (sessionOptions.touch !== false) {
+        statements.touchSession.run(timestamp, row.session_hash, timestamp - 60);
+      }
       return mapUser(row);
     },
 
@@ -459,7 +461,9 @@ function prepareStatements(database) {
       WHERE sessions.id_hash = ? AND sessions.expires_at > ? AND sessions.revoked_at IS NULL
         AND users.status = 'active'
     `),
-    touchSession: database.prepare('UPDATE sessions SET last_seen_at = ? WHERE id_hash = ?'),
+    touchSession: database.prepare(`
+      UPDATE sessions SET last_seen_at = ? WHERE id_hash = ? AND last_seen_at < ?
+    `),
     revokeSession: database.prepare('UPDATE sessions SET revoked_at = ? WHERE id_hash = ?'),
     revokeSessions: database.prepare(`
       UPDATE sessions SET revoked_at = ? WHERE telegram_id = ? AND revoked_at IS NULL

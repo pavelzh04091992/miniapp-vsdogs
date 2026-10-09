@@ -47,7 +47,7 @@ services:
   media:
     image: nginx:1.29-alpine
     volumes:
-      - "./infra/media-nginx.conf:/etc/nginx/nginx.conf:ro"
+      - "./infra/test-media-nginx.conf:/etc/nginx/nginx.conf:ro"
       - "${TEST_MEDIA_PATH:-./media}:/usr/share/nginx/html/media:ro"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/media-health || exit 1"]

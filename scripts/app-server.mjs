@@ -124,8 +124,28 @@ async function handleRequest(request, response) {
     return;
   }
 
-  if (request.method === 'GET' && pathname === '/data/videos.json') {
+  if (pathname === '/data' || pathname.startsWith('/data/')) {
+    if (request.method !== 'GET') {
+      respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET' });
+      return;
+    }
+
+    if (pathname !== '/data/videos.json') {
+      respondJson(response, 404, { ok: false, error: 'not_found' });
+      return;
+    }
+
+    if (!getSessionUser(request)) {
+      respondJson(response, 401, { ok: false, error: 'not_authenticated' });
+      return;
+    }
+
     respondJson(response, 200, loadVideoCatalog());
+    return;
+  }
+
+  if (pathname === '/internal/media-auth') {
+    handleMediaAuth(request, response);
     return;
   }
 
@@ -433,9 +453,26 @@ function handleLogout(request, response) {
   });
 }
 
-function getSessionUser(request) {
+function handleMediaAuth(request, response) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET, HEAD' });
+    return;
+  }
+
+  if (!getSessionUser(request, { touch: false })) {
+    respondJson(response, 401, { ok: false, error: 'not_authenticated' });
+    return;
+  }
+
+  writeResponseHead(response, 204, {
+    'Cache-Control': 'no-store',
+  });
+  response.end();
+}
+
+function getSessionUser(request, options = {}) {
   const token = parseCookies(request.headers.cookie)[sessionCookieName];
-  return token ? authDatabase.getSessionUser(token) : null;
+  return token ? authDatabase.getSessionUser(token, options) : null;
 }
 
 function publicUser(user) {

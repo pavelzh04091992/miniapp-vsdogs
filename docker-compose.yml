@@ -66,6 +66,8 @@ services:
       WEBHOOK_MAX_BODY_BYTES: "${WEBHOOK_MAX_BODY_BYTES:-1048576}"
     expose:
       - "8787"
+    ports:
+      - "127.0.0.1:${LOCAL_API_PORT:-8787}:8787"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=miniapp-puppys_proxy"
@@ -103,6 +105,9 @@ services:
 
   media:
     image: nginx:1.29-alpine
+    depends_on:
+      app:
+        condition: service_healthy
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=miniapp-puppys_proxy"
