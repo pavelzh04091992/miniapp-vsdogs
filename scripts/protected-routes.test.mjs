@@ -13,12 +13,14 @@ test('recognizes protected routes after decoding and Windows path normalization'
     '/data\\videos.json',
     '/data./videos.json',
     '/data /videos.json',
+    '/assets/hero.webp',
+    '/private/app.js',
   ]) {
     assert.equal(isProtectedRoutePath(pathname), true);
   }
 
   assert.equal(getDecodedRequestPathname('/d%61ta%2Fvideos.json'), '/data/videos.json');
-  assert.equal(isProtectedRoutePath('/assets/image.webp'), false);
+  assert.equal(isProtectedRoutePath('/public/index.js'), false);
 });
 
 test('blocks protected paths from falling through the Vite static server', () => {
@@ -31,6 +33,8 @@ test('blocks protected paths from falling through the Vite static server', () =>
     '/data%5cvideos.json',
     '/data./videos.json',
     '/data%20/videos.json',
+    '/a%73sets/hero.webp',
+    '/PRIVATE/app.js',
   ]) {
     assert.equal(shouldBlockDevStaticFallback(rawUrl), true, rawUrl);
   }

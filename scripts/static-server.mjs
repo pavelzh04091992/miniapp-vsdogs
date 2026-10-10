@@ -1,13 +1,13 @@
 import { readFile } from 'node:fs/promises';
-import { extname, resolve, sep } from 'node:path';
+import { extname, posix, resolve, sep } from 'node:path';
 import { respondJson, writeResponseHead } from './http-utils.mjs';
-import { isProtectedRoutePath } from './protected-routes.mjs';
+import { isPrivateStaticAssetPath, isProtectedRoutePath } from './protected-routes.mjs';
 
 export function createStaticServer(distPath) {
   const indexHtmlPath = resolve(distPath, 'index.html');
 
-  return async function serveStaticFile(pathname, method, response) {
-    const filePath = resolveStaticFilePath(distPath, pathname);
+  return async function serveStaticFile(pathname, method, response, options = {}) {
+    const filePath = resolveStaticFilePath(distPath, pathname, options);
     const shouldFallbackToIndex = isSpaRoute(pathname);
     const targetPath = filePath || (shouldFallbackToIndex ? indexHtmlPath : null);
 
@@ -65,7 +65,7 @@ async function serveIndexFile(indexHtmlPath, method, response) {
   }
 }
 
-function resolveStaticFilePath(distPath, pathname) {
+function resolveStaticFilePath(distPath, pathname, options) {
   const cleanPathname = pathname === '/' ? '/index.html' : pathname;
   const decodedPathname = safeDecodeURIComponent(cleanPathname);
 
@@ -77,13 +77,21 @@ function resolveStaticFilePath(distPath, pathname) {
     decodedPathname.includes('\0') ||
     decodedPathname.includes('\\') ||
     /[<>:"|?*]/.test(decodedPathname) ||
-    decodedPathname.split('/').some((segment) => /[ .]$/.test(segment)) ||
-    isProtectedRoutePath(decodedPathname)
+    decodedPathname.split('/').some((segment) => /[ .]$/.test(segment))
   ) {
     return null;
   }
 
-  const filePath = resolve(distPath, `.${decodedPathname}`);
+  const normalizedPathname = posix.normalize(decodedPathname);
+
+  if (
+    isProtectedRoutePath(normalizedPathname) &&
+    !(options.allowPrivateAssets && isPrivateStaticAssetPath(normalizedPathname))
+  ) {
+    return null;
+  }
+
+  const filePath = resolve(distPath, `.${normalizedPathname}`);
   const distRoot = `${distPath}${sep}`;
 
   if (filePath !== distPath && !filePath.startsWith(distRoot)) {
@@ -113,7 +121,11 @@ function isSpaRoute(pathname) {
 }
 
 function getCacheControl(filePath) {
-  return filePath.includes(`${sep}assets${sep}`)
+  if (filePath.includes(`${sep}assets${sep}`) || filePath.includes(`${sep}private${sep}`)) {
+    return 'private, no-store';
+  }
+
+  return filePath.includes(`${sep}public${sep}`)
     ? 'public, max-age=31536000, immutable'
     : 'no-cache';
 }

@@ -6,7 +6,6 @@ import {
   getAllAppAssetPaths,
   getVideoSourceSlugForRoute,
 } from './app';
-import { AppAccessResult, resolveAppAccess } from './lib/auth';
 import { fetchSituationVideos } from './lib/videos';
 import { initTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
 import {
@@ -34,7 +33,6 @@ let pendingTransitionDirection: PageTransitionDirection | null = null;
 let previousPageScroll: { route: AppRoute; scrollTop: number } | null = null;
 let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
 let destroyLessonVideoPlayer: (() => void) | null = null;
-let appAccessGranted = false;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -45,16 +43,12 @@ if (webApp) {
   document.documentElement.dataset.launchContext = 'browser';
 }
 
-void initializeApp();
+void startPrivateApp();
 window.addEventListener('hashchange', () => {
-  if (appAccessGranted) {
-    void syncRouteState();
-  }
+  void syncRouteState();
 });
 window.addEventListener('popstate', () => {
-  if (appAccessGranted) {
-    void syncRouteState();
-  }
+  void syncRouteState();
 });
 window.addEventListener('resize', () => {
   updateBottomNavIndicatorPosition();
@@ -64,11 +58,6 @@ document.addEventListener('click', (event) => {
   const target = event.target;
 
   if (!(target instanceof HTMLElement)) {
-    return;
-  }
-
-  if (target.closest<HTMLElement>('[data-auth-retry]')) {
-    void initializeApp();
     return;
   }
 
@@ -134,101 +123,9 @@ document.addEventListener('click', (event) => {
   showFeedback(message);
 });
 
-async function initializeApp(): Promise<void> {
-  appAccessGranted = false;
-  destroyLessonVideoPlayer?.();
-  destroyLessonVideoPlayer = null;
-  root.innerHTML = `
-    <main class="initial-loader" role="status" aria-live="polite" aria-label="Проверка доступа">
-      <span class="initial-loader__spinner" aria-hidden="true"></span>
-      <p class="initial-loader__label">Проверяем доступ</p>
-    </main>
-  `;
-
-  const authSignal = new URLSearchParams(window.location.search).get('auth');
-  clearAuthSignal();
-  const access = await resolveAppAccess({
-    initData: webApp?.initData,
-    authSignal,
-  });
-
-  if (access.status !== 'authenticated') {
-    renderAccessScreen(access);
-    return;
-  }
-
-  appAccessGranted = true;
-  document.documentElement.dataset.userRole = access.user.role;
+async function startPrivateApp(): Promise<void> {
   await preloadAllAssets(getAllAppAssetPaths());
   await syncRouteState();
-}
-
-function renderAccessScreen(access: Exclude<AppAccessResult, { status: 'authenticated' }>): void {
-  const content = getAccessScreenContent(access);
-  const botButton = 'botUrl' in access && access.botUrl
-    ? `<a class="access-gate__button" href="${escapeAttribute(access.botUrl)}" target="_blank" rel="noopener noreferrer">Открыть Telegram-бота</a>`
-    : '';
-  const retryButton = access.status === 'error'
-    ? '<button class="access-gate__button" type="button" data-auth-retry>Повторить проверку</button>'
-    : '';
-
-  root.innerHTML = `
-    <main class="access-gate" aria-labelledby="access-gate-title">
-      <section class="access-gate__card">
-        <div class="access-gate__mark" aria-hidden="true">🐾</div>
-        <p class="access-gate__eyebrow">Puppys</p>
-        <h1 id="access-gate-title">${content.title}</h1>
-        <p class="access-gate__message">${content.message}</p>
-        <div class="access-gate__actions">${botButton}${retryButton}</div>
-      </section>
-    </main>
-  `;
-}
-
-function getAccessScreenContent(
-  access: Exclude<AppAccessResult, { status: 'authenticated' }>,
-): { title: string; message: string } {
-  switch (access.status) {
-    case 'denied':
-      return {
-        title: 'Доступ не выдан',
-        message: 'Этот Telegram-аккаунт пока не добавлен администратором.',
-      };
-    case 'invalid-link':
-      return {
-        title: 'Ссылка больше не работает',
-        message: 'Запросите в боте новую одноразовую ссылку для входа в браузере.',
-      };
-    case 'unauthenticated':
-      return {
-        title: 'Войдите через Telegram',
-        message: 'Откройте бота и нажмите «Войти в браузере» или запустите Mini App.',
-      };
-    case 'error':
-      return {
-        title: 'Не удалось проверить доступ',
-        message: 'Проверьте соединение и повторите попытку.',
-      };
-  }
-}
-
-function clearAuthSignal(): void {
-  const url = new URL(window.location.href);
-
-  if (!url.searchParams.has('auth')) {
-    return;
-  }
-
-  url.searchParams.delete('auth');
-  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
-}
-
-function escapeAttribute(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
 }
 function render(): void {
   const route = getCurrentRoute();

@@ -1,12 +1,21 @@
 export const PROTECTED_ROUTE_PREFIXES = Object.freeze([
   '/api',
+  '/assets',
   '/auth',
   '/data',
   '/health',
   '/internal',
   '/media',
+  '/private',
   '/telegram',
 ]);
+
+export function isPrivateStaticAssetPath(pathname) {
+  const normalizedPathname = String(pathname || '').toLowerCase();
+  return ['/assets', '/private'].some(
+    (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(`${prefix}/`),
+  );
+}
 
 export function isProtectedRoutePath(pathname) {
   const normalizedPathname = String(pathname || '')

@@ -135,6 +135,16 @@ async function handleRequest(request, response) {
     return;
   }
 
+  if (
+    pathname === '/assets' ||
+    pathname.startsWith('/assets/') ||
+    pathname === '/private' ||
+    pathname.startsWith('/private/')
+  ) {
+    await handlePrivateAsset(request, response, pathname);
+    return;
+  }
+
   if (pathname === '/internal/media-auth') {
     handleMediaAuth(request, response);
     return;
@@ -496,6 +506,20 @@ function handleMediaAuth(request, response) {
     'Cache-Control': 'no-store',
   });
   response.end();
+}
+
+async function handlePrivateAsset(request, response, pathname) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET, HEAD' });
+    return;
+  }
+
+  if (!getSessionUser(request, { touch: false })) {
+    respondJson(response, 401, { ok: false, error: 'not_authenticated' });
+    return;
+  }
+
+  await serveStaticFile(pathname, request.method, response, { allowPrivateAssets: true });
 }
 
 function getSessionUser(request, options = {}) {

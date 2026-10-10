@@ -5,7 +5,7 @@ COPY package*.json ./
 RUN npm ci --ignore-scripts
 
 COPY index.html tsconfig.json vite.config.ts ./
-COPY scripts/protected-routes.mjs ./scripts/
+COPY scripts/check-private-bundle.mjs scripts/protected-routes.mjs ./scripts/
 COPY public ./public
 COPY src ./src
 

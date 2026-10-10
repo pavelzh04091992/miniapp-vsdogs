@@ -19,9 +19,11 @@ if (sessionCookie) {
     'authenticated video catalog',
     sessionHeaders(),
   );
+  await checkStatus('/assets/hero-dog.webp', 200, 'authenticated private asset', sessionHeaders());
   await checkVideoRange(videoId);
 } else {
   await checkStatus('/data/videos.json', 401, 'anonymous video catalog rejection');
+  await checkStatus('/assets/hero-dog.webp', 401, 'anonymous private asset rejection');
   await checkStatus('/media/smoke-protected/video.mp4', 401, 'anonymous media rejection');
   console.log('[smoke] authenticated checks skipped (SMOKE_SESSION_COOKIE is empty)');
 }
@@ -42,8 +44,9 @@ async function checkJson(pathname, validate, label, headers = {}) {
   console.log(`[smoke] ok: ${label}`);
 }
 
-async function checkStatus(pathname, expectedStatus, label) {
+async function checkStatus(pathname, expectedStatus, label, headers = {}) {
   const response = await fetch(`${baseUrl}${pathname}`, {
+    headers,
     redirect: 'manual',
     signal: AbortSignal.timeout(10_000),
   });
