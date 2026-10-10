@@ -12,15 +12,17 @@ export function createTelegramBot(options) {
     fetchImpl = fetch,
     inviteTtlSeconds = 86_400,
     magicLinkTtlSeconds = 600,
+    botStateTtlSeconds = 600,
     commandRateLimitMax = 40,
     commandRateLimitWindowMs = 60_000,
+    telegramApiTimeoutMs = 10_000,
   } = options;
 
   if (!botToken || !adminTelegramId) {
     return { enabled: false, handleUpdate: async () => {} };
   }
 
-  const api = createTelegramApi(botToken, fetchImpl);
+  const api = createTelegramApi(botToken, fetchImpl, telegramApiTimeoutMs);
   const commandRateLimiter = createRateLimiter({
     limit: commandRateLimitMax,
     windowMs: commandRateLimitWindowMs,
@@ -79,7 +81,10 @@ export function createTelegramBot(options) {
 
     database.touchTelegramUser(sender);
 
-    if (currentUser.role === 'admin' && database.getBotState(sender.id) === 'awaiting_grant_id') {
+    if (
+      currentUser.role === 'admin' &&
+      database.getBotState(sender.id, botStateTtlSeconds) === 'awaiting_grant_id'
+    ) {
       await handleGrantInput(message.chat.id, sender.id, message.text);
       return;
     }
@@ -373,12 +378,13 @@ function formatTtl(ttlSeconds) {
   return `${minutes} мин.`;
 }
 
-export function createTelegramApi(botToken, fetchImpl = fetch) {
+export function createTelegramApi(botToken, fetchImpl = fetch, timeoutMs = 10_000) {
   async function request(method, payload = {}) {
     const response = await fetchImpl(`https://api.telegram.org/bot${botToken}/${method}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     const body = await response.json().catch(() => ({}));
 

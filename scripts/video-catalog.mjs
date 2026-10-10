@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const VIDEO_CATALOG_PATH = resolve(process.cwd(), 'public', 'data', 'videos.json');
+const VIDEO_CATALOG_PATH = resolve(process.cwd(), 'data', 'videos.json');
 const FALLBACK_THUMBNAILS = {
   'puppy-toilet-home': '/assets/images/situations/puppy-toilet-home.webp',
 };
@@ -44,6 +44,11 @@ export function upsertChannelVideo(message, options = {}) {
   }
 
   const chat = message.chat ?? {};
+
+  if (!isAllowedTelegramChannel(chat, options)) {
+    return { changed: false, reason: 'untrusted_channel' };
+  }
+
   const telegramUrl = buildTelegramPostUrl(chat, message.message_id, options.publicChannelUsername);
 
   if (!telegramUrl) {
@@ -82,6 +87,18 @@ export function upsertChannelVideo(message, options = {}) {
     situationSlug,
     entry: preparedEntry,
   };
+}
+
+export function isAllowedTelegramChannel(chat, options = {}) {
+  const expectedChatId = String(options.publicChannelId || '').trim();
+
+  if (expectedChatId) {
+    return String(chat?.id ?? '') === expectedChatId;
+  }
+
+  const expectedUsername = normalizeChannelUsername(options.publicChannelUsername);
+  const actualUsername = normalizeChannelUsername(chat?.username);
+  return Boolean(expectedUsername && actualUsername && expectedUsername === actualUsername);
 }
 
 export function loadDotEnv() {
@@ -184,13 +201,22 @@ function resolveSituationSlug(message, options) {
 }
 
 function buildTelegramPostUrl(chat, messageId, publicChannelUsername) {
-  const username = chat.username || publicChannelUsername;
+  const username = normalizeChannelUsername(chat.username || publicChannelUsername);
+  const normalizedMessageId = Number(messageId);
 
-  if (!username) {
+  if (
+    !/^[A-Za-z\d_]{5,32}$/.test(username) ||
+    !Number.isSafeInteger(normalizedMessageId) ||
+    normalizedMessageId <= 0
+  ) {
     return null;
   }
 
-  return `https://t.me/${String(username).replace(/^@/, '')}/${messageId}`;
+  return `https://t.me/${username}/${normalizedMessageId}`;
+}
+
+function normalizeChannelUsername(value) {
+  return String(value || '').replace(/^@/, '').trim().toLowerCase();
 }
 
 function createVideoEntry({ existingEntry, message, situationSlug, telegramUrl, durationSeconds }) {

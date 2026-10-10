@@ -182,7 +182,13 @@ BOT_USERNAME=your_bot_username
 ADMIN_TELEGRAM_ID=123456789
 MINI_APP_URL=https://example.com
 MAGIC_LINK_TTL_SECONDS=600
+PUBLIC_CHANNEL_ID=-1001234567890
+PUBLIC_CHANNEL_USERNAME=your_channel_username
 ```
+
+`PUBLIC_CHANNEL_ID` — предпочтительный allowlist для публикаций канала. Если ID не задан,
+используется точное сравнение `PUBLIC_CHANNEL_USERNAME`; без обоих значений webhook не изменяет
+видеокаталог.
 
 Затем зарегистрируйте webhook:
 
@@ -206,6 +212,13 @@ npm run bot:set-webhook
 Mini App обменивает проверенный `initData` на серверную сессию. В обычном браузере пользователь
 нажимает в боте «Войти в браузере», получает одноразовую ссылку и после перехода также получает
 HttpOnly-сессию. До успешной проверки frontend показывает только экран входа или отказа в доступе.
+POST-запросы, меняющие авторизацию, принимаются только с Origin из `PUBLIC_BASE_URL`,
+`MINI_APP_URL` или `ALLOWED_ORIGINS`. Подтверждение magic link дополнительно привязано к браузеру
+короткоживущей HttpOnly-cookie, поэтому ссылку нельзя незаметно навязать чужому браузеру.
+Production-сессия по умолчанию использует cookie с префиксом `__Host-`; после перехода со старого
+имени cookie пользователю потребуется один раз войти заново. Для работы Mini App во фрейме
+Telegram production-cookie использует `SameSite=None; Secure`; локальный HTTP compose override
+явно переключает её на `SameSite=Lax`.
 Запросы Telegram-auth, magic link и приватные команды бота ограничены по частоте; лимиты и общее
 окно настраиваются переменными `AUTH_RATE_LIMIT_MAX`, `MAGIC_LINK_RATE_LIMIT_MAX`,
 `BOT_COMMAND_RATE_LIMIT_MAX` и `RATE_LIMIT_WINDOW_SECONDS`.
@@ -213,6 +226,8 @@ HttpOnly-сессию. До успешной проверки frontend пока�
 Статическая оболочка остаётся публичной, чтобы показать экран входа. Каталог
 `/data/videos.json` и файлы `/media/` доступны только с действующей HttpOnly-сессией. Для медиа
 Nginx выполняет внутреннюю проверку сессии перед выдачей HLS, MP4, постеров и Range-ответов.
+Изменяемый `data/videos.json` не входит в `public/` и production bundle; dev-сервер блокирует
+закодированные и mixed-case варианты приватных маршрутов до обработки статических файлов.
 
 ## Хранение данных и резервные копии
 
@@ -241,7 +256,11 @@ infra/
 scripts/
   app-server.mjs            # Фронтенд, auth API, healthcheck и Telegram webhook
   auth-database.mjs         # SQLite: пользователи, приглашения и сессии
+  http-utils.mjs            # HTTP parsing, cookies, Origin и security headers
+  protected-routes.mjs      # Единая граница динамических и статических маршрутов
   rate-limit.mjs            # Ограничение частоты auth и bot-запросов
+  server-config.mjs         # Проверка и нормализация серверной конфигурации
+  static-server.mjs         # Безопасная раздача production frontend
   telegram-auth.mjs         # Проверка Telegram initData
   telegram-bot.mjs          # Админское и пользовательское меню бота
   prepare-video.mjs         # Подготовка HLS/MP4/poster через FFmpeg

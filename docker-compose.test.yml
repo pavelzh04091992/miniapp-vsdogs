@@ -17,7 +17,11 @@ services:
       AUTH_DATABASE_PATH: "/app/data/auth.sqlite"
       DEFAULT_VIDEO_SITUATION_SLUG: "${DEFAULT_VIDEO_SITUATION_SLUG:-puppy-toilet-home}"
       KNOWN_VIDEO_SITUATION_SLUGS: "${KNOWN_VIDEO_SITUATION_SLUGS:-puppy-toilet-home}"
+      PUBLIC_CHANNEL_ID: "${PUBLIC_CHANNEL_ID:-}"
       PUBLIC_CHANNEL_USERNAME: "${PUBLIC_CHANNEL_USERNAME:-}"
+      SESSION_COOKIE_NAME: "miniapp_session"
+      SESSION_COOKIE_SECURE: "false"
+      SESSION_COOKIE_SAME_SITE: "Lax"
       TELEGRAM_WEBHOOK_PATH: "${TELEGRAM_WEBHOOK_PATH:-/telegram/webhook}"
       TELEGRAM_WEBHOOK_SECRET: ""
       WEBHOOK_MAX_BODY_BYTES: "${WEBHOOK_MAX_BODY_BYTES:-1048576}"
@@ -25,7 +29,6 @@ services:
       - "8787"
     volumes:
       - "${TEST_DATA_PATH:-./data}:/app/data:rw"
-      - "${TEST_DATA_PATH:-./data}:/app/public/data:rw"
     healthcheck:
       test:
         - CMD

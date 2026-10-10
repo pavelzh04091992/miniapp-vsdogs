@@ -1,7 +1,12 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { createOpaqueToken, hashOpaqueToken, normalizeTelegramId } from './telegram-auth.mjs';
+import {
+  createOpaqueToken,
+  hashOpaqueToken,
+  isOpaqueToken,
+  normalizeTelegramId,
+} from './telegram-auth.mjs';
 
 export function createAuthDatabase(databasePath, options = {}) {
   mkdirSync(dirname(databasePath), { recursive: true });
@@ -15,6 +20,7 @@ export function createAuthDatabase(databasePath, options = {}) {
   migrate(database);
 
   const statements = prepareStatements(database);
+  cleanupExpiredData(statements, now());
 
   return {
     close: () => database.close(),
@@ -105,9 +111,21 @@ export function createAuthDatabase(databasePath, options = {}) {
       statements.setBotState.run(id, state, timestamp);
     },
 
-    getBotState(telegramId) {
+    getBotState(telegramId, maxAgeSeconds = 600) {
       const id = normalizeTelegramId(telegramId);
-      return id ? statements.getBotState.get(id)?.state ?? null : null;
+
+      if (!id) {
+        return null;
+      }
+
+      const row = statements.getBotState.get(id);
+
+      if (!row || row.updated_at <= now() - maxAgeSeconds) {
+        statements.clearBotState.run(id);
+        return null;
+      }
+
+      return row.state;
     },
 
     clearBotState(telegramId) {
@@ -148,31 +166,41 @@ export function createAuthDatabase(databasePath, options = {}) {
 
     consumeInvite(token, telegramId) {
       const userId = requireTelegramId(telegramId);
-      const timestamp = now();
-      const invite = statements.getInvite.get(hashOpaqueToken(token));
 
-      if (!invite || invite.status !== 'pending' || invite.expires_at < timestamp) {
+      if (!isOpaqueToken(token)) {
         return { ok: false, reason: 'invalid_or_expired' };
       }
 
-      if (invite.target_telegram_id !== userId) {
-        statements.insertAudit.run(
-          userId,
-          'invite_rejected',
-          invite.target_telegram_id,
-          JSON.stringify({ reason: 'telegram_id_mismatch' }),
-          timestamp,
-        );
-        return { ok: false, reason: 'telegram_id_mismatch' };
-      }
+      const timestamp = now();
 
-      transaction(database, () => {
-        statements.acceptInvite.run(timestamp, invite.id);
+      return transaction(database, () => {
+        const invite = statements.getInvite.get(hashOpaqueToken(token));
+
+        if (!invite || invite.status !== 'pending' || invite.expires_at <= timestamp) {
+          return { ok: false, reason: 'invalid_or_expired' };
+        }
+
+        if (invite.target_telegram_id !== userId) {
+          statements.insertAudit.run(
+            userId,
+            'invite_rejected',
+            invite.target_telegram_id,
+            JSON.stringify({ reason: 'telegram_id_mismatch' }),
+            timestamp,
+          );
+          return { ok: false, reason: 'telegram_id_mismatch' };
+        }
+
+        const accepted = statements.acceptInvite.run(timestamp, invite.id);
+
+        if (accepted.changes !== 1) {
+          return { ok: false, reason: 'invalid_or_expired' };
+        }
+
         statements.activateUser.run(timestamp, userId);
         statements.insertAudit.run(userId, 'invite_accepted', userId, null, timestamp);
+        return { ok: true, user: mapUser(statements.getUser.get(userId)) };
       });
-
-      return { ok: true, user: mapUser(statements.getUser.get(userId)) };
     },
 
     createSession(telegramId, ttlSeconds = 7 * 86_400) {
@@ -225,7 +253,7 @@ export function createAuthDatabase(databasePath, options = {}) {
     },
 
     isMagicLinkUsable(token) {
-      if (typeof token !== 'string' || token.length < 32 || token.length > 128) {
+      if (!isOpaqueToken(token)) {
         return false;
       }
 
@@ -241,7 +269,7 @@ export function createAuthDatabase(databasePath, options = {}) {
     },
 
     consumeMagicLink(token, sessionTtl = 7 * 86_400) {
-      if (typeof token !== 'string' || token.length < 32 || token.length > 128) {
+      if (!isOpaqueToken(token)) {
         return null;
       }
 
@@ -293,7 +321,7 @@ export function createAuthDatabase(databasePath, options = {}) {
     },
 
     getSessionUser(token, sessionOptions = {}) {
-      if (typeof token !== 'string' || token.length < 32 || token.length > 128) {
+      if (!isOpaqueToken(token)) {
         return null;
       }
 
@@ -311,7 +339,7 @@ export function createAuthDatabase(databasePath, options = {}) {
     },
 
     revokeSession(token) {
-      if (typeof token === 'string' && token) {
+      if (isOpaqueToken(token)) {
         statements.revokeSession.run(now(), hashOpaqueToken(token));
       }
     },
@@ -319,6 +347,27 @@ export function createAuthDatabase(databasePath, options = {}) {
     isTelegramUpdateProcessed(updateId) {
       const id = normalizeUpdateId(updateId);
       return id ? Boolean(statements.getProcessedUpdate.get(id)) : false;
+    },
+
+    claimTelegramUpdate(updateId) {
+      const id = normalizeUpdateId(updateId);
+
+      if (!id) {
+        return false;
+      }
+
+      const timestamp = now();
+      const result = statements.insertProcessedUpdate.run(id, timestamp);
+      statements.deleteOldProcessedUpdates.run(timestamp - 7 * 86_400);
+      return result.changes === 1;
+    },
+
+    releaseTelegramUpdate(updateId) {
+      const id = normalizeUpdateId(updateId);
+
+      if (id) {
+        statements.deleteProcessedUpdate.run(id);
+      }
     },
 
     markTelegramUpdateProcessed(updateId) {
@@ -437,7 +486,7 @@ function prepareStatements(database) {
       INSERT INTO bot_states (telegram_id, state, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(telegram_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at
     `),
-    getBotState: database.prepare('SELECT state FROM bot_states WHERE telegram_id = ?'),
+    getBotState: database.prepare('SELECT state, updated_at FROM bot_states WHERE telegram_id = ?'),
     clearBotState: database.prepare('DELETE FROM bot_states WHERE telegram_id = ?'),
     insertInvite: database.prepare(`
       INSERT INTO invites (target_telegram_id, token_hash, status, expires_at, created_by, created_at)
@@ -496,8 +545,39 @@ function prepareStatements(database) {
     insertProcessedUpdate: database.prepare(`
       INSERT OR IGNORE INTO telegram_updates (update_id, processed_at) VALUES (?, ?)
     `),
+    deleteProcessedUpdate: database.prepare('DELETE FROM telegram_updates WHERE update_id = ?'),
     deleteOldProcessedUpdates: database.prepare('DELETE FROM telegram_updates WHERE processed_at < ?'),
+    expirePendingInvites: database.prepare(`
+      UPDATE invites SET status = 'expired'
+      WHERE status = 'pending' AND expires_at <= ?
+    `),
+    deleteOldInvites: database.prepare(`
+      DELETE FROM invites WHERE status <> 'pending' AND created_at <= ?
+    `),
+    deleteOldSessions: database.prepare(`
+      DELETE FROM sessions
+      WHERE expires_at <= ? OR (revoked_at IS NOT NULL AND revoked_at <= ?)
+    `),
+    deleteOldMagicLinks: database.prepare(`
+      DELETE FROM magic_links
+      WHERE expires_at <= ?
+        OR (used_at IS NOT NULL AND used_at <= ?)
+        OR (revoked_at IS NOT NULL AND revoked_at <= ?)
+    `),
+    deleteOldBotStates: database.prepare('DELETE FROM bot_states WHERE updated_at <= ?'),
+    deleteOldAuditEntries: database.prepare('DELETE FROM audit_log WHERE created_at <= ?'),
   };
+}
+
+function cleanupExpiredData(statements, timestamp) {
+  const retentionCutoff = timestamp - 7 * 86_400;
+  statements.expirePendingInvites.run(timestamp);
+  statements.deleteOldInvites.run(retentionCutoff);
+  statements.deleteOldSessions.run(retentionCutoff, retentionCutoff);
+  statements.deleteOldMagicLinks.run(retentionCutoff, retentionCutoff, retentionCutoff);
+  statements.deleteOldBotStates.run(retentionCutoff);
+  statements.deleteOldProcessedUpdates.run(retentionCutoff);
+  statements.deleteOldAuditEntries.run(timestamp - 180 * 86_400);
 }
 
 function mapUser(row) {

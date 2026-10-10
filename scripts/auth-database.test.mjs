@@ -24,6 +24,10 @@ test('stores access, profiles, invitations and revocable sessions', () => {
     assert.equal(database.isTelegramUpdateProcessed(12345), false);
     database.markTelegramUpdateProcessed(12345);
     assert.equal(database.isTelegramUpdateProcessed(12345), true);
+    assert.equal(database.claimTelegramUpdate(12346), true);
+    assert.equal(database.claimTelegramUpdate(12346), false);
+    database.releaseTelegramUpdate(12346);
+    assert.equal(database.claimTelegramUpdate(12346), true);
 
     const granted = database.grantUser('20002', '10001');
     assert.equal(granted.status, 'active');
@@ -42,6 +46,12 @@ test('stores access, profiles, invitations and revocable sessions', () => {
       reason: 'telegram_id_mismatch',
     });
     assert.equal(database.consumeInvite(invite.token, '20002').ok, true);
+    assert.equal(database.consumeInvite(invite.token, '20002').ok, false);
+
+    database.setBotState('10001', 'awaiting_grant_id');
+    assert.equal(database.getBotState('10001', 60), 'awaiting_grant_id');
+    currentTime += 61;
+    assert.equal(database.getBotState('10001', 60), null);
 
     const session = database.createSession('20002', 60);
     assert.equal(database.getSessionUser(session.token).telegramId, '20002');

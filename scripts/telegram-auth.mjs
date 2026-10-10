@@ -120,6 +120,10 @@ export function createOpaqueToken(bytes = 32) {
   return randomBytes(bytes).toString('base64url');
 }
 
+export function isOpaqueToken(value) {
+  return typeof value === 'string' && /^[A-Za-z\d_-]{32,128}$/.test(value);
+}
+
 export function hashOpaqueToken(token) {
   return createHash('sha256').update(token).digest('hex');
 }

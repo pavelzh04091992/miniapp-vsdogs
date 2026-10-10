@@ -664,8 +664,22 @@ function showFeedback(message: string): void {
   window.alert(message);
 }
 
-function openExternalUrl(url: string): void {
-  if (url.startsWith('https://t.me/') || url.startsWith('http://t.me/')) {
+function openExternalUrl(rawUrl: string): void {
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    return;
+  }
+
+  if (parsedUrl.protocol !== 'https:') {
+    return;
+  }
+
+  const url = parsedUrl.toString();
+
+  if (parsedUrl.hostname === 't.me') {
     if (webApp?.openTelegramLink) {
       webApp.openTelegramLink(url);
       return;

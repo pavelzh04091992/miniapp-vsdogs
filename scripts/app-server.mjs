@@ -1,109 +1,67 @@
 import { timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { extname, resolve, sep } from 'node:path';
 import { createAuthDatabase } from './auth-database.mjs';
+import {
+  RequestError,
+  getClientIdentifier,
+  getRequestPathname,
+  getRequestUrl,
+  hasAllowedOrigin,
+  parseCookies,
+  readJsonBody,
+  redirect,
+  respondJson,
+  writeResponseHead,
+} from './http-utils.mjs';
 import { createRateLimiter } from './rate-limit.mjs';
+import { readServerConfig } from './server-config.mjs';
+import { createStaticServer } from './static-server.mjs';
 import { createTelegramBot } from './telegram-bot.mjs';
 import {
   TelegramAuthError,
-  normalizeTelegramId,
+  hashOpaqueToken,
+  isOpaqueToken,
   validateTelegramInitData,
 } from './telegram-auth.mjs';
 import { loadDotEnv, loadVideoCatalog, upsertChannelVideo } from './video-catalog.mjs';
 
 loadDotEnv();
 
-const port = parsePositiveInteger(process.env.APP_SERVER_PORT, 8787, 'APP_SERVER_PORT');
-const maxWebhookBodyBytes = parsePositiveInteger(
-  process.env.WEBHOOK_MAX_BODY_BYTES,
-  1024 * 1024,
-  'WEBHOOK_MAX_BODY_BYTES',
-);
-const webhookPath = normalizeWebhookPath(process.env.TELEGRAM_WEBHOOK_PATH);
-const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim() || '';
-const botToken = process.env.BOT_TOKEN?.trim() || '';
-const botUsername = process.env.BOT_USERNAME?.trim() || '';
-const adminTelegramId = normalizeOptionalTelegramId(process.env.ADMIN_TELEGRAM_ID);
-const publicBaseUrl = (process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
-const miniAppUrl = (process.env.MINI_APP_URL || publicBaseUrl).trim();
-const configuredAuthDatabasePath = process.env.AUTH_DATABASE_PATH || 'data/auth.sqlite';
-const authDatabasePath = configuredAuthDatabasePath === ':memory:'
-  ? configuredAuthDatabasePath
-  : resolve(process.cwd(), configuredAuthDatabasePath);
-const telegramInitDataMaxAgeSeconds = parsePositiveInteger(
-  process.env.TELEGRAM_INIT_DATA_MAX_AGE_SECONDS,
-  900,
-  'TELEGRAM_INIT_DATA_MAX_AGE_SECONDS',
-);
-const sessionTtlSeconds = parsePositiveInteger(
-  process.env.SESSION_TTL_SECONDS,
-  7 * 24 * 60 * 60,
-  'SESSION_TTL_SECONDS',
-);
-const inviteTtlSeconds = parsePositiveInteger(
-  process.env.INVITE_TTL_SECONDS,
-  24 * 60 * 60,
-  'INVITE_TTL_SECONDS',
-);
-const magicLinkTtlSeconds = parsePositiveInteger(
-  process.env.MAGIC_LINK_TTL_SECONDS,
-  10 * 60,
-  'MAGIC_LINK_TTL_SECONDS',
-);
-const rateLimitWindowSeconds = parsePositiveInteger(
-  process.env.RATE_LIMIT_WINDOW_SECONDS,
-  60,
-  'RATE_LIMIT_WINDOW_SECONDS',
-);
-const authRateLimitMax = parsePositiveInteger(
-  process.env.AUTH_RATE_LIMIT_MAX,
-  20,
-  'AUTH_RATE_LIMIT_MAX',
-);
-const magicLinkRateLimitMax = parsePositiveInteger(
-  process.env.MAGIC_LINK_RATE_LIMIT_MAX,
-  30,
-  'MAGIC_LINK_RATE_LIMIT_MAX',
-);
-const botCommandRateLimitMax = parsePositiveInteger(
-  process.env.BOT_COMMAND_RATE_LIMIT_MAX,
-  40,
-  'BOT_COMMAND_RATE_LIMIT_MAX',
-);
-const sessionCookieName = normalizeCookieName(process.env.SESSION_COOKIE_NAME);
-const secureSessionCookie = parseBoolean(
-  process.env.SESSION_COOKIE_SECURE,
-  miniAppUrl.startsWith('https://') || process.env.NODE_ENV === 'production',
-);
-const publicChannelUsername = process.env.PUBLIC_CHANNEL_USERNAME || '';
-const defaultSituationSlug = process.env.DEFAULT_VIDEO_SITUATION_SLUG || 'puppy-toilet-home';
-const distPath = resolve(process.cwd(), 'dist');
-const indexHtmlPath = resolve(distPath, 'index.html');
-const knownSlugs = (process.env.KNOWN_VIDEO_SITUATION_SLUGS || 'puppy-toilet-home')
-  .split(',')
-  .map((value) => value.trim())
-  .filter(Boolean);
-
-const securityHeaders = {
-  'Content-Security-Policy': [
-    "default-src 'self'",
-    "script-src 'self' https://telegram.org",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
-    "media-src 'self' blob:",
-    "connect-src 'self' https://telegram.org",
-    "font-src 'self' data:",
-    "worker-src 'self' blob:",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org",
-    "form-action 'self'",
-  ].join('; '),
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'X-Content-Type-Options': 'nosniff',
-};
+const config = readServerConfig();
+const {
+  adminTelegramId,
+  allowedOrigins,
+  authDatabasePath,
+  authRateLimitMax,
+  botCommandRateLimitMax,
+  botStateTtlSeconds,
+  botToken,
+  botUsername,
+  defaultSituationSlug,
+  distPath,
+  inviteTtlSeconds,
+  knownSlugs,
+  magicLinkRateLimitMax,
+  magicLinkTtlSeconds,
+  maxRequestBodyBytes,
+  miniAppUrl,
+  port,
+  publicBaseUrl,
+  publicChannelId,
+  publicChannelUsername,
+  rateLimitWindowSeconds,
+  secureSessionCookie,
+  sessionCookieName,
+  sessionCookieSameSite,
+  sessionTtlSeconds,
+  telegramInitDataMaxAgeSeconds,
+  webhookPath,
+  webhookSecret,
+} = config;
+const magicConfirmationCookieName = secureSessionCookie
+  ? '__Host-miniapp_magic'
+  : 'miniapp_magic';
+const serveStaticFile = createStaticServer(distPath);
 
 // Validate the writable catalog mount before the service starts accepting traffic.
 loadVideoCatalog();
@@ -122,6 +80,7 @@ const telegramBot = createTelegramBot({
   database: authDatabase,
   inviteTtlSeconds,
   magicLinkTtlSeconds,
+  botStateTtlSeconds,
   commandRateLimitMax: botCommandRateLimitMax,
   commandRateLimitWindowMs: rateLimitWindowSeconds * 1000,
 });
@@ -267,14 +226,18 @@ async function handleTelegramWebhook(request, response) {
     return;
   }
 
+  let claimedUpdateId = null;
+
   try {
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request, maxRequestBodyBytes);
     const updateId = body.update_id;
 
-    if (authDatabase.isTelegramUpdateProcessed(updateId)) {
+    if (!authDatabase.claimTelegramUpdate(updateId)) {
       respondJson(response, 200, { ok: true, duplicate: true });
       return;
     }
+
+    claimedUpdateId = updateId;
 
     const channelMessage = body.channel_post || body.edited_channel_post;
 
@@ -282,6 +245,7 @@ async function handleTelegramWebhook(request, response) {
       const result = upsertChannelVideo(channelMessage, {
         knownSlugs,
         defaultSituationSlug,
+        publicChannelId,
         publicChannelUsername,
       });
 
@@ -300,10 +264,12 @@ async function handleTelegramWebhook(request, response) {
       console.log('[telegram-bot] skipped update: access bot is disabled');
     }
 
-    authDatabase.markTelegramUpdateProcessed(updateId);
-
     respondJson(response, 200, { ok: true });
   } catch (error) {
+    if (claimedUpdateId !== null) {
+      authDatabase.releaseTelegramUpdate(claimedUpdateId);
+    }
+
     if (error instanceof RequestError) {
       respondJson(response, error.statusCode, { ok: false, error: error.publicCode });
       return;
@@ -329,13 +295,13 @@ async function handleTelegramAuth(request, response) {
     return;
   }
 
-  if (!hasAllowedOrigin(request)) {
+  if (!hasAllowedOrigin(request, allowedOrigins)) {
     respondJson(response, 403, { ok: false, error: 'invalid_origin' });
     return;
   }
 
   try {
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request, maxRequestBodyBytes);
     const verified = validateTelegramInitData(body.initData, botToken, {
       maxAgeSeconds: telegramInitDataMaxAgeSeconds,
     });
@@ -424,27 +390,48 @@ function handleMagicLink(request, response) {
 
   if (request.method === 'GET') {
     if (!authDatabase.isMagicLinkUsable(token)) {
-      redirect(response, '/?auth=invalid-link');
+      redirect(response, '/?auth=invalid-link', {
+        'Set-Cookie': serializeMagicConfirmationCookie('', 0),
+      });
       return;
     }
 
-    respondMagicLinkConfirmation(response, token);
+    respondMagicLinkConfirmation(response, token, {
+      'Set-Cookie': serializeMagicConfirmationCookie(hashOpaqueToken(token), magicLinkTtlSeconds),
+    });
+    return;
+  }
+
+  if (!hasAllowedOrigin(request, allowedOrigins)) {
+    respondJson(response, 403, { ok: false, error: 'invalid_origin' });
+    return;
+  }
+
+  const expectedConfirmation = isOpaqueToken(token) ? hashOpaqueToken(token) : null;
+  const providedConfirmation = parseCookies(request.headers.cookie)[magicConfirmationCookieName];
+  const clearConfirmationCookie = serializeMagicConfirmationCookie('', 0);
+
+  if (!constantTimeStringEqual(expectedConfirmation, providedConfirmation)) {
+    redirect(response, '/?auth=invalid-link', { 'Set-Cookie': clearConfirmationCookie });
     return;
   }
 
   const session = authDatabase.consumeMagicLink(token, sessionTtlSeconds);
 
   if (!session) {
-    redirect(response, '/?auth=invalid-link');
+    redirect(response, '/?auth=invalid-link', { 'Set-Cookie': clearConfirmationCookie });
     return;
   }
 
   redirect(response, '/?auth=success', {
-    'Set-Cookie': serializeSessionCookie(session.token, session.expiresAt),
+    'Set-Cookie': [
+      serializeSessionCookie(session.token, session.expiresAt),
+      clearConfirmationCookie,
+    ],
   });
 }
 
-function respondMagicLinkConfirmation(response, token) {
+function respondMagicLinkConfirmation(response, token, extraHeaders = {}) {
   const action = `/auth/magic?token=${encodeURIComponent(token)}`;
   const payload = Buffer.from(`<!doctype html>
 <html lang="ru">
@@ -471,6 +458,7 @@ function respondMagicLinkConfirmation(response, token) {
     'Content-Length': String(payload.byteLength),
     'Content-Type': 'text/html; charset=utf-8',
     'Referrer-Policy': 'no-referrer',
+    ...extraHeaders,
   });
   response.end(payload);
 }
@@ -481,7 +469,7 @@ function handleLogout(request, response) {
     return;
   }
 
-  if (!hasAllowedOrigin(request)) {
+  if (!hasAllowedOrigin(request, allowedOrigins)) {
     respondJson(response, 403, { ok: false, error: 'invalid_origin' });
     return;
   }
@@ -531,22 +519,6 @@ function allowRateLimitedRequest(limiter, request, response) {
   return false;
 }
 
-function getClientIdentifier(request) {
-  const realIp = request.headers['x-real-ip'];
-  const normalizedRealIp = (Array.isArray(realIp) ? realIp[0] : realIp)?.trim();
-
-  if (normalizedRealIp) {
-    return normalizedRealIp.slice(0, 128);
-  }
-
-  const forwarded = request.headers['x-forwarded-for'];
-  const firstForwarded = (Array.isArray(forwarded) ? forwarded[0] : forwarded)
-    ?.split(',', 1)[0]
-    ?.trim();
-
-  return (firstForwarded || request.socket.remoteAddress || 'unknown').slice(0, 128);
-}
-
 function publicUser(user) {
   return {
     telegramId: user.telegramId,
@@ -559,319 +531,12 @@ function publicUser(user) {
 }
 
 function hasValidWebhookSecret(providedSecret) {
-  if (typeof providedSecret !== 'string') {
-    return false;
-  }
-
-  const expectedBuffer = Buffer.from(webhookSecret);
-  const providedBuffer = Buffer.from(providedSecret);
-
-  return (
-    expectedBuffer.length === providedBuffer.length &&
-    timingSafeEqual(expectedBuffer, providedBuffer)
-  );
-}
-
-function readJsonBody(request) {
-  return new Promise((resolveJson, reject) => {
-    const declaredSize = Number(request.headers['content-length'] || 0);
-
-    if (Number.isFinite(declaredSize) && declaredSize > maxWebhookBodyBytes) {
-      request.resume();
-      reject(new RequestError(413, 'payload_too_large'));
-      return;
-    }
-
-    const chunks = [];
-    let receivedBytes = 0;
-    let bodyTooLarge = false;
-
-    request.on('data', (chunk) => {
-      if (bodyTooLarge) {
-        return;
-      }
-
-      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      receivedBytes += buffer.length;
-
-      if (receivedBytes > maxWebhookBodyBytes) {
-        bodyTooLarge = true;
-        chunks.length = 0;
-        return;
-      }
-
-      chunks.push(buffer);
-    });
-    request.on('end', () => {
-      if (bodyTooLarge) {
-        reject(new RequestError(413, 'payload_too_large'));
-        return;
-      }
-
-      const raw = Buffer.concat(chunks).toString('utf8');
-
-      if (!raw) {
-        resolveJson({});
-        return;
-      }
-
-      try {
-        const parsed = JSON.parse(raw);
-
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          throw new Error('JSON body must be an object');
-        }
-
-        resolveJson(parsed);
-      } catch {
-        reject(new RequestError(400, 'invalid_json'));
-      }
-    });
-    request.on('error', reject);
-  });
-}
-
-async function serveStaticFile(pathname, method, response) {
-  const filePath = resolveStaticFilePath(pathname);
-  const shouldFallbackToIndex = isSpaRoute(pathname);
-  const targetPath = filePath || (shouldFallbackToIndex ? indexHtmlPath : null);
-
-  if (!targetPath) {
-    respondJson(response, 404, { ok: false, error: 'not_found' });
-    return;
-  }
-
-  try {
-    const content = await readFile(targetPath);
-
-    writeResponseHead(response, 200, {
-      'Cache-Control': getCacheControl(targetPath),
-      'Content-Length': String(content.byteLength),
-      'Content-Type': getContentType(targetPath),
-    });
-
-    response.end(method === 'HEAD' ? undefined : content);
-  } catch (error) {
-    if (error.code === 'ENOENT' && shouldFallbackToIndex && targetPath !== indexHtmlPath) {
-      await serveIndexFile(method, response);
-      return;
-    }
-
-    if (error.code === 'ENOENT' || error.code === 'EISDIR') {
-      respondJson(response, 404, { ok: false, error: 'not_found' });
-      return;
-    }
-
-    console.error('[static] file serving error', error);
-    respondJson(response, 500, { ok: false, error: 'internal_error' });
-  }
-}
-
-async function serveIndexFile(method, response) {
-  try {
-    const content = await readFile(indexHtmlPath);
-
-    writeResponseHead(response, 200, {
-      'Cache-Control': 'no-cache',
-      'Content-Length': String(content.byteLength),
-      'Content-Type': 'text/html; charset=utf-8',
-    });
-
-    response.end(method === 'HEAD' ? undefined : content);
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      respondJson(response, 503, { ok: false, error: 'frontend_not_built' });
-      return;
-    }
-
-    console.error('[static] index serving error', error);
-    respondJson(response, 500, { ok: false, error: 'internal_error' });
-  }
-}
-
-function resolveStaticFilePath(pathname) {
-  const cleanPathname = pathname === '/' ? '/index.html' : pathname;
-  const decodedPathname = safeDecodeURIComponent(cleanPathname);
-
-  if (!decodedPathname || decodedPathname.includes('\0')) {
-    return null;
-  }
-
-  const filePath = resolve(distPath, `.${decodedPathname}`);
-  const distRoot = `${distPath}${sep}`;
-
-  if (filePath !== distPath && !filePath.startsWith(distRoot)) {
-    return null;
-  }
-
-  return filePath;
-}
-
-function safeDecodeURIComponent(value) {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return null;
-  }
-}
-
-function getRequestPathname(request) {
-  return getRequestUrl(request).pathname;
-}
-
-function getRequestUrl(request) {
-  try {
-    return new URL(request.url || '/', 'http://localhost');
-  } catch {
-    return new URL('http://localhost/');
-  }
-}
-
-function respondJson(response, statusCode, body, extraHeaders = {}) {
-  const payload = Buffer.from(JSON.stringify(body));
-
-  writeResponseHead(response, statusCode, {
-    'Cache-Control': 'no-store',
-    'Content-Length': String(payload.byteLength),
-    'Content-Type': 'application/json; charset=utf-8',
-    ...extraHeaders,
-  });
-  response.end(payload);
-}
-
-function writeResponseHead(response, statusCode, headers) {
-  response.writeHead(statusCode, {
-    ...securityHeaders,
-    ...headers,
-  });
-}
-
-function isSpaRoute(pathname) {
-  return (
-    !extname(pathname) &&
-    !pathname.startsWith('/api/') &&
-    !pathname.startsWith('/assets/') &&
-    !pathname.startsWith('/data/') &&
-    !pathname.startsWith('/media/') &&
-    !pathname.startsWith('/telegram/')
-  );
-}
-
-function getCacheControl(filePath) {
-  if (filePath.includes(`${sep}assets${sep}`)) {
-    return 'public, max-age=31536000, immutable';
-  }
-
-  return 'no-cache';
-}
-
-function getContentType(filePath) {
-  const contentTypes = {
-    '.css': 'text/css; charset=utf-8',
-    '.html': 'text/html; charset=utf-8',
-    '.ico': 'image/x-icon',
-    '.jpeg': 'image/jpeg',
-    '.jpg': 'image/jpeg',
-    '.js': 'text/javascript; charset=utf-8',
-    '.json': 'application/json; charset=utf-8',
-    '.png': 'image/png',
-    '.svg': 'image/svg+xml',
-    '.webp': 'image/webp',
-  };
-
-  return contentTypes[extname(filePath).toLowerCase()] || 'application/octet-stream';
-}
-
-function normalizeWebhookPath(value) {
-  const path = value?.trim() || '/telegram/webhook';
-  return path.startsWith('/') ? path : `/${path}`;
-}
-
-function parsePositiveInteger(value, fallback, name) {
-  if (!value) {
-    return fallback;
-  }
-
-  const parsed = Number(value);
-
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer`);
-  }
-
-  return parsed;
-}
-
-function redirect(response, location, extraHeaders = {}) {
-  writeResponseHead(response, 303, {
-    'Cache-Control': 'no-store',
-    Location: location,
-    ...extraHeaders,
-  });
-  response.end();
-}
-
-function normalizeOptionalTelegramId(value) {
-  if (!value?.trim()) {
-    return null;
-  }
-
-  const id = normalizeTelegramId(value);
-
-  if (!id) {
-    throw new Error('ADMIN_TELEGRAM_ID must be a positive numeric Telegram ID');
-  }
-
-  return id;
-}
-
-function normalizeCookieName(value) {
-  const name = value?.trim() || 'miniapp_session';
-
-  if (!/^[A-Za-z0-9_-]+$/.test(name)) {
-    throw new Error('SESSION_COOKIE_NAME contains unsupported characters');
-  }
-
-  return name;
+  return constantTimeStringEqual(webhookSecret, providedSecret);
 }
 
 function getPublicBotUrl() {
   const username = botUsername.replace(/^@/, '');
   return /^[A-Za-z\d_]{5,32}$/.test(username) ? `https://t.me/${username}` : null;
-}
-
-function parseBoolean(value, fallback) {
-  if (!value) {
-    return fallback;
-  }
-
-  if (value === 'true' || value === '1') {
-    return true;
-  }
-
-  if (value === 'false' || value === '0') {
-    return false;
-  }
-
-  throw new Error('Boolean environment value must be true/false or 1/0');
-}
-
-function parseCookies(cookieHeader) {
-  if (typeof cookieHeader !== 'string') {
-    return {};
-  }
-
-  return Object.fromEntries(
-    cookieHeader
-      .split(';')
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .map((part) => {
-        const separator = part.indexOf('=');
-        return separator === -1
-          ? [part, '']
-          : [part.slice(0, separator), part.slice(separator + 1)];
-      }),
-  );
 }
 
 function serializeSessionCookie(token, expiresAt) {
@@ -880,7 +545,7 @@ function serializeSessionCookie(token, expiresAt) {
     `${sessionCookieName}=${token}`,
     'Path=/',
     'HttpOnly',
-    'SameSite=Lax',
+    `SameSite=${sessionCookieSameSite}`,
     `Max-Age=${maxAge}`,
   ];
 
@@ -891,20 +556,34 @@ function serializeSessionCookie(token, expiresAt) {
   return parts.join('; ');
 }
 
-function hasAllowedOrigin(request) {
-  const origin = request.headers.origin;
+function serializeMagicConfirmationCookie(value, maxAge) {
+  const parts = [
+    `${magicConfirmationCookieName}=${value}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Strict',
+    `Max-Age=${Math.max(0, maxAge)}`,
+  ];
 
-  if (!origin) {
-    return true;
+  if (secureSessionCookie) {
+    parts.push('Secure');
   }
 
-  try {
-    const originUrl = new URL(origin);
-    const configuredOrigin = publicBaseUrl ? new URL(publicBaseUrl).origin : null;
-    return originUrl.host === request.headers.host || originUrl.origin === configuredOrigin;
-  } catch {
+  return parts.join('; ');
+}
+
+function constantTimeStringEqual(expected, provided) {
+  if (typeof expected !== 'string' || typeof provided !== 'string') {
     return false;
   }
+
+  const expectedBuffer = Buffer.from(expected);
+  const providedBuffer = Buffer.from(provided);
+
+  return (
+    expectedBuffer.length === providedBuffer.length &&
+    timingSafeEqual(expectedBuffer, providedBuffer)
+  );
 }
 
 function shutdown(signal) {
@@ -923,13 +602,4 @@ function shutdown(signal) {
   setTimeout(() => {
     server.closeAllConnections();
   }, 10_000).unref();
-}
-
-class RequestError extends Error {
-  constructor(statusCode, publicCode) {
-    super(publicCode);
-    this.name = 'RequestError';
-    this.statusCode = statusCode;
-    this.publicCode = publicCode;
-  }
 }

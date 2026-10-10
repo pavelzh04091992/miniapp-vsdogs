@@ -1,4 +1,17 @@
 import { defineConfig, loadEnv } from 'vite';
+import {
+  getDecodedRequestPathname,
+  isProtectedRoutePath,
+  shouldBlockDevStaticFallback,
+} from './scripts/protected-routes.mjs';
+
+function blockProtectedPath(response: import('node:http').ServerResponse): void {
+  response.writeHead(404, {
+    'Cache-Control': 'no-store',
+    'Content-Type': 'application/json; charset=utf-8',
+  });
+  response.end('{"ok":false,"error":"not_found"}');
+}
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
@@ -6,6 +19,34 @@ export default defineConfig(({ mode }) => {
   const appServerPort = env.LOCAL_API_PORT || env.APP_SERVER_PORT || '8787';
 
   return {
+    plugins: [{
+      name: 'protect-dynamic-routes',
+      configureServer(server) {
+        server.middlewares.use((request, response, next) => {
+          // Exact lowercase routes continue to Vite's backend proxy. Encoded,
+          // mixed-case and backslash variants must never fall through to the
+          // workspace/public file servers on Windows.
+          if (shouldBlockDevStaticFallback(request.url)) {
+            blockProtectedPath(response);
+            return;
+          }
+
+          next();
+        });
+      },
+      configurePreviewServer(server) {
+        server.middlewares.use((request, response, next) => {
+          const decodedPathname = getDecodedRequestPathname(request.url);
+
+          if (decodedPathname && isProtectedRoutePath(decodedPathname)) {
+            blockProtectedPath(response);
+            return;
+          }
+
+          next();
+        });
+      },
+    }],
     build: {
       // hls.js is intentionally lazy-loaded only on HLS lessons.
       chunkSizeWarningLimit: 650,
