@@ -84,7 +84,10 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
-    networks: [backend, egress]
+    networks:
+      backend:
+        aliases: [app-backend]
+      egress: {}
     security_opt: [no-new-privileges:true]
     logging: *default-logging
     stop_grace_period: 15s
@@ -106,7 +109,9 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
-    networks: [backend]
+    networks:
+      backend:
+        aliases: [media-backend]
     cap_drop: [ALL]
     cap_add: [CHOWN, SETGID, SETUID, NET_BIND_SERVICE]
     security_opt: [no-new-privileges:true]
@@ -147,7 +152,9 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
-    networks: [backend, proxy]
+    networks:
+      backend: {}
+      proxy: {}
     cap_drop: [ALL]
     cap_add: [CHOWN, SETGID, SETUID, NET_BIND_SERVICE]
     security_opt: [no-new-privileges:true]
