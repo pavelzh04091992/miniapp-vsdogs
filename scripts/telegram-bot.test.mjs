@@ -75,6 +75,112 @@ test('admin grants and revokes access through the bot interface', async () => {
   }
 });
 
+test('start reports access status and keeps app entry buttons visible for active users', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-bot-start-'));
+  const database = createAuthDatabase(join(directory, 'auth.sqlite'));
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push({
+      method: url.split('/').at(-1),
+      payload: JSON.parse(options.body),
+    });
+    return fakeResponse(true, 200, { ok: true, result: true });
+  };
+  database.ensureAdmin('10001');
+  database.grantUser('20002', '10001');
+  const bot = createTelegramBot({
+    botToken: 'test-token',
+    botUsername: 'access_bot',
+    miniAppUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
+    adminTelegramId: '10001',
+    database,
+    fetchImpl,
+  });
+
+  try {
+    await bot.handleUpdate(privateMessage('30003', '/start', 'Unknown'));
+    const denied = requests.at(-1).payload;
+    assert.match(denied.text, /Статус доступа: не выдан/);
+    assert.equal(denied.reply_markup.remove_keyboard, true);
+
+    await bot.handleUpdate(privateMessage('20002', '/start', 'User'));
+    const active = requests.at(-1).payload;
+    const buttons = active.reply_markup.keyboard.flat();
+    assert.match(active.text, /Статус доступа: активен/);
+    assert.equal(active.reply_markup.is_persistent, true);
+    assert.deepEqual(buttons, [
+      { text: 'PuppyApp 🐶', web_app: { url: 'https://example.com' } },
+      { text: 'Браузер ↗️' },
+    ]);
+
+    await bot.handleUpdate(privateMessage('20002', 'Браузер ↗️', 'User'));
+    const browserLogin = requests.at(-1).payload;
+    assert.ok(browserLogin.reply_markup.inline_keyboard.flat().some(
+      (button) => button.url?.startsWith('https://example.com/auth/magic?token='),
+    ));
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('grant and status changes notify the user and synchronize the reply keyboard', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-bot-notify-'));
+  const database = createAuthDatabase(join(directory, 'auth.sqlite'));
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push({
+      method: url.split('/').at(-1),
+      payload: JSON.parse(options.body),
+    });
+    return fakeResponse(true, 200, { ok: true, result: true });
+  };
+  const bot = createTelegramBot({
+    botToken: 'test-token',
+    botUsername: 'access_bot',
+    miniAppUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
+    adminTelegramId: '10001',
+    database,
+    fetchImpl,
+  });
+
+  try {
+    await bot.handleUpdate(privateMessage('20002', '/start', 'User'));
+    await bot.handleUpdate(privateMessage('10001', '/start', 'Admin'));
+    await bot.handleUpdate(callback('10001', 'admin:add'));
+    await bot.handleUpdate(privateMessage('10001', '20002', 'Admin'));
+
+    const granted = requests.find(({ method, payload }) =>
+      method === 'sendMessage' &&
+      String(payload.chat_id) === '20002' &&
+      payload.text?.includes('Вам открыт доступ'))?.payload;
+    assert.ok(granted);
+    assert.equal(granted.reply_markup.is_persistent, true);
+    assert.ok(granted.reply_markup.keyboard.flat().some(
+      (button) => button.text === 'PuppyApp 🐶' && button.web_app?.url === 'https://example.com',
+    ));
+
+    await bot.handleUpdate(callback('10001', 'admin:revoke:20002'));
+    const revoked = requests.findLast(({ method, payload }) =>
+      method === 'sendMessage' &&
+      String(payload.chat_id) === '20002' &&
+      payload.text?.includes('отозван'))?.payload;
+    assert.equal(revoked.reply_markup.remove_keyboard, true);
+
+    await bot.handleUpdate(callback('10001', 'admin:activate:20002'));
+    const restored = requests.findLast(({ method, payload }) =>
+      method === 'sendMessage' &&
+      String(payload.chat_id) === '20002' &&
+      payload.text?.includes('восстановлен'))?.payload;
+    assert.equal(restored.reply_markup.is_persistent, true);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('rate limits repeated private bot commands per Telegram user', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'miniapp-bot-rate-'));
   const database = createAuthDatabase(join(directory, 'auth.sqlite'));

@@ -5,6 +5,8 @@ import { createTelegramApi } from './telegram-api.mjs';
 export { createTelegramApi } from './telegram-api.mjs';
 
 const USER_PAGE_SIZE = 8;
+const APP_BUTTON_TEXT = 'PuppyApp 🐶';
+const BROWSER_BUTTON_TEXT = 'Браузер ↗️';
 
 export function createTelegramBot(options) {
   const {
@@ -83,11 +85,21 @@ export function createTelegramBot(options) {
     const currentUser = database.getUser(sender.id);
 
     if (!currentUser || currentUser.status !== 'active') {
-      await api.sendMessage(message.chat.id, 'Доступ к приложению не выдан. Обратитесь к администратору.');
+      await sendAccessStatus(message.chat.id, currentUser);
       return;
     }
 
     database.touchTelegramUser(sender);
+
+    if (message.text === BROWSER_BUTTON_TEXT) {
+      await sendBrowserLogin(message.chat.id, sender.id);
+      return;
+    }
+
+    if (message.text === APP_BUTTON_TEXT) {
+      await showMenu(message.chat.id, database.getUser(sender.id));
+      return;
+    }
 
     if (
       currentUser.role === 'admin' &&
@@ -101,6 +113,8 @@ export function createTelegramBot(options) {
   }
 
   async function handleStart(chatId, sender, argument) {
+    let inviteAccepted = false;
+
     if (argument?.startsWith('invite_')) {
       const result = database.consumeInvite(argument.slice('invite_'.length), sender.id);
 
@@ -109,21 +123,22 @@ export function createTelegramBot(options) {
           ? 'Это приглашение предназначено для другого Telegram-аккаунта.'
           : 'Приглашение недействительно или уже истекло.';
         await api.sendMessage(chatId, text);
-        return;
+      } else {
+        inviteAccepted = true;
       }
     }
 
     let user = database.getUser(sender.id);
 
     if (!user || user.status !== 'active') {
-      await api.sendMessage(chatId, 'Доступ к приложению не выдан. Обратитесь к администратору.');
+      await sendAccessStatus(chatId, user);
       return;
     }
 
     database.touchTelegramUser(sender);
     user = database.getUser(sender.id);
     database.clearBotState(sender.id);
-    await showMenu(chatId, user, 'Добро пожаловать!');
+    await showMenu(chatId, user, inviteAccepted ? 'Доступ подтверждён.' : 'Добро пожаловать!');
   }
 
   async function handleGrantInput(chatId, actorId, text) {
@@ -150,8 +165,8 @@ export function createTelegramBot(options) {
     let userWasNotified = false;
 
     try {
-      await api.sendMessage(targetId, 'Вам открыт доступ к приложению.', {
-        reply_markup: userKeyboard(),
+      await api.sendMessage(targetId, 'Статус доступа: активен ✅\n\nВам открыт доступ к PuppyApp.', {
+        reply_markup: appReplyKeyboard(),
       });
       userWasNotified = true;
     } catch (error) {
@@ -197,7 +212,7 @@ export function createTelegramBot(options) {
     const chatId = query.message?.chat?.id ?? sender.id;
 
     if (!user || user.status !== 'active') {
-      await api.sendMessage(chatId, 'Доступ к приложению не выдан.');
+      await sendAccessStatus(chatId, user);
       return;
     }
 
@@ -211,21 +226,7 @@ export function createTelegramBot(options) {
     }
 
     if (action === 'user:browser') {
-      const magicLink = database.createMagicLink(sender.id, sender.id, magicLinkTtlSeconds);
-      const url = magicLink ? buildMagicLink(magicLink.token) : null;
-
-      await api.sendMessage(
-        chatId,
-        url
-          ? `Одноразовая ссылка для входа в браузере действует ${formatTtl(magicLinkTtlSeconds)}.`
-          : 'Не удалось создать безопасную ссылку. Проверьте PUBLIC_BASE_URL или обратитесь к администратору.',
-        url ? {
-          link_preview_options: { is_disabled: true },
-          reply_markup: {
-            inline_keyboard: [[{ text: 'Войти в браузере', url }]],
-          },
-        } : {},
-      );
+      await sendBrowserLogin(chatId, sender.id);
       return;
     }
 
@@ -269,6 +270,10 @@ export function createTelegramBot(options) {
             ? `Доступ для ${targetId}: ${status === 'active' ? 'активен' : 'отозван'}.`
             : `Пользователь ${targetId} не найден.`,
         );
+
+        if (changed) {
+          await notifyAccessStatus(targetId, status);
+        }
       } catch (error) {
         await api.sendMessage(chatId, error.message);
       }
@@ -282,13 +287,64 @@ export function createTelegramBot(options) {
 
   async function showMenu(chatId, user, prefix = '') {
     const isAdmin = user.role === 'admin';
-    const name = user.firstName ? `, ${user.firstName}` : '';
-    const heading = isAdmin ? `Панель администратора${name}.` : `Ваш доступ активен${name}.`;
+    const heading = `Статус доступа: активен ✅${isAdmin ? '\nРоль: администратор.' : ''}`;
     const text = prefix ? `${prefix}\n\n${heading}` : heading;
 
     await api.sendMessage(chatId, text, {
-      reply_markup: isAdmin ? adminKeyboard() : userKeyboard(),
+      reply_markup: appReplyKeyboard(),
     });
+
+    if (isAdmin) {
+      await api.sendMessage(chatId, 'Управление доступами:', {
+        reply_markup: adminKeyboard(),
+      });
+    }
+  }
+
+  async function sendAccessStatus(chatId, user) {
+    const statusText = {
+      revoked: 'Статус доступа: отозван ⛔',
+      blocked: 'Статус доступа: заблокирован 🚫',
+    }[user?.status] || 'Статус доступа: не выдан ⏳';
+
+    await api.sendMessage(chatId, `${statusText}\n\nОбратитесь к администратору.`, {
+      reply_markup: { remove_keyboard: true },
+    });
+  }
+
+  async function sendBrowserLogin(chatId, telegramId) {
+    const magicLink = database.createMagicLink(telegramId, telegramId, magicLinkTtlSeconds);
+    const url = magicLink ? buildMagicLink(magicLink.token) : null;
+
+    await api.sendMessage(
+      chatId,
+      url
+        ? `Одноразовая ссылка для входа в браузере действует ${formatTtl(magicLinkTtlSeconds)}.`
+        : 'Не удалось создать безопасную ссылку. Проверьте PUBLIC_BASE_URL или обратитесь к администратору.',
+      url ? {
+        link_preview_options: { is_disabled: true },
+        reply_markup: {
+          inline_keyboard: [[{ text: 'Открыть в браузере ↗️', url }]],
+        },
+      } : {},
+    );
+  }
+
+  async function notifyAccessStatus(targetId, status) {
+    try {
+      if (status === 'active') {
+        await api.sendMessage(targetId, 'Статус доступа: активен ✅\n\nДоступ к PuppyApp восстановлен.', {
+          reply_markup: appReplyKeyboard(),
+        });
+        return;
+      }
+
+      await api.sendMessage(targetId, 'Статус доступа: отозван ⛔', {
+        reply_markup: { remove_keyboard: true },
+      });
+    } catch (error) {
+      console.warn(`[telegram-bot] could not notify user ${targetId}: ${getErrorMessage(error)}`);
+    }
   }
 
   async function showUsers(chatId, requestedOffset = 0) {
@@ -348,30 +404,27 @@ export function createTelegramBot(options) {
   }
 
   function adminKeyboard() {
-    const rows = [
+    return { inline_keyboard: [
       [{ text: '➕ Выдать доступ', callback_data: 'admin:add' }],
       [{ text: '👥 Пользователи', callback_data: 'admin:list' }],
-    ];
-    const openButton = createOpenAppButton();
-
-    if (openButton) {
-      rows.unshift([openButton]);
-    }
-
-    const browserButton = createBrowserLoginButton();
-
-    if (browserButton) {
-      rows.splice(openButton ? 1 : 0, 0, [browserButton]);
-    }
-
-    return { inline_keyboard: rows };
+    ] };
   }
 
-  function userKeyboard() {
+  function appReplyKeyboard() {
     const openButton = createOpenAppButton();
-    const browserButton = createBrowserLoginButton();
-    const rows = [openButton, browserButton].filter(Boolean).map((button) => [button]);
-    return rows.length ? { inline_keyboard: rows } : undefined;
+    const browserButton = createBrowserButton();
+    const buttons = [openButton, browserButton].filter(Boolean);
+
+    if (buttons.length === 0) {
+      return { remove_keyboard: true };
+    }
+
+    return {
+      keyboard: [buttons],
+      resize_keyboard: true,
+      is_persistent: true,
+      input_field_placeholder: 'Выберите способ входа',
+    };
   }
 
   function createOpenAppButton() {
@@ -380,7 +433,7 @@ export function createTelegramBot(options) {
     }
 
     return {
-      text: '🐾 Открыть приложение',
+      text: APP_BUTTON_TEXT,
       web_app: { url: miniAppUrl },
     };
   }
@@ -391,9 +444,9 @@ export function createTelegramBot(options) {
     };
   }
 
-  function createBrowserLoginButton() {
+  function createBrowserButton() {
     return buildMagicLink('preview')
-      ? { text: '🌐 Войти в браузере', callback_data: 'user:browser' }
+      ? { text: BROWSER_BUTTON_TEXT }
       : null;
   }
 

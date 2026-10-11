@@ -3,6 +3,7 @@ import {
   PuppyFilter,
   SituationVideosState,
   createAppMarkup,
+  getAllAppAssetPaths,
   getInitialAppAssetPaths,
   getVideoSourceSlugForRoute,
 } from './app';
@@ -35,6 +36,11 @@ let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
 let destroyLessonVideoPlayer: (() => void) | null = null;
 let routeSyncSequence = 0;
 let videoCatalogAbortController: AbortController | null = null;
+let renderSequence = 0;
+// Protected assets use `no-store`, so keep decoded Image instances alive for
+// the lifetime of this authenticated page instead of relying on disk cache.
+const preloadedImages = new Map<string, HTMLImageElement>();
+const assetPreloadPromises = new Map<string, Promise<void>>();
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -95,7 +101,7 @@ document.addEventListener('click', (event) => {
     }
 
     activeFilter = nextFilter;
-    render();
+    void render();
     return;
   }
 
@@ -128,16 +134,27 @@ document.addEventListener('click', (event) => {
 async function startPrivateApp(): Promise<void> {
   await preloadAllAssets(getInitialAppAssetPaths());
   await syncRouteState();
+  window.setTimeout(() => {
+    void preloadAllAssets(getAllAppAssetPaths(), 4);
+  }, 0);
 }
-function render(): void {
+async function render(): Promise<void> {
+  const sequence = ++renderSequence;
   const route = getCurrentRoute();
+  const markup = createAppMarkup(route, activeFilter, videosState);
+
+  await preloadAllAssets(getMarkupAssetPaths(markup));
+
+  if (sequence !== renderSequence || route !== getCurrentRoute()) {
+    return;
+  }
+
   const complexTransitionOrigin = pendingComplexTransitionOrigin;
   pendingComplexTransitionOrigin = null;
   const routeChanged = lastRenderedRoute !== null && lastRenderedRoute !== route;
   const direction = pendingTransitionDirection ?? getRouteTransitionDirection(lastRenderedRoute, route);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const savedScrollTop = routeChanged ? getPreviousPageScrollTop(route) : getCurrentScrollTop();
-  const markup = createAppMarkup(route, activeFilter, videosState);
   const isComplexTransition =
     routeChanged &&
     ((lastRenderedRoute === 'home' && route === 'complex') ||
@@ -435,16 +452,61 @@ async function preloadAllAssets(paths: string[], concurrency = 6): Promise<void>
 }
 
 async function preloadAsset(path: string): Promise<void> {
+  const existingPromise = assetPreloadPromises.get(path);
+
+  if (existingPromise) {
+    return existingPromise;
+  }
+
   const image = new Image();
   image.decoding = 'async';
-  image.src = path;
+  preloadedImages.set(path, image);
 
-  try {
-    await image.decode();
-  } catch {
-    // A missing optional asset must not keep the authenticated app behind the
-    // loader forever. The real image element will retain its normal fallback.
-  }
+  const preloadPromise = new Promise<void>((resolve) => {
+    const finish = (): void => {
+      image.onload = null;
+      image.onerror = null;
+      resolve();
+    };
+
+    image.onload = () => {
+      const decode = typeof image.decode === 'function'
+        ? image.decode()
+        : Promise.resolve();
+      void decode.catch(() => undefined).then(finish);
+    };
+    image.onerror = () => {
+      preloadedImages.delete(path);
+      assetPreloadPromises.delete(path);
+      finish();
+    };
+    image.src = path;
+  });
+
+  assetPreloadPromises.set(path, preloadPromise);
+  return preloadPromise;
+}
+
+function getMarkupAssetPaths(markup: string): string[] {
+  const template = document.createElement('template');
+  template.innerHTML = markup.trim();
+  const paths = Array.from(template.content.querySelectorAll<HTMLImageElement>('img[src]'))
+    .map((image) => image.getAttribute('src'))
+    .filter((path): path is string => path !== null && isCacheableImagePath(path));
+
+  template.content.querySelectorAll<HTMLElement>('[data-video-id]').forEach((player) => {
+    const videoId = player.dataset.videoId;
+
+    if (videoId) {
+      paths.push(`/media/${encodeURIComponent(videoId)}/poster.webp`);
+    }
+  });
+
+  return [...new Set(paths)];
+}
+
+function isCacheableImagePath(path: string): boolean {
+  return path.startsWith('/assets/') || path.startsWith('/media/');
 }
 
 function applyCategoryGlassVariation(card: HTMLElement): void {
@@ -540,7 +602,7 @@ async function syncRouteState(): Promise<void> {
     const controller = new AbortController();
     videoCatalogAbortController = controller;
     videosState = { status: 'loading' };
-    render();
+    await render();
 
     try {
       const videos = await fetchSituationVideos(videoSourceSlug, { signal: controller.signal });
@@ -562,12 +624,12 @@ async function syncRouteState(): Promise<void> {
     }
 
     videoCatalogAbortController = null;
-    render();
+    await render();
     return;
   }
 
   videosState = { status: 'idle' };
-  render();
+  await render();
 }
 
 function navigateTo(route: AppRoute): void {

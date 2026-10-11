@@ -2680,6 +2680,31 @@ export function getInitialAppAssetPaths(): string[] {
     '/assets/icons/comp_big_check.webp',
   ].map(resolveCardImagePath);
 }
+
+export function getAllAppAssetPaths(): string[] {
+  const paths = getInitialAppAssetPaths();
+  const situations = [
+    ...puppySituations,
+    ...adultLargeSituations,
+    ...adultSmallSituations,
+  ];
+
+  situations.forEach((situation) => {
+    paths.push(resolveCardImagePath(situation.imagePath));
+
+    situation.topics.forEach((topic) => {
+      paths.push(resolveCardImagePath(topic.imagePath));
+
+      topic.lessons.forEach((lesson) => {
+        if (lesson.coverPath) {
+          paths.push(resolveCardImagePath(lesson.coverPath));
+        }
+      });
+    });
+  });
+
+  return [...new Set(paths)];
+}
 export function getSituationSlugFromRoute(route: AppRoute): PuppySituationSlug | null {
   if (!route.startsWith('puppy-situation:')) {
     return null;
