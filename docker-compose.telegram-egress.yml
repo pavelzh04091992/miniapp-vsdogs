@@ -1,4 +1,11 @@
 services:
+  app:
+    # Docker's embedded DNS does not override public dotted names through a
+    # network alias consistently. A scoped link writes the tunnel address for
+    # api.telegram.org into this container only and also orders startup.
+    links:
+      - telegram-egress:api.telegram.org
+
   telegram-egress:
     build:
       context: .
