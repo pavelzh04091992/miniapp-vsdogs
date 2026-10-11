@@ -9,8 +9,7 @@ x-default-logging: &default-logging
 services:
   traefik:
     image: traefik:v3.6
-    profiles:
-      - production
+    profiles: [production]
     command:
       - "--log.level=INFO"
       - "--providers.docker=true"
@@ -28,14 +27,12 @@ services:
       - "443:443"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./letsencrypt:/letsencrypt"
+      - "${LETSENCRYPT_PATH:-./letsencrypt}:/letsencrypt"
     depends_on:
-      app:
+      gateway:
         condition: service_healthy
-      media:
-        condition: service_healthy
-    networks:
-      - proxy
+    networks: [proxy]
+    security_opt: [no-new-privileges:true]
     logging: *default-logging
     restart: unless-stopped
 
@@ -45,6 +42,8 @@ services:
       target: app
     init: true
     environment:
+      NODE_ENV: production
+      LOCKED_MODE: "${LOCKED_MODE:-true}"
       APP_SERVER_PORT: "8787"
       ADMIN_TELEGRAM_ID: "${ADMIN_TELEGRAM_ID:-}"
       AUTH_DATABASE_PATH: "/app/data/auth.sqlite"
@@ -73,45 +72,20 @@ services:
       TELEGRAM_INIT_DATA_MAX_AGE_SECONDS: "${TELEGRAM_INIT_DATA_MAX_AGE_SECONDS:-900}"
       TRUST_PROXY_HEADERS: "${TRUST_PROXY_HEADERS:-true}"
       WEBHOOK_MAX_BODY_BYTES: "${WEBHOOK_MAX_BODY_BYTES:-1048576}"
-    expose:
-      - "8787"
-    ports:
-      - "127.0.0.1:${LOCAL_API_PORT:-8787}:8787"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=miniapp-puppys_proxy"
-      - "traefik.http.routers.miniapp.rule=Host(`${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.miniapp.entrypoints=websecure"
-      - "traefik.http.routers.miniapp.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.miniapp.priority=10"
-      - "traefik.http.routers.miniapp.middlewares=security-headers@docker"
-      - "traefik.http.services.miniapp.loadbalancer.server.port=8787"
-      - "traefik.http.middlewares.security-headers.headers.contenttypenosniff=true"
-      - "traefik.http.middlewares.security-headers.headers.referrerpolicy=strict-origin-when-cross-origin"
-      - "traefik.http.middlewares.security-headers.headers.permissionspolicy=camera=(), microphone=(), geolocation=(), payment=()"
-      - "traefik.http.middlewares.security-headers.headers.stsseconds=31536000"
-      - "traefik.http.middlewares.security-headers.headers.stsincludesubdomains=true"
+    expose: ["8787"]
     volumes:
-      - "./data:/app/data:rw"
+      - "${DATA_PATH:-./data}:/app/data:rw"
     read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
     healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:8787/health').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8787/health').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 10s
-    networks:
-      - proxy
-    security_opt:
-      - no-new-privileges:true
+    networks: [backend, egress]
+    security_opt: [no-new-privileges:true]
     logging: *default-logging
     stop_grace_period: 15s
     restart: unless-stopped
@@ -121,35 +95,21 @@ services:
     depends_on:
       app:
         condition: service_healthy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=miniapp-puppys_proxy"
-      - "traefik.http.routers.media.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`/media/`)"
-      - "traefik.http.routers.media.entrypoints=websecure"
-      - "traefik.http.routers.media.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.media.priority=100"
-      - "traefik.http.routers.media.middlewares=security-headers@docker"
-      - "traefik.http.services.media.loadbalancer.server.port=80"
-    ports:
-      - "127.0.0.1:${MEDIA_PORT:-8081}:80"
     volumes:
       - "./infra/media-nginx.conf:/etc/nginx/nginx.conf:ro"
-      - "./media:/usr/share/nginx/html/media:ro"
+      - "${MEDIA_PATH:-./media}:/usr/share/nginx/html/media:ro"
     read_only: true
-    tmpfs:
-      - /var/cache/nginx
-      - /var/run
-      - /tmp
+    tmpfs: [/var/cache/nginx, /var/run, /tmp]
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/media-health || exit 1"]
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1/media-health || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 5s
-    networks:
-      - proxy
-    security_opt:
-      - no-new-privileges:true
+    networks: [backend]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID, NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
     logging: *default-logging
     restart: unless-stopped
 
@@ -162,26 +122,44 @@ services:
         condition: service_healthy
     ports:
       - "${APP_BIND_ADDRESS:-127.0.0.1}:${LOCAL_APP_PORT:-8080}:80"
+    labels:
+      - "traefik.enable=${TRAEFIK_ENABLE:-true}"
+      - "traefik.docker.network=${PROXY_NETWORK_NAME:-miniapp-puppys_proxy}"
+      - "traefik.http.routers.${TRAEFIK_ROUTER_NAME:-miniapp}.rule=Host(`${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.${TRAEFIK_ROUTER_NAME:-miniapp}.entrypoints=websecure"
+      - "traefik.http.routers.${TRAEFIK_ROUTER_NAME:-miniapp}.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${TRAEFIK_ROUTER_NAME:-miniapp}.priority=10"
+      - "traefik.http.routers.${TRAEFIK_ROUTER_NAME:-miniapp}.middlewares=${TRAEFIK_MIDDLEWARE_NAME:-miniapp-security-headers}@docker"
+      - "traefik.http.routers.${TRAEFIK_ROUTER_NAME:-miniapp}.service=${TRAEFIK_SERVICE_NAME:-miniapp}"
+      - "traefik.http.services.${TRAEFIK_SERVICE_NAME:-miniapp}.loadbalancer.server.port=80"
+      - "traefik.http.middlewares.${TRAEFIK_MIDDLEWARE_NAME:-miniapp-security-headers}.headers.contenttypenosniff=true"
+      - "traefik.http.middlewares.${TRAEFIK_MIDDLEWARE_NAME:-miniapp-security-headers}.headers.referrerpolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.${TRAEFIK_MIDDLEWARE_NAME:-miniapp-security-headers}.headers.permissionspolicy=camera=(), microphone=(), geolocation=(), payment=()"
+      - "traefik.http.middlewares.${TRAEFIK_MIDDLEWARE_NAME:-miniapp-security-headers}.headers.stsseconds=31536000"
+      - "traefik.http.middlewares.${TRAEFIK_MIDDLEWARE_NAME:-miniapp-security-headers}.headers.stsincludesubdomains=true"
     volumes:
       - "./infra/local-gateway-nginx.conf:/etc/nginx/nginx.conf:ro"
     read_only: true
-    tmpfs:
-      - /var/cache/nginx
-      - /var/run
-      - /tmp
+    tmpfs: [/var/cache/nginx, /var/run, /tmp]
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/health || exit 1"]
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1/gateway-health || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 5s
-    networks:
-      - proxy
-    security_opt:
-      - no-new-privileges:true
+    networks: [backend, proxy]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID, NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
     logging: *default-logging
     restart: unless-stopped
 
 networks:
-  proxy:
+  backend:
     driver: bridge
+    internal: true
+  egress:
+    driver: bridge
+  proxy:
+    name: "${PROXY_NETWORK_NAME:-miniapp-puppys_proxy}"
+    external: ${PROXY_NETWORK_EXTERNAL:-false}

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:media": "docker compose up -d --build app media",
+    "dev:media": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build app media",
     "build": "tsc --noEmit && vite build && node scripts/check-private-bundle.mjs",
     "verify": "npm run test:auth && npm run build && npm run media:check",
     "preview": "vite preview",

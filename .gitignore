@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .env.test
+.env.test-prod
 .test-secrets/
 .DS_Store
 .idea/

@@ -15,7 +15,7 @@
 
 ```bash
 npm ci
-npm run dev:media
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build app media
 npm run dev
 ```
 
@@ -37,9 +37,9 @@ npm run verify
 
 `npm run verify` выполняет production-сборку и проверяет, что MP4 подготовлены с fast start.
 
-## Тестовое развёртывание на сервере
+## Локальный Docker-стек
 
-Нужны Docker Engine с Compose v2 и открытый TCP-порт приложения.
+Нужен Docker Engine с Compose v2.
 
 1. Скопируйте репозиторий на сервер и создайте конфигурацию:
 
@@ -47,17 +47,7 @@ npm run verify
    cp .env.example .env
    ```
 
-2. Для доступа по IP измените в `.env`:
-
-   ```dotenv
-   APP_BIND_ADDRESS=0.0.0.0
-   LOCAL_APP_PORT=8080
-   ```
-
-   Не открывайте порт всему интернету без настроенного firewall. Для доступа только через
-   локальный reverse proxy оставьте `APP_BIND_ADDRESS=127.0.0.1`.
-
-3. Загрузите видео отдельно — каталог `media/` намеренно не хранится в Git:
+2. Загрузите видео отдельно — каталог `media/` намеренно не хранится в Git:
 
    ```text
    media/
@@ -65,20 +55,20 @@ npm run verify
        video.mp4
    ```
 
-4. Запустите стек:
+3. Запустите стек:
 
    ```bash
    docker compose up -d --build
    docker compose ps
    ```
 
-5. Выполните smoke-тест:
+4. Выполните smoke-тест:
 
    ```bash
    npm run test:smoke -- http://127.0.0.1:8080
    ```
 
-После этого приложение доступно по адресу `http://SERVER_IP:8080`. Для входа и просмотра видео
+После этого приложение доступно локально по адресу `http://127.0.0.1:8080`. Для входа и просмотра видео
 нужны настроенный `BOT_TOKEN`, webhook и активный доступ пользователя. Если
 `TELEGRAM_WEBHOOK_SECRET` пуст, webhook отключён.
 
@@ -100,34 +90,44 @@ mkdir -p letsencrypt
 docker compose --profile production up -d --build
 ```
 
-Traefik получает сертификат Let's Encrypt, направляет `/media/` непосредственно в Nginx, а
-остальные запросы — в приложение. Локальный gateway остаётся доступен на адресе из
-`APP_BIND_ADDRESS` и может использоваться для диагностики.
+Traefik получает сертификат Let's Encrypt и направляет весь трафик в gateway. Gateway проксирует
+обычные запросы в app, а `/media/` — в media. App и media находятся во внутренней сети, а app
+использует отдельную исходящую сеть для Telegram API. Локальный gateway остаётся доступен на
+адресе из `APP_BIND_ADDRESS` для диагностики.
 
-## Изолированный тестовый контур
+## Locked test-prod на существующем Traefik
 
-Тестовый Compose-проект не использует продовые контейнеры, сеть или Traefik. Наружу
-публикуется только gateway на порту `8000`, а всё приложение защищено Basic Auth.
+Test-prod запускается отдельным Compose-проектом и использует собственные app, media-контейнер
+и SQLite-БД. С продом общими остаются только read-only медиатека и proxy-сеть Traefik. Внешний
+доступ разрешён только по HTTPS-домену; диагностический порт `8000` слушает loopback.
+
+Перед обновлением сохраните текущую release-копию и test data в `/opt/miniapp-test/backups/`.
+Не используйте `docker compose down -v`: persistent data подключаются bind mount-ами и должны
+оставаться вне release-каталога.
 
 ```bash
-cp .env.test.example .env.test
-mkdir -p .test-secrets
-docker run --rm --entrypoint htpasswd httpd:2.4-alpine -nbB miniapp-test 'unique-test-password' \
-  > .test-secrets/.htpasswd
-docker compose --env-file .env.test -f docker-compose.test.yml up -d --build
+cp .env.test-prod.example .env.test-prod
+# Заполните BOT_TOKEN и TELEGRAM_WEBHOOK_SECRET, не добавляя файл в Git.
+docker compose --env-file .env.test-prod -p miniapp-puppys-test config --quiet
+docker compose --env-file .env.test-prod -p miniapp-puppys-test \
+  up -d --build --remove-orphans app media gateway
 ```
 
-Для серверного запуска задайте в `.env.test` отдельные пути:
+После получения сертификата:
 
-```dotenv
-TEST_DATA_PATH=/opt/miniapp-test/data
-TEST_MEDIA_PATH=/opt/miniapp/app/media
-TEST_HTPASSWD_PATH=/opt/miniapp-test/secrets/.htpasswd
+```bash
+curl -fsS https://devpuppys.m0tja5k.xyz/health
+docker compose --env-file .env.test-prod -p miniapp-puppys-test \
+  run --rm app node scripts/set-webhook.mjs
+npm run test:smoke -- https://devpuppys.m0tja5k.xyz
 ```
 
-Медиатека подключается к отдельному test-media контейнеру только для чтения. Webhook в
-тестовом Compose-проекте всегда выключен. Basic Auth поверх HTTP не шифрует credentials,
-поэтому используйте только случайный временный пароль, который нигде больше не применяется.
+`LOCKED_MODE=true` запрещает запуск с неполным Telegram/HTTPS-конфигом. Test-prod использует
+отдельного бота: Telegram поддерживает только один webhook на bot token.
+
+Для rollback верните сохранённую release-копию, оставьте `/opt/miniapp-test/data` на месте и
+повторно выполните Compose-команду из восстановленного каталога. Продовый проект
+`miniapp-puppys` при обновлении или rollback теста не перезапускается.
 
 ## Подготовка видео
 
@@ -254,10 +254,11 @@ Nginx выполняет внутреннюю проверку сессии пе
 ## Структура
 
 ```text
+docker-compose.yml          # Единый locked-стек для prod и test-prod
+docker-compose.dev.yml      # Loopback-порты app/media для локального Vite
 infra/
   local-gateway-nginx.conf  # HTTP gateway для локального и тестового запуска
   media-nginx.conf          # Защищённая раздача MP4/HLS с поддержкой Range
-  test-media-nginx.conf     # Media-конфиг тестового контура за общей Basic Auth
 scripts/
   app-server.mjs            # Фронтенд, auth API, healthcheck и Telegram webhook
   auth-database.mjs         # SQLite: пользователи, приглашения и сессии

@@ -89,3 +89,40 @@ test('does not trust loopback browser origins implicitly in production', () => {
   assert.equal(config.allowedOrigins.has('http://localhost:3000'), false);
   assert.equal(config.trustProxyHeaders, true);
 });
+
+test('locked mode fails fast unless the complete HTTPS Telegram config is present', () => {
+  assert.throws(
+    () => readServerConfig({ LOCKED_MODE: 'true', NODE_ENV: 'production' }),
+    /BOT_TOKEN.*BOT_USERNAME.*ADMIN_TELEGRAM_ID.*PUBLIC_BASE_URL.*MINI_APP_URL.*TELEGRAM_WEBHOOK_SECRET/,
+  );
+
+  assert.throws(
+    () => readServerConfig({
+      LOCKED_MODE: 'true',
+      BOT_TOKEN: 'token',
+      BOT_USERNAME: 'puppydev1bot',
+      ADMIN_TELEGRAM_ID: '1358189044',
+      PUBLIC_BASE_URL: 'http://app.example.com',
+      MINI_APP_URL: 'http://app.example.com',
+      TELEGRAM_WEBHOOK_SECRET: 'valid_secret',
+      SESSION_COOKIE_SECURE: 'true',
+      TRUST_PROXY_HEADERS: 'true',
+    }),
+    /HTTPS PUBLIC_BASE_URL/,
+  );
+
+  const config = readServerConfig({
+    LOCKED_MODE: 'true',
+    BOT_TOKEN: 'token',
+    BOT_USERNAME: '@puppydev1bot',
+    ADMIN_TELEGRAM_ID: '1358189044',
+    PUBLIC_BASE_URL: 'https://app.example.com',
+    MINI_APP_URL: 'https://app.example.com',
+    TELEGRAM_WEBHOOK_SECRET: 'valid_secret',
+    SESSION_COOKIE_SECURE: 'true',
+    TRUST_PROXY_HEADERS: 'true',
+  });
+
+  assert.equal(config.lockedMode, true);
+  assert.equal(config.botUsername, 'puppydev1bot');
+});

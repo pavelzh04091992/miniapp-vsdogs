@@ -9,6 +9,7 @@ const LOOPBACK_ORIGINS = [
 ];
 
 export function readServerConfig(env = process.env, cwd = process.cwd()) {
+  const lockedMode = parseBoolean(env.LOCKED_MODE, false);
   const publicBaseUrl = normalizePublicBaseUrl(env.PUBLIC_BASE_URL);
   const miniAppUrl = normalizeOptionalUrl(env.MINI_APP_URL || publicBaseUrl, 'MINI_APP_URL');
   const secureSessionCookie = parseBoolean(
@@ -43,7 +44,8 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
     }
   }
 
-  return {
+  const config = {
+    lockedMode,
     port: parsePositiveInteger(env.APP_SERVER_PORT, 8787, 'APP_SERVER_PORT'),
     maxRequestBodyBytes: parsePositiveInteger(
       env.WEBHOOK_MAX_BODY_BYTES,
@@ -53,7 +55,7 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
     webhookPath: normalizeWebhookPath(env.TELEGRAM_WEBHOOK_PATH),
     webhookSecret: normalizeWebhookSecret(env.TELEGRAM_WEBHOOK_SECRET),
     botToken: env.BOT_TOKEN?.trim() || '',
-    botUsername: env.BOT_USERNAME?.trim() || '',
+    botUsername: normalizeOptionalBotUsername(env.BOT_USERNAME),
     adminTelegramId: normalizeOptionalTelegramId(env.ADMIN_TELEGRAM_ID),
     publicBaseUrl,
     miniAppUrl,
@@ -115,6 +117,44 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
     distPath: resolve(cwd, 'dist'),
     allowedOrigins,
   };
+
+  validateLockedConfig(config);
+  return config;
+}
+
+function validateLockedConfig(config) {
+  if (!config.lockedMode) {
+    return;
+  }
+
+  const missing = [];
+
+  if (!config.botToken) missing.push('BOT_TOKEN');
+  if (!config.botUsername) missing.push('BOT_USERNAME');
+  if (!config.adminTelegramId) missing.push('ADMIN_TELEGRAM_ID');
+  if (!config.publicBaseUrl) missing.push('PUBLIC_BASE_URL');
+  if (!config.miniAppUrl) missing.push('MINI_APP_URL');
+  if (!config.webhookSecret) missing.push('TELEGRAM_WEBHOOK_SECRET');
+
+  if (missing.length > 0) {
+    throw new Error(`LOCKED_MODE requires: ${missing.join(', ')}`);
+  }
+
+  if (!config.publicBaseUrl.startsWith('https://')) {
+    throw new Error('LOCKED_MODE requires an HTTPS PUBLIC_BASE_URL');
+  }
+
+  if (!config.miniAppUrl.startsWith('https://')) {
+    throw new Error('LOCKED_MODE requires an HTTPS MINI_APP_URL');
+  }
+
+  if (!config.secureSessionCookie) {
+    throw new Error('LOCKED_MODE requires SESSION_COOKIE_SECURE=true');
+  }
+
+  if (!config.trustProxyHeaders) {
+    throw new Error('LOCKED_MODE requires TRUST_PROXY_HEADERS=true');
+  }
 }
 
 function normalizeWebhookPath(value) {
@@ -163,6 +203,16 @@ function normalizeOptionalTelegramId(value) {
   }
 
   return id;
+}
+
+function normalizeOptionalBotUsername(value) {
+  const username = value?.trim().replace(/^@/, '') || '';
+
+  if (username && !/^[A-Za-z\d_]{5,32}$/.test(username)) {
+    throw new Error('BOT_USERNAME must be a valid Telegram bot username');
+  }
+
+  return username;
 }
 
 function normalizeOptionalChatId(value) {

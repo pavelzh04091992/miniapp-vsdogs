@@ -16,7 +16,7 @@ WORKDIR /app
 ENV NODE_ENV=production \
     APP_SERVER_PORT=8787
 
-COPY --chown=node:node scripts/app-server.mjs scripts/auth-database.mjs scripts/env.mjs scripts/http-utils.mjs scripts/protected-routes.mjs scripts/rate-limit.mjs scripts/server-config.mjs scripts/static-server.mjs scripts/telegram-api.mjs scripts/telegram-auth.mjs scripts/telegram-bot.mjs scripts/video-catalog.mjs ./scripts/
+COPY --chown=node:node scripts/app-server.mjs scripts/auth-database.mjs scripts/env.mjs scripts/http-utils.mjs scripts/protected-routes.mjs scripts/rate-limit.mjs scripts/server-config.mjs scripts/set-webhook.mjs scripts/static-server.mjs scripts/telegram-api.mjs scripts/telegram-auth.mjs scripts/telegram-bot.mjs scripts/video-catalog.mjs ./scripts/
 COPY --from=build --chown=node:node /app/dist ./dist
 
 RUN mkdir -p data && chown -R node:node data
