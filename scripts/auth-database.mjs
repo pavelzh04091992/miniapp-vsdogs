@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { chmodSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import {
@@ -12,6 +12,10 @@ export function createAuthDatabase(databasePath, options = {}) {
   mkdirSync(dirname(databasePath), { recursive: true });
 
   const database = new DatabaseSync(databasePath);
+
+  if (databasePath !== ':memory:') {
+    chmodSync(databasePath, 0o600);
+  }
   const now = options.now ?? (() => Math.floor(Date.now() / 1000));
 
   database.exec('PRAGMA journal_mode = WAL;');

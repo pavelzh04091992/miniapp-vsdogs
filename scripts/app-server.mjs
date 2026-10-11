@@ -27,6 +27,9 @@ import {
 import { loadVideoCatalog, upsertChannelVideo } from './video-catalog.mjs';
 
 loadDotEnv();
+// Sessions, Telegram profiles and one-time login hashes must never be created
+// with group/world-readable permissions on a shared host.
+process.umask(0o077);
 
 const config = readServerConfig();
 const {

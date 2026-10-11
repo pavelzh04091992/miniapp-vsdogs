@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -91,6 +91,22 @@ test('stores access, profiles, invitations and revocable sessions', () => {
     assert.equal(database.getSessionUser(expiringSession.token), null);
   } finally {
     database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('stores the authentication database without group or world access', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-auth-permissions-'));
+  const databasePath = join(directory, 'permissions.sqlite');
+  const database = createAuthDatabase(databasePath);
+
+  database.close();
+
+  try {
+    if (process.platform !== 'win32') {
+      assert.equal(statSync(databasePath).mode & 0o077, 0);
+    }
+  } finally {
     rmSync(directory, { recursive: true, force: true });
   }
 });
