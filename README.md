@@ -146,7 +146,9 @@ docker compose -p miniapp-puppys-test \
 
 Sidecar подключается только к исходящей сети app под alias `api.telegram.org`. TLS завершается
 на стороне Telegram: SSH-сервер видит только зашифрованный TCP-трафик. Когда прямой маршрут
-восстановится, sidecar нужно остановить и запускать базовый Compose без override.
+восстановится, sidecar нужно остановить и запускать базовый Compose без override. Если remote
+SSH-host не имеет рабочего IPv6, задайте `TELEGRAM_EGRESS_TARGET_HOST` текущим IPv4 из
+`getent ahostsv4 api.telegram.org` и ограничьте tunnel key тем же `permitopen`.
 
 ## Подготовка видео
 

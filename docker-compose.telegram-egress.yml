@@ -13,7 +13,7 @@ services:
     command:
       - -NT
       - -L
-      - 0.0.0.0:443:api.telegram.org:443
+      - "0.0.0.0:443:${TELEGRAM_EGRESS_TARGET_HOST:-api.telegram.org}:443"
       - -o
       - BatchMode=yes
       - -o
