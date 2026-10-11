@@ -116,10 +116,10 @@ docker compose --env-file .env.test-prod -p miniapp-puppys-test \
 После получения сертификата:
 
 ```bash
-curl -fsS https://devpuppys.m0tja5k.xyz/health
+curl -fsS https://dev-82-146-52-99.sslip.io/health
 docker compose --env-file .env.test-prod -p miniapp-puppys-test \
   run --rm app node scripts/set-webhook.mjs
-npm run test:smoke -- https://devpuppys.m0tja5k.xyz
+npm run test:smoke -- https://dev-82-146-52-99.sslip.io
 ```
 
 `LOCKED_MODE=true` запрещает запуск с неполным Telegram/HTTPS-конфигом. Test-prod использует
@@ -128,6 +128,25 @@ npm run test:smoke -- https://devpuppys.m0tja5k.xyz
 Для rollback верните сохранённую release-копию, оставьте `/opt/miniapp-test/data` на месте и
 повторно выполните Compose-команду из восстановленного каталога. Продовый проект
 `miniapp-puppys` при обновлении или rollback теста не перезапускается.
+
+### Временный Telegram egress через SSH
+
+Если deployment-host не может подключиться к `api.telegram.org:443`, опциональный override
+`docker-compose.telegram-egress.yml` прокидывает только это TLS-соединение через доверенный
+SSH-сервер. Используйте отдельный ключ и закреплённый `known_hosts`; SSH-пароль нельзя хранить
+в Compose или `.env`.
+
+```bash
+docker compose -p miniapp-puppys-test \
+  --env-file .env.test-prod \
+  -f docker-compose.yml \
+  -f docker-compose.telegram-egress.yml \
+  up -d --build telegram-egress
+```
+
+Sidecar подключается только к исходящей сети app под alias `api.telegram.org`. TLS завершается
+на стороне Telegram: SSH-сервер видит только зашифрованный TCP-трафик. Когда прямой маршрут
+восстановится, sidecar нужно остановить и запускать базовый Compose без override.
 
 ## Подготовка видео
 

@@ -1,0 +1,52 @@
+services:
+  telegram-egress:
+    build:
+      context: .
+      dockerfile: infra/telegram-egress.Dockerfile
+    command:
+      - -NT
+      - -L
+      - 0.0.0.0:443:api.telegram.org:443
+      - -o
+      - BatchMode=yes
+      - -o
+      - IdentitiesOnly=yes
+      - -o
+      - StrictHostKeyChecking=yes
+      - -o
+      - UserKnownHostsFile=/run/secrets/known_hosts
+      - -o
+      - ExitOnForwardFailure=yes
+      - -o
+      - ServerAliveInterval=30
+      - -o
+      - ServerAliveCountMax=3
+      - -i
+      - /run/secrets/id_ed25519
+      - -p
+      - "${TELEGRAM_EGRESS_SSH_PORT:-22}"
+      - "${TELEGRAM_EGRESS_SSH_USER:-root}@${TELEGRAM_EGRESS_SSH_HOST:-egress.example.com}"
+    expose: ["443"]
+    volumes:
+      - "${TELEGRAM_EGRESS_SSH_KEY_PATH:-./.test-secrets/telegram-egress_ed25519}:/run/secrets/id_ed25519:ro"
+      - "${TELEGRAM_EGRESS_KNOWN_HOSTS_PATH:-./.test-secrets/telegram-egress_known_hosts}:/run/secrets/known_hosts:ro"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD-SHELL, "nc -z 127.0.0.1 443 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      egress:
+        aliases: [api.telegram.org]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
