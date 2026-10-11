@@ -26,6 +26,16 @@ export async function resolveAppAccess(options: ResolveAccessOptions = {}): Prom
   const requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
 
   try {
+    // An invalid magic-link redirect must stay visible even if this browser
+    // already has a valid session from an earlier login. Otherwise a rejected
+    // link appears to work because the session check immediately opens the app.
+    if (options.authSignal === 'invalid-link') {
+      return {
+        status: 'invalid-link',
+        botUrl: await loadBotUrl(fetchImpl, requestTimeoutMs),
+      };
+    }
+
     const sessionResponse = await fetchWithTimeout(fetchImpl, '/api/me', {
       credentials: 'same-origin',
       headers: { Accept: 'application/json' },
@@ -67,9 +77,7 @@ export async function resolveAppAccess(options: ResolveAccessOptions = {}): Prom
     }
 
     const botUrl = await loadBotUrl(fetchImpl, requestTimeoutMs);
-    return options.authSignal === 'invalid-link'
-      ? { status: 'invalid-link', botUrl }
-      : { status: 'unauthenticated', botUrl };
+    return { status: 'unauthenticated', botUrl };
   } catch {
     return { status: 'error' };
   }

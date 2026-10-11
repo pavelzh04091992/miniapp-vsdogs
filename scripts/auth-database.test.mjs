@@ -133,6 +133,18 @@ test('magic links are hashed, short-lived, single-use and revoke previous links'
     assert.equal(database.isMagicLinkUsable(second.token), true);
     assert.equal(database.consumeMagicLink(first.token), null);
 
+    const linkStates = new DatabaseSync(databasePath, { readOnly: true });
+    const rows = linkStates.prepare(`
+      SELECT used_at, revoked_at
+      FROM magic_links
+      WHERE telegram_id = ?
+      ORDER BY id
+    `).all('20002');
+    linkStates.close();
+    assert.equal(rows.length, 2);
+    assert.notEqual(rows[0].revoked_at, null);
+    assert.equal(rows[1].revoked_at, null);
+
     const attempts = await Promise.all([
       Promise.resolve(database.consumeMagicLink(second.token, 120)),
       Promise.resolve(database.consumeMagicLink(second.token, 120)),
@@ -142,6 +154,18 @@ test('magic links are hashed, short-lived, single-use and revoke previous links'
     assert.equal(database.getSessionUser(attempts.find(Boolean).token).telegramId, '20002');
 
     const expired = database.createMagicLink('20002', '20002', 10);
+    const supersededStates = new DatabaseSync(databasePath, { readOnly: true });
+    const supersededRows = supersededStates.prepare(`
+      SELECT used_at, revoked_at
+      FROM magic_links
+      WHERE telegram_id = ?
+      ORDER BY id
+    `).all('20002');
+    supersededStates.close();
+    assert.notEqual(supersededRows[1].used_at, null);
+    assert.notEqual(supersededRows[1].revoked_at, null);
+    assert.equal(supersededRows[2].revoked_at, null);
+
     currentTime += 11;
     assert.equal(database.consumeMagicLink(expired.token), null);
 

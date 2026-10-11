@@ -45,7 +45,7 @@ if (webApp) {
   document.documentElement.dataset.launchContext = 'browser';
 }
 
-void startPrivateApp();
+export const appReady = startPrivateApp();
 window.addEventListener('hashchange', () => {
   void syncRouteState();
 });
@@ -126,8 +126,8 @@ document.addEventListener('click', (event) => {
 });
 
 async function startPrivateApp(): Promise<void> {
+  await preloadAllAssets(getInitialAppAssetPaths());
   await syncRouteState();
-  void preloadAllAssets(getInitialAppAssetPaths());
 }
 function render(): void {
   const route = getCurrentRoute();
@@ -419,12 +419,13 @@ function setupLiquidGlassCards(): void {
 }
 
 async function preloadAllAssets(paths: string[], concurrency = 6): Promise<void> {
+  const uniquePaths = [...new Set(paths)];
   let nextIndex = 0;
-  const workerCount = Math.min(Math.max(1, concurrency), paths.length);
+  const workerCount = Math.min(Math.max(1, concurrency), uniquePaths.length);
 
   const preloadNext = async (): Promise<void> => {
-    while (nextIndex < paths.length) {
-      const path = paths[nextIndex];
+    while (nextIndex < uniquePaths.length) {
+      const path = uniquePaths[nextIndex];
       nextIndex += 1;
       await preloadAsset(path);
     }
@@ -433,14 +434,17 @@ async function preloadAllAssets(paths: string[], concurrency = 6): Promise<void>
   await Promise.all(Array.from({ length: workerCount }, () => preloadNext()));
 }
 
-function preloadAsset(path: string): Promise<void> {
-  return new Promise((resolve) => {
-    const image = new Image();
-    image.decoding = 'async';
-    image.onload = () => resolve();
-    image.onerror = () => resolve();
-    image.src = path;
-  });
+async function preloadAsset(path: string): Promise<void> {
+  const image = new Image();
+  image.decoding = 'async';
+  image.src = path;
+
+  try {
+    await image.decode();
+  } catch {
+    // A missing optional asset must not keep the authenticated app behind the
+    // loader forever. The real image element will retain its normal fallback.
+  }
 }
 
 function applyCategoryGlassVariation(card: HTMLElement): void {

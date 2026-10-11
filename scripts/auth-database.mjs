@@ -574,7 +574,7 @@ function prepareStatements(database) {
     `),
     revokeMagicLinksForUser: database.prepare(`
       UPDATE magic_links SET revoked_at = ?
-      WHERE telegram_id = ? AND used_at IS NULL AND revoked_at IS NULL
+      WHERE telegram_id = ? AND revoked_at IS NULL
     `),
     insertAudit: database.prepare(`
       INSERT INTO audit_log (actor_telegram_id, action, target_telegram_id, metadata_json, created_at)

@@ -61,13 +61,29 @@ test('distinguishes denied Telegram access and invalid browser links', async () 
   const invalidLink = await resolveAppAccess({
     authSignal: 'invalid-link',
     fetchImpl: sequenceFetch([
-      response(401, { ok: false }),
       response(200, { ok: true, botUrl: 'https://t.me/access_bot' }),
     ]),
   });
 
   assert.equal(denied.status, 'denied');
   assert.equal(invalidLink.status, 'invalid-link');
+});
+
+test('shows an invalid magic link even when the browser already has a session', async () => {
+  const requests = [];
+  const result = await resolveAppAccess({
+    authSignal: 'invalid-link',
+    fetchImpl: sequenceFetchWithRequests([
+      response(200, { ok: true, botUrl: 'https://t.me/access_bot' }),
+    ], requests),
+  });
+
+  assert.deepEqual(result, {
+    status: 'invalid-link',
+    botUrl: 'https://t.me/access_bot',
+  });
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, '/api/auth/config');
 });
 
 test('returns a retryable error when the auth server is unavailable', async () => {

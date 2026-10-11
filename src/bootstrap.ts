@@ -52,7 +52,9 @@ async function initializeApp(): Promise<void> {
   document.documentElement.dataset.userRole = access.user.role;
 
   try {
-    await import('./main');
+    renderLoading('Загружаем приложение');
+    const { appReady } = await import('./main');
+    await appReady;
   } catch {
     if (sequence === initializationSequence) {
       renderAccessScreen({ status: 'error' });
@@ -60,11 +62,11 @@ async function initializeApp(): Promise<void> {
   }
 }
 
-function renderLoading(): void {
+function renderLoading(label = 'Проверяем доступ'): void {
   root.innerHTML = `
-    <main class="initial-loader" role="status" aria-live="polite" aria-label="Проверка доступа">
+    <main class="initial-loader" role="status" aria-live="polite" aria-label="${label}">
       <span class="initial-loader__spinner" aria-hidden="true"></span>
-      <p class="initial-loader__label">Проверяем доступ</p>
+      <p class="initial-loader__label">${label}</p>
     </main>
   `;
 }
