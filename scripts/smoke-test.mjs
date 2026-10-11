@@ -1,4 +1,4 @@
-import { loadDotEnv } from './video-catalog.mjs';
+import { loadDotEnv } from './env.mjs';
 
 loadDotEnv();
 

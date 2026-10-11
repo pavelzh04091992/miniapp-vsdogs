@@ -29,6 +29,11 @@ services:
       - "8787"
     volumes:
       - "${TEST_DATA_PATH:-./data}:/app/data:rw"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
     healthcheck:
       test:
         - CMD

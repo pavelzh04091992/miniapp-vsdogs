@@ -9,7 +9,7 @@ const LOOPBACK_ORIGINS = [
 ];
 
 export function readServerConfig(env = process.env, cwd = process.cwd()) {
-  const publicBaseUrl = normalizeOptionalUrl(env.PUBLIC_BASE_URL, 'PUBLIC_BASE_URL');
+  const publicBaseUrl = normalizePublicBaseUrl(env.PUBLIC_BASE_URL);
   const miniAppUrl = normalizeOptionalUrl(env.MINI_APP_URL || publicBaseUrl, 'MINI_APP_URL');
   const secureSessionCookie = parseBoolean(
     env.SESSION_COOKIE_SECURE,
@@ -25,6 +25,15 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
   }
   const configuredAuthDatabasePath = env.AUTH_DATABASE_PATH || 'data/auth.sqlite';
   const allowedOrigins = new Set(env.NODE_ENV === 'production' ? [] : LOOPBACK_ORIGINS);
+  const knownSlugs = normalizeSlugs(env.KNOWN_VIDEO_SITUATION_SLUGS);
+  const defaultSituationSlug = normalizeSlug(
+    env.DEFAULT_VIDEO_SITUATION_SLUG || knownSlugs[0],
+    'DEFAULT_VIDEO_SITUATION_SLUG',
+  );
+
+  if (!knownSlugs.includes(defaultSituationSlug)) {
+    throw new Error('DEFAULT_VIDEO_SITUATION_SLUG must be included in KNOWN_VIDEO_SITUATION_SLUGS');
+  }
 
   for (const value of [publicBaseUrl, miniAppUrl, ...(env.ALLOWED_ORIGINS || '').split(',')]) {
     const origin = normalizeOptionalOrigin(value, 'ALLOWED_ORIGINS');
@@ -42,7 +51,7 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
       'WEBHOOK_MAX_BODY_BYTES',
     ),
     webhookPath: normalizeWebhookPath(env.TELEGRAM_WEBHOOK_PATH),
-    webhookSecret: env.TELEGRAM_WEBHOOK_SECRET?.trim() || '',
+    webhookSecret: normalizeWebhookSecret(env.TELEGRAM_WEBHOOK_SECRET),
     botToken: env.BOT_TOKEN?.trim() || '',
     botUsername: env.BOT_USERNAME?.trim() || '',
     adminTelegramId: normalizeOptionalTelegramId(env.ADMIN_TELEGRAM_ID),
@@ -81,6 +90,10 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
       60,
       'RATE_LIMIT_WINDOW_SECONDS',
     ),
+    trustProxyHeaders: parseBoolean(
+      env.TRUST_PROXY_HEADERS,
+      env.NODE_ENV === 'production',
+    ),
     authRateLimitMax: parsePositiveInteger(env.AUTH_RATE_LIMIT_MAX, 20, 'AUTH_RATE_LIMIT_MAX'),
     magicLinkRateLimitMax: parsePositiveInteger(
       env.MAGIC_LINK_RATE_LIMIT_MAX,
@@ -97,11 +110,8 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
     secureSessionCookie,
     publicChannelId: normalizeOptionalChatId(env.PUBLIC_CHANNEL_ID),
     publicChannelUsername: env.PUBLIC_CHANNEL_USERNAME || '',
-    defaultSituationSlug: env.DEFAULT_VIDEO_SITUATION_SLUG || 'puppy-toilet-home',
-    knownSlugs: (env.KNOWN_VIDEO_SITUATION_SLUGS || 'puppy-toilet-home')
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean),
+    defaultSituationSlug,
+    knownSlugs,
     distPath: resolve(cwd, 'dist'),
     allowedOrigins,
   };
@@ -110,11 +120,21 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
 function normalizeWebhookPath(value) {
   const path = value?.trim() || '/telegram/webhook';
 
-  if (!path.startsWith('/') || path.includes('?') || path.includes('#')) {
-    throw new Error('TELEGRAM_WEBHOOK_PATH must be an absolute URL path');
+  if (!/^\/telegram\/[A-Za-z\d_-]+$/.test(path)) {
+    throw new Error('TELEGRAM_WEBHOOK_PATH must match /telegram/<name>');
   }
 
   return path;
+}
+
+function normalizeWebhookSecret(value) {
+  const secret = value?.trim() || '';
+
+  if (secret && !/^[A-Za-z\d_-]{1,256}$/.test(secret)) {
+    throw new Error('TELEGRAM_WEBHOOK_SECRET contains unsupported characters');
+  }
+
+  return secret;
 }
 
 function parsePositiveInteger(value, fallback, name) {
@@ -229,6 +249,37 @@ function normalizeOptionalUrl(value, name) {
   } catch {
     throw new Error(`${name} must be an absolute HTTP(S) URL`);
   }
+}
+
+function normalizePublicBaseUrl(value) {
+  const normalized = normalizeOptionalUrl(value, 'PUBLIC_BASE_URL');
+
+  if (!normalized) {
+    return '';
+  }
+
+  const url = new URL(normalized);
+
+  if (url.pathname !== '/' || url.search) {
+    throw new Error('PUBLIC_BASE_URL must contain only an HTTP(S) origin');
+  }
+
+  return url.origin;
+}
+
+function normalizeSlugs(value) {
+  const slugs = (value || 'puppy-toilet-home')
+    .split(',')
+    .map((slug) => normalizeSlug(slug.trim(), 'KNOWN_VIDEO_SITUATION_SLUGS'));
+  return [...new Set(slugs)];
+}
+
+function normalizeSlug(value, name) {
+  if (!/^[a-z\d]+(?:-[a-z\d]+)*$/.test(value || '')) {
+    throw new Error(`${name} must contain lowercase slugs separated by commas`);
+  }
+
+  return value;
 }
 
 function normalizeOptionalOrigin(value, name) {

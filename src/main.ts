@@ -3,11 +3,11 @@ import {
   PuppyFilter,
   SituationVideosState,
   createAppMarkup,
-  getAllAppAssetPaths,
+  getInitialAppAssetPaths,
   getVideoSourceSlugForRoute,
 } from './app';
 import { fetchSituationVideos } from './lib/videos';
-import { initTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
+import { getTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
 import {
   ComplexRevealOrigin,
   animateComplexRevealTransition,
@@ -23,7 +23,7 @@ if (!appRoot) {
 }
 
 const root = appRoot;
-const webApp = isTelegramMiniAppLaunch() ? initTelegramWebApp() : null;
+const webApp = isTelegramMiniAppLaunch() ? getTelegramWebApp() : null;
 
 let activeFilter: PuppyFilter = 'all';
 let videosState: SituationVideosState = { status: 'idle' };
@@ -33,6 +33,8 @@ let pendingTransitionDirection: PageTransitionDirection | null = null;
 let previousPageScroll: { route: AppRoute; scrollTop: number } | null = null;
 let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
 let destroyLessonVideoPlayer: (() => void) | null = null;
+let routeSyncSequence = 0;
+let videoCatalogAbortController: AbortController | null = null;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -124,8 +126,8 @@ document.addEventListener('click', (event) => {
 });
 
 async function startPrivateApp(): Promise<void> {
-  await preloadAllAssets(getAllAppAssetPaths());
   await syncRouteState();
+  void preloadAllAssets(getInitialAppAssetPaths());
 }
 function render(): void {
   const route = getCurrentRoute();
@@ -416,8 +418,19 @@ function setupLiquidGlassCards(): void {
   });
 }
 
-async function preloadAllAssets(paths: string[]): Promise<void> {
-  await Promise.all(paths.map((path) => preloadAsset(path)));
+async function preloadAllAssets(paths: string[], concurrency = 6): Promise<void> {
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), paths.length);
+
+  const preloadNext = async (): Promise<void> => {
+    while (nextIndex < paths.length) {
+      const path = paths[nextIndex];
+      nextIndex += 1;
+      await preloadAsset(path);
+    }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, () => preloadNext()));
 }
 
 function preloadAsset(path: string): Promise<void> {
@@ -509,6 +522,9 @@ function getCurrentRoute(): AppRoute {
 }
 
 async function syncRouteState(): Promise<void> {
+  const sequence = ++routeSyncSequence;
+  videoCatalogAbortController?.abort();
+  videoCatalogAbortController = null;
   const route = getCurrentRoute();
   const videoSourceSlug = getVideoSourceSlugForRoute(route);
 
@@ -517,19 +533,31 @@ async function syncRouteState(): Promise<void> {
   }
 
   if (videoSourceSlug) {
+    const controller = new AbortController();
+    videoCatalogAbortController = controller;
     videosState = { status: 'loading' };
     render();
 
     try {
-      const videos = await fetchSituationVideos(videoSourceSlug);
+      const videos = await fetchSituationVideos(videoSourceSlug, { signal: controller.signal });
+
+      if (sequence !== routeSyncSequence) {
+        return;
+      }
+
       videosState = { status: 'ready', videos };
     } catch {
+      if (controller.signal.aborted || sequence !== routeSyncSequence) {
+        return;
+      }
+
       videosState = {
         status: 'error',
         message: 'Попробуйте открыть этот экран чуть позже',
       };
     }
 
+    videoCatalogAbortController = null;
     render();
     return;
   }

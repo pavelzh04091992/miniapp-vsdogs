@@ -110,13 +110,23 @@ function safeDecodeURIComponent(value) {
 }
 
 function isSpaRoute(pathname) {
+  const decodedPathname = safeDecodeURIComponent(pathname);
+
+  if (
+    !decodedPathname ||
+    decodedPathname.includes('\0') ||
+    decodedPathname.includes('\\') ||
+    /[<>:"|?*]/.test(decodedPathname) ||
+    decodedPathname.split('/').some((segment) => /[ .]$/.test(segment))
+  ) {
+    return false;
+  }
+
+  const normalizedPathname = posix.normalize(decodedPathname);
+
   return (
-    !extname(pathname) &&
-    !pathname.startsWith('/api/') &&
-    !pathname.startsWith('/assets/') &&
-    !pathname.startsWith('/data/') &&
-    !pathname.startsWith('/media/') &&
-    !pathname.startsWith('/telegram/')
+    !extname(normalizedPathname) &&
+    !isProtectedRoutePath(normalizedPathname)
   );
 }
 

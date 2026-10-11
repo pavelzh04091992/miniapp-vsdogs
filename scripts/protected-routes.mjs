@@ -1,3 +1,5 @@
+import { posix } from 'node:path';
+
 export const PROTECTED_ROUTE_PREFIXES = Object.freeze([
   '/api',
   '/assets',
@@ -18,15 +20,32 @@ export function isPrivateStaticAssetPath(pathname) {
 }
 
 export function isProtectedRoutePath(pathname) {
-  const normalizedPathname = String(pathname || '')
-    .replaceAll('\\', '/')
-    .split('/')
-    .map((segment) => segment.replace(/[ .]+$/g, ''))
-    .join('/')
+  const normalizedPathname = normalizeRequestPathname(pathname)
     .toLowerCase();
   return PROTECTED_ROUTE_PREFIXES.some(
     (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(`${prefix}/`),
   );
+}
+
+export function normalizeRequestPathname(pathname) {
+  const normalizedSeparators = String(pathname || '').replaceAll('\\', '/');
+  const normalizedDots = posix.normalize(normalizedSeparators);
+  const normalizedWindowsAliases = normalizedDots
+    .split('/')
+    .map(normalizeWindowsPathSegment)
+    .join('/');
+
+  return posix.normalize(normalizedWindowsAliases);
+}
+
+function normalizeWindowsPathSegment(segment) {
+  const withoutTrailingSpaces = segment.replace(/ +$/g, '');
+
+  if (withoutTrailingSpaces === '.' || withoutTrailingSpaces === '..') {
+    return withoutTrailingSpaces;
+  }
+
+  return withoutTrailingSpaces.replace(/\.+$/g, '');
 }
 
 export function isCanonicalProtectedRoutePath(pathname) {

@@ -221,7 +221,10 @@ Telegram production-cookie использует `SameSite=None; Secure`; лок�
 явно переключает её на `SameSite=Lax`.
 Запросы Telegram-auth, magic link и приватные команды бота ограничены по частоте; лимиты и общее
 окно настраиваются переменными `AUTH_RATE_LIMIT_MAX`, `MAGIC_LINK_RATE_LIMIT_MAX`,
-`BOT_COMMAND_RATE_LIMIT_MAX` и `RATE_LIMIT_WINDOW_SECONDS`.
+`BOT_COMMAND_RATE_LIMIT_MAX` и `RATE_LIMIT_WINDOW_SECONDS`. Заголовки
+`X-Forwarded-For`/`X-Real-IP` используются для лимитов только при
+`TRUST_PROXY_HEADERS=true`; включайте этот параметр лишь когда app-контейнер недоступен напрямую
+из интернета и запросы всегда проходят через доверенный reverse proxy.
 
 Публичными остаются только `index.html` и минимальный auth-bootstrap для показа экрана входа.
 Основной JS/CSS находится в `/private/`, изображения — в `/assets/`; оба префикса, каталог
@@ -258,12 +261,14 @@ infra/
 scripts/
   app-server.mjs            # Фронтенд, auth API, healthcheck и Telegram webhook
   auth-database.mjs         # SQLite: пользователи, приглашения и сессии
+  env.mjs                   # Единая загрузка и проверка переменных из .env
   http-utils.mjs            # HTTP parsing, cookies, Origin и security headers
   protected-routes.mjs      # Единая граница динамических и статических маршрутов
   rate-limit.mjs            # Ограничение частоты auth и bot-запросов
   server-config.mjs         # Проверка и нормализация серверной конфигурации
   static-server.mjs         # Безопасная раздача production frontend
   telegram-auth.mjs         # Проверка Telegram initData
+  telegram-api.mjs          # Безопасный клиент Telegram Bot API с timeout
   telegram-bot.mjs          # Админское и пользовательское меню бота
   prepare-video.mjs         # Подготовка HLS/MP4/poster через FFmpeg
   smoke-test.mjs            # Проверка развёрнутого стека

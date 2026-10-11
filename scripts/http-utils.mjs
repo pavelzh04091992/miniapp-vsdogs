@@ -40,7 +40,14 @@ export function readJsonBody(request, maxBodyBytes) {
       return;
     }
 
-    const declaredSize = Number(request.headers['content-length'] || 0);
+    const contentLength = request.headers['content-length'];
+    const declaredSize = contentLength === undefined ? 0 : Number(contentLength);
+
+    if (!Number.isSafeInteger(declaredSize) || declaredSize < 0) {
+      request.resume();
+      reject(new RequestError(400, 'invalid_content_length'));
+      return;
+    }
 
     if (Number.isFinite(declaredSize) && declaredSize > maxBodyBytes) {
       request.resume();
@@ -51,6 +58,14 @@ export function readJsonBody(request, maxBodyBytes) {
     const chunks = [];
     let receivedBytes = 0;
     let bodyTooLarge = false;
+    let settled = false;
+
+    const fail = (error) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    };
 
     request.on('data', (chunk) => {
       if (bodyTooLarge) {
@@ -70,7 +85,7 @@ export function readJsonBody(request, maxBodyBytes) {
     });
     request.on('end', () => {
       if (bodyTooLarge) {
-        reject(new RequestError(413, 'payload_too_large'));
+        fail(new RequestError(413, 'payload_too_large'));
         return;
       }
 
@@ -83,12 +98,14 @@ export function readJsonBody(request, maxBodyBytes) {
           throw new Error('JSON body must be an object');
         }
 
+        settled = true;
         resolveJson(parsed);
       } catch {
-        reject(new RequestError(400, 'invalid_json'));
+        fail(new RequestError(400, 'invalid_json'));
       }
     });
-    request.on('error', reject);
+    request.on('aborted', () => fail(new RequestError(400, 'request_aborted')));
+    request.on('error', fail);
   });
 }
 
@@ -167,18 +184,24 @@ export function hasAllowedOrigin(request, allowedOrigins) {
   }
 }
 
-export function getClientIdentifier(request) {
-  const realIp = request.headers['x-real-ip'];
-  const normalizedRealIp = (Array.isArray(realIp) ? realIp[0] : realIp)?.trim();
+export function getClientIdentifier(request, options = {}) {
+  if (options.trustProxyHeaders) {
+    const realIp = request.headers['x-real-ip'];
+    const normalizedRealIp = (Array.isArray(realIp) ? realIp[0] : realIp)?.trim();
 
-  if (normalizedRealIp) {
-    return normalizedRealIp.slice(0, 128);
+    if (normalizedRealIp) {
+      return normalizedRealIp.slice(0, 128);
+    }
+
+    const forwarded = request.headers['x-forwarded-for'];
+    const firstForwarded = (Array.isArray(forwarded) ? forwarded[0] : forwarded)
+      ?.split(',', 1)[0]
+      ?.trim();
+
+    if (firstForwarded) {
+      return firstForwarded.slice(0, 128);
+    }
   }
 
-  const forwarded = request.headers['x-forwarded-for'];
-  const firstForwarded = (Array.isArray(forwarded) ? forwarded[0] : forwarded)
-    ?.split(',', 1)[0]
-    ?.trim();
-
-  return (firstForwarded || request.socket.remoteAddress || 'unknown').slice(0, 128);
+  return (request.socket.remoteAddress || 'unknown').slice(0, 128);
 }

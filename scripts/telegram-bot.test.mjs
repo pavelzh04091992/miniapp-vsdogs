@@ -36,6 +36,13 @@ test('admin grants and revokes access through the bot interface', async () => {
   try {
     await bot.handleUpdate(privateMessage('10001', '/start', 'Admin'));
     await bot.handleUpdate(callback('10001', 'admin:add'));
+    assert.equal(database.getBotState('10001'), 'awaiting_grant_id');
+    await bot.handleUpdate(callback('10001', 'user:menu'));
+    assert.equal(database.getBotState('10001'), null);
+    await bot.handleUpdate(privateMessage('10001', '20003', 'Admin'));
+    assert.equal(database.getUser('20003'), null);
+
+    await bot.handleUpdate(callback('10001', 'admin:add'));
     await bot.handleUpdate(privateMessage('10001', '20002', 'Admin'));
 
     assert.equal(database.getUser('20002').status, 'active');
@@ -103,6 +110,53 @@ test('rate limits repeated private bot commands per Telegram user', async () => 
     );
     assert.ok(requests.some(({ method, payload }) =>
       method === 'answerCallbackQuery' && payload.text?.includes('Слишком много запросов')));
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('admin user list is paginated so older accounts remain manageable', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-bot-pages-'));
+  const database = createAuthDatabase(join(directory, 'auth.sqlite'));
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push({
+      method: url.split('/').at(-1),
+      payload: JSON.parse(options.body),
+    });
+    return fakeResponse(true, 200, { ok: true, result: true });
+  };
+  database.ensureAdmin('10001');
+
+  for (let id = 20_001; id <= 20_010; id += 1) {
+    database.grantUser(String(id), '10001');
+  }
+
+  const bot = createTelegramBot({
+    botToken: 'test-token',
+    botUsername: 'access_bot',
+    miniAppUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
+    adminTelegramId: '10001',
+    database,
+    fetchImpl,
+  });
+
+  try {
+    await bot.handleUpdate(callback('10001', 'admin:list'));
+    const firstPage = requests.at(-1).payload;
+    assert.match(firstPage.text, /страница 1/);
+    assert.ok(firstPage.reply_markup.inline_keyboard.flat().some(
+      (button) => button.callback_data === 'admin:list:8',
+    ));
+
+    await bot.handleUpdate(callback('10001', 'admin:list:8'));
+    const secondPage = requests.at(-1).payload;
+    assert.match(secondPage.text, /страница 2/);
+    assert.ok(secondPage.reply_markup.inline_keyboard.flat().some(
+      (button) => button.callback_data === 'admin:list:0',
+    ));
   } finally {
     database.close();
     rmSync(directory, { recursive: true, force: true });

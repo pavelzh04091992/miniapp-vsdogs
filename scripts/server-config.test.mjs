@@ -20,6 +20,7 @@ test('normalizes server URLs and builds an explicit origin allowlist', () => {
   assert.ok(config.allowedOrigins.has('http://localhost:4173'));
   assert.equal(config.sessionCookieName, '__Host-miniapp_session');
   assert.equal(config.sessionCookieSameSite, 'None');
+  assert.equal(config.trustProxyHeaders, false);
 });
 
 test('rejects unsafe server configuration values', () => {
@@ -34,6 +35,25 @@ test('rejects unsafe server configuration values', () => {
   assert.throws(
     () => readServerConfig({ TELEGRAM_WEBHOOK_PATH: 'telegram/webhook?token=secret' }),
     /TELEGRAM_WEBHOOK_PATH/,
+  );
+  assert.throws(
+    () => readServerConfig({ TELEGRAM_WEBHOOK_PATH: '/api/me' }),
+    /TELEGRAM_WEBHOOK_PATH/,
+  );
+  assert.throws(
+    () => readServerConfig({ TELEGRAM_WEBHOOK_SECRET: 'contains spaces' }),
+    /TELEGRAM_WEBHOOK_SECRET/,
+  );
+  assert.throws(
+    () => readServerConfig({ PUBLIC_BASE_URL: 'https://app.example.com/subpath' }),
+    /PUBLIC_BASE_URL/,
+  );
+  assert.throws(
+    () => readServerConfig({
+      KNOWN_VIDEO_SITUATION_SLUGS: 'known-slug',
+      DEFAULT_VIDEO_SITUATION_SLUG: 'other-slug',
+    }),
+    /DEFAULT_VIDEO_SITUATION_SLUG/,
   );
   assert.throws(
     () => readServerConfig({
@@ -67,4 +87,5 @@ test('does not trust loopback browser origins implicitly in production', () => {
 
   assert.equal(config.allowedOrigins.has('https://app.example.com'), true);
   assert.equal(config.allowedOrigins.has('http://localhost:3000'), false);
+  assert.equal(config.trustProxyHeaders, true);
 });

@@ -80,6 +80,28 @@ test('returns a retryable error when the auth server is unavailable', async () =
   assert.deepEqual(result, { status: 'error' });
 });
 
+test('times out stalled authentication requests', async () => {
+  const result = await resolveAppAccess({
+    requestTimeoutMs: 5,
+    fetchImpl: (_url, options) => new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+    }),
+  });
+
+  assert.deepEqual(result, { status: 'error' });
+});
+
+test('rejects malformed user payloads from the server', async () => {
+  const result = await resolveAppAccess({
+    fetchImpl: async () => response(200, {
+      ok: true,
+      user: { ...USER, telegramId: 'not-an-id' },
+    }),
+  });
+
+  assert.deepEqual(result, { status: 'error' });
+});
+
 function sequenceFetch(responses) {
   let index = 0;
   return async () => responses[index++];

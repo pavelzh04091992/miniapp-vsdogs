@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import { createAuthDatabase } from './auth-database.mjs';
+import { loadDotEnv } from './env.mjs';
 import {
   RequestError,
   getClientIdentifier,
@@ -23,7 +24,7 @@ import {
   isOpaqueToken,
   validateTelegramInitData,
 } from './telegram-auth.mjs';
-import { loadDotEnv, loadVideoCatalog, upsertChannelVideo } from './video-catalog.mjs';
+import { loadVideoCatalog, upsertChannelVideo } from './video-catalog.mjs';
 
 loadDotEnv();
 
@@ -55,6 +56,7 @@ const {
   sessionCookieSameSite,
   sessionTtlSeconds,
   telegramInitDataMaxAgeSeconds,
+  trustProxyHeaders,
   webhookPath,
   webhookSecret,
 } = config;
@@ -66,6 +68,14 @@ const serveStaticFile = createStaticServer(distPath);
 // Validate the writable catalog mount before the service starts accepting traffic.
 loadVideoCatalog();
 const authDatabase = createAuthDatabase(authDatabasePath);
+const databaseMaintenanceTimer = setInterval(() => {
+  try {
+    authDatabase.cleanup();
+  } catch (error) {
+    console.error('[auth-database] scheduled cleanup failed', error);
+  }
+}, 6 * 60 * 60 * 1000);
+databaseMaintenanceTimer.unref();
 
 if (adminTelegramId) {
   authDatabase.ensureAdmin(adminTelegramId);
@@ -528,7 +538,7 @@ function getSessionUser(request, options = {}) {
 }
 
 function allowRateLimitedRequest(limiter, request, response) {
-  const result = limiter.consume(getClientIdentifier(request));
+  const result = limiter.consume(getClientIdentifier(request, { trustProxyHeaders }));
 
   if (result.allowed) {
     return true;
@@ -612,6 +622,7 @@ function constantTimeStringEqual(expected, provided) {
 
 function shutdown(signal) {
   console.log(`[app-server] received ${signal}, shutting down`);
+  clearInterval(databaseMaintenanceTimer);
 
   server.close((error) => {
     if (error) {

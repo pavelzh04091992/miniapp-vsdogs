@@ -38,13 +38,17 @@ interface StoredSituationVideo {
 
 const VIDEO_CATALOG_URL = '/data/videos.json';
 
-export async function fetchSituationVideos(slug: SituationSlug): Promise<SituationVideo[]> {
+export async function fetchSituationVideos(
+  slug: SituationSlug,
+  options: { signal?: AbortSignal } = {},
+): Promise<SituationVideo[]> {
   const response = await fetch(`${VIDEO_CATALOG_URL}?t=${Date.now()}`, {
     cache: 'no-store',
     credentials: 'same-origin',
     headers: {
       Accept: 'application/json',
     },
+    signal: options.signal,
   });
 
   if (!response.ok) {
@@ -55,7 +59,7 @@ export async function fetchSituationVideos(slug: SituationSlug): Promise<Situati
   const rawVideos = Array.isArray(payload.videos) ? payload.videos : [];
 
   return rawVideos
-    .filter((video): video is StoredSituationVideo => video?.situationSlug === slug)
+    .filter((video): video is StoredSituationVideo => isStoredSituationVideo(video, slug))
     .sort(sortByCreatedAtDesc)
     .map((video, index) => ({
       ...video,
@@ -64,6 +68,33 @@ export async function fetchSituationVideos(slug: SituationSlug): Promise<Situati
       durationLabel: formatDurationLabel(video.durationSeconds),
       sourceLabel: video.sourceLabel || 'Telegram',
     }));
+}
+
+function isStoredSituationVideo(
+  value: unknown,
+  expectedSlug: SituationSlug,
+): value is StoredSituationVideo {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const video = value as Partial<StoredSituationVideo>;
+  return (
+    video.situationSlug === expectedSlug &&
+    typeof video.id === 'string' &&
+    Number.isSafeInteger(video.telegramMessageId) &&
+    typeof video.telegramChatId === 'string' &&
+    typeof video.title === 'string' &&
+    typeof video.description === 'string' &&
+    typeof video.durationSeconds === 'number' &&
+    Number.isFinite(video.durationSeconds) &&
+    video.durationSeconds >= 0 &&
+    (video.sourceLabel === undefined || typeof video.sourceLabel === 'string') &&
+    typeof video.thumbnailUrl === 'string' &&
+    typeof video.telegramUrl === 'string' &&
+    typeof video.createdAt === 'string' &&
+    !Number.isNaN(Date.parse(video.createdAt))
+  );
 }
 
 function sortByCreatedAtDesc(a: StoredSituationVideo, b: StoredSituationVideo): number {

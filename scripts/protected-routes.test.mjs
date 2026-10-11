@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   getDecodedRequestPathname,
   isProtectedRoutePath,
+  normalizeRequestPathname,
   shouldBlockDevStaticFallback,
 } from './protected-routes.mjs';
 
@@ -20,6 +21,9 @@ test('recognizes protected routes after decoding and Windows path normalization'
   }
 
   assert.equal(getDecodedRequestPathname('/d%61ta%2Fvideos.json'), '/data/videos.json');
+  assert.equal(normalizeRequestPathname('/public/../src/main.ts'), '/src/main.ts');
+  assert.equal(normalizeRequestPathname('/public/.. /src/main.ts'), '/src/main.ts');
+  assert.equal(normalizeRequestPathname('/src\\main.ts'), '/src/main.ts');
   assert.equal(isProtectedRoutePath('/public/index.js'), false);
 });
 

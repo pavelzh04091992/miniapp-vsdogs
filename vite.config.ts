@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from 'vite';
 import {
   getDecodedRequestPathname,
   isProtectedRoutePath,
+  normalizeRequestPathname,
   shouldBlockDevStaticFallback,
 } from './scripts/protected-routes.mjs';
 
@@ -34,7 +35,7 @@ function rejectPrivateDevRequest(
 }
 
 function requiresDevSession(pathname: string): boolean {
-  const normalizedPathname = pathname.replaceAll('\\', '/').toLowerCase();
+  const normalizedPathname = normalizeRequestPathname(pathname).toLowerCase();
 
   return (
     normalizedPathname === '/assets' ||

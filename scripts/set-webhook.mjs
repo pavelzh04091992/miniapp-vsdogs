@@ -1,4 +1,5 @@
-import { getRequiredEnv, loadDotEnv } from './video-catalog.mjs';
+import { getRequiredEnv, loadDotEnv } from './env.mjs';
+import { createTelegramApi } from './telegram-api.mjs';
 
 loadDotEnv();
 
@@ -17,26 +18,7 @@ if (webhookSecret) {
   payload.secret_token = webhookSecret;
 }
 
-const result = await telegramRequest('setWebhook', payload);
+const result = await createTelegramApi(botToken).request('setWebhook', payload);
 
 console.log(`Webhook configured: ${webhookUrl}`);
 console.log(JSON.stringify(result, null, 2));
-
-async function telegramRequest(method, requestPayload) {
-  const response = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestPayload),
-  });
-
-  const body = await response.json();
-
-  if (!response.ok || !body.ok) {
-    const description = body.description || response.statusText;
-    throw new Error(`Telegram API ${method} failed: ${description}`);
-  }
-
-  return body.result;
-}

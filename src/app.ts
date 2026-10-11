@@ -2656,8 +2656,8 @@ export function createAppMarkup(
   return createHomeMarkup();
 }
 
-export function getAllAppAssetPaths(): string[] {
-  const paths = [
+export function getInitialAppAssetPaths(): string[] {
+  return [
     '/assets/logo-dog.svg',
     '/assets/hero-dog.webp',
     '/assets/nav-home.svg',
@@ -2678,27 +2678,7 @@ export function getAllAppAssetPaths(): string[] {
     '/assets/icons/comp_lil_check.webp',
     '/assets/icons/comp_middle_check.webp',
     '/assets/icons/comp_big_check.webp',
-  ];
-
-  const addSituationAssets = (
-    situations: Array<{ imagePath: string; topics: Array<{ imagePath: string; lessons: Array<{ coverPath?: string }> }> }>,
-  ): void => {
-    paths.push(
-      ...situations.flatMap((situation) => [
-        situation.imagePath,
-        ...situation.topics.flatMap((topic) => [
-          topic.imagePath,
-          ...topic.lessons.map((lesson) => lesson.coverPath).filter((path): path is string => Boolean(path)),
-        ]),
-      ]),
-    );
-  };
-
-  addSituationAssets(puppySituations);
-  addSituationAssets(adultLargeSituations);
-  addSituationAssets(adultSmallSituations);
-
-  return [...new Set(paths.filter((path): path is string => Boolean(path)).map(resolveCardImagePath))];
+  ].map(resolveCardImagePath);
 }
 export function getSituationSlugFromRoute(route: AppRoute): PuppySituationSlug | null {
   if (!route.startsWith('puppy-situation:')) {

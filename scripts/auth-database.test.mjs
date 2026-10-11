@@ -31,6 +31,16 @@ test('stores access, profiles, invitations and revocable sessions', () => {
 
     const granted = database.grantUser('20002', '10001');
     assert.equal(granted.status, 'active');
+    database.grantUser('20003', '10001');
+    database.grantUser('20004', '10001');
+    assert.deepEqual(
+      database.listManagedUsers(2, 0).map((user) => user.telegramId),
+      ['20004', '20003'],
+    );
+    assert.deepEqual(
+      database.listManagedUsers(2, 2).map((user) => user.telegramId),
+      ['20002', '10002'],
+    );
 
     database.touchTelegramUser({
       id: '20002',
@@ -56,8 +66,22 @@ test('stores access, profiles, invitations and revocable sessions', () => {
     const session = database.createSession('20002', 60);
     assert.equal(database.getSessionUser(session.token).telegramId, '20002');
 
-    database.setUserStatus('20002', 'revoked', '10001');
+    for (let index = 0; index < 25; index += 1) {
+      database.createSession('20002', 60);
+    }
+
+    const sessionInspector = new DatabaseSync(join(directory, 'auth.sqlite'), { readOnly: true });
+    const storedSessions = sessionInspector.prepare(
+      'SELECT COUNT(*) AS count FROM sessions WHERE telegram_id = ?',
+    ).get('20002');
+    sessionInspector.close();
+    assert.equal(storedSessions.count, 20);
     assert.equal(database.getSessionUser(session.token), null);
+
+    const revocableSession = database.createSession('20002', 60);
+
+    database.setUserStatus('20002', 'revoked', '10001');
+    assert.equal(database.getSessionUser(revocableSession.token), null);
     assert.equal(database.getUser('20002').status, 'revoked');
 
     currentTime += 120;

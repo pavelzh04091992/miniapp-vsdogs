@@ -10,6 +10,7 @@ if (!appRoot) {
 const root = appRoot;
 
 const webApp = isTelegramMiniAppLaunch() ? initTelegramWebApp() : null;
+let initializationSequence = 0;
 
 document.documentElement.dataset.launchContext = webApp ? 'telegram' : 'browser';
 
@@ -21,6 +22,7 @@ document.addEventListener('click', (event) => {
   const target = event.target;
 
   if (target instanceof HTMLElement && target.closest('[data-auth-retry]')) {
+    event.preventDefault();
     void initializeApp();
   }
 });
@@ -28,6 +30,7 @@ document.addEventListener('click', (event) => {
 void initializeApp();
 
 async function initializeApp(): Promise<void> {
+  const sequence = ++initializationSequence;
   renderLoading();
 
   const authSignal = new URLSearchParams(window.location.search).get('auth');
@@ -36,6 +39,10 @@ async function initializeApp(): Promise<void> {
     initData: webApp?.initData,
     authSignal,
   });
+
+  if (sequence !== initializationSequence) {
+    return;
+  }
 
   if (access.status !== 'authenticated') {
     renderAccessScreen(access);
@@ -47,7 +54,9 @@ async function initializeApp(): Promise<void> {
   try {
     await import('./main');
   } catch {
-    renderAccessScreen({ status: 'error' });
+    if (sequence === initializationSequence) {
+      renderAccessScreen({ status: 'error' });
+    }
   }
 }
 

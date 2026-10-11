@@ -25,6 +25,10 @@ export function createAuthDatabase(databasePath, options = {}) {
   return {
     close: () => database.close(),
 
+    cleanup() {
+      cleanupExpiredData(statements, now());
+    },
+
     ensureAdmin(telegramId) {
       const id = requireTelegramId(telegramId);
       const timestamp = now();
@@ -103,6 +107,12 @@ export function createAuthDatabase(databasePath, options = {}) {
     listUsers(limit = 30) {
       const safeLimit = Math.min(Math.max(Number(limit) || 30, 1), 100);
       return statements.listUsers.all(safeLimit).map(mapUser);
+    },
+
+    listManagedUsers(limit = 10, offset = 0) {
+      const safeLimit = Math.min(Math.max(Math.trunc(Number(limit)) || 10, 1), 30);
+      const safeOffset = Math.min(Math.max(Math.trunc(Number(offset)) || 0, 0), 100_000);
+      return statements.listManagedUsers.all(safeLimit, safeOffset).map(mapUser);
     },
 
     setBotState(telegramId, state) {
@@ -214,8 +224,12 @@ export function createAuthDatabase(databasePath, options = {}) {
       const token = createOpaqueToken();
       const timestamp = now();
       const expiresAt = timestamp + ttlSeconds;
-      statements.insertSession.run(hashOpaqueToken(token), userId, expiresAt, timestamp, timestamp);
-      statements.insertAudit.run(userId, 'login_success', userId, null, timestamp);
+      transaction(database, () => {
+        statements.deleteUnusableSessionsForUser.run(userId, timestamp);
+        statements.insertSession.run(hashOpaqueToken(token), userId, expiresAt, timestamp, timestamp);
+        statements.deleteSurplusSessionsForUser.run(userId, userId);
+        statements.insertAudit.run(userId, 'login_success', userId, null, timestamp);
+      });
       return { token, expiresAt };
     },
 
@@ -304,6 +318,8 @@ export function createAuthDatabase(databasePath, options = {}) {
           timestamp,
           timestamp,
         );
+        statements.deleteUnusableSessionsForUser.run(link.telegram_id, timestamp);
+        statements.deleteSurplusSessionsForUser.run(link.telegram_id, link.telegram_id);
         statements.insertAudit.run(
           link.telegram_id,
           'login_success',
@@ -482,6 +498,12 @@ function prepareStatements(database) {
     listUsers: database.prepare(`
       SELECT * FROM users ORDER BY role = 'admin' DESC, created_at DESC LIMIT ?
     `),
+    listManagedUsers: database.prepare(`
+      SELECT * FROM users
+      WHERE role <> 'admin'
+      ORDER BY created_at DESC, telegram_id DESC
+      LIMIT ? OFFSET ?
+    `),
     setBotState: database.prepare(`
       INSERT INTO bot_states (telegram_id, state, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(telegram_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at
@@ -497,7 +519,7 @@ function prepareStatements(database) {
       UPDATE invites SET status = 'accepted', accepted_at = ? WHERE id = ? AND status = 'pending'
     `),
     revokeInvitesForUser: database.prepare(`
-      UPDATE invites SET status = CASE WHEN expires_at < ? THEN 'expired' ELSE 'revoked' END
+      UPDATE invites SET status = CASE WHEN expires_at <= ? THEN 'expired' ELSE 'revoked' END
       WHERE target_telegram_id = ? AND status = 'pending'
     `),
     insertSession: database.prepare(`
@@ -516,6 +538,19 @@ function prepareStatements(database) {
     revokeSession: database.prepare('UPDATE sessions SET revoked_at = ? WHERE id_hash = ?'),
     revokeSessions: database.prepare(`
       UPDATE sessions SET revoked_at = ? WHERE telegram_id = ? AND revoked_at IS NULL
+    `),
+    deleteUnusableSessionsForUser: database.prepare(`
+      DELETE FROM sessions
+      WHERE telegram_id = ? AND (expires_at <= ? OR revoked_at IS NOT NULL)
+    `),
+    deleteSurplusSessionsForUser: database.prepare(`
+      DELETE FROM sessions
+      WHERE telegram_id = ? AND id_hash NOT IN (
+        SELECT id_hash FROM sessions
+        WHERE telegram_id = ?
+        ORDER BY created_at DESC, rowid DESC
+        LIMIT 20
+      )
     `),
     insertMagicLink: database.prepare(`
       INSERT INTO magic_links (token_hash, telegram_id, expires_at, created_at)

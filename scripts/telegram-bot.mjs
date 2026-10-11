@@ -1,5 +1,10 @@
 import { normalizeTelegramId } from './telegram-auth.mjs';
 import { createRateLimiter } from './rate-limit.mjs';
+import { createTelegramApi } from './telegram-api.mjs';
+
+export { createTelegramApi } from './telegram-api.mjs';
+
+const USER_PAGE_SIZE = 8;
 
 export function createTelegramBot(options) {
   const {
@@ -22,7 +27,10 @@ export function createTelegramBot(options) {
     return { enabled: false, handleUpdate: async () => {} };
   }
 
-  const api = createTelegramApi(botToken, fetchImpl, telegramApiTimeoutMs);
+  const api = createTelegramApi(botToken, {
+    fetchImpl,
+    timeoutMs: telegramApiTimeoutMs,
+  });
   const commandRateLimiter = createRateLimiter({
     limit: commandRateLimitMax,
     windowMs: commandRateLimitWindowMs,
@@ -114,6 +122,7 @@ export function createTelegramBot(options) {
 
     database.touchTelegramUser(sender);
     user = database.getUser(sender.id);
+    database.clearBotState(sender.id);
     await showMenu(chatId, user, 'Добро пожаловать!');
   }
 
@@ -138,13 +147,13 @@ export function createTelegramBot(options) {
     database.grantUser(targetId, actorId);
     database.clearBotState(actorId);
 
+    let userWasNotified = false;
+
     try {
       await api.sendMessage(targetId, 'Вам открыт доступ к приложению.', {
         reply_markup: userKeyboard(),
       });
-      await api.sendMessage(chatId, `Доступ для ${targetId} выдан, пользователь уведомлён.`, {
-        reply_markup: adminKeyboard(),
-      });
+      userWasNotified = true;
     } catch (error) {
       const invite = database.createInvite(targetId, actorId, inviteTtlSeconds);
       const link = buildInviteLink(invite.token);
@@ -155,7 +164,13 @@ export function createTelegramBot(options) {
       await api.sendMessage(chatId, `Доступ для ${targetId} выдан.${suffix}`, {
         reply_markup: adminKeyboard(),
       });
-      console.warn(`[telegram-bot] could not notify user ${targetId}: ${error.message}`);
+      console.warn(`[telegram-bot] could not notify user ${targetId}: ${getErrorMessage(error)}`);
+    }
+
+    if (userWasNotified) {
+      await api.sendMessage(chatId, `Доступ для ${targetId} выдан, пользователь уведомлён.`, {
+        reply_markup: adminKeyboard(),
+      });
     }
   }
 
@@ -190,6 +205,7 @@ export function createTelegramBot(options) {
     const action = String(query.data || '');
 
     if (action === 'user:menu') {
+      database.clearBotState(sender.id);
       await showMenu(chatId, database.getUser(sender.id));
       return;
     }
@@ -232,8 +248,10 @@ export function createTelegramBot(options) {
       return;
     }
 
-    if (action === 'admin:list') {
-      await showUsers(chatId);
+    const listAction = /^admin:list(?::(\d{1,6}))?$/.exec(action);
+
+    if (listAction) {
+      await showUsers(chatId, Number(listAction[1] || 0));
       return;
     }
 
@@ -273,10 +291,18 @@ export function createTelegramBot(options) {
     });
   }
 
-  async function showUsers(chatId) {
-    const users = database.listUsers(30).filter((entry) => entry.role !== 'admin');
+  async function showUsers(chatId, requestedOffset = 0) {
+    const offset = Math.max(0, Math.trunc(requestedOffset / USER_PAGE_SIZE) * USER_PAGE_SIZE);
+    const page = database.listManagedUsers(USER_PAGE_SIZE + 1, offset);
+    const hasNextPage = page.length > USER_PAGE_SIZE;
+    const users = page.slice(0, USER_PAGE_SIZE);
 
     if (users.length === 0) {
+      if (offset > 0) {
+        await showUsers(chatId, Math.max(0, offset - USER_PAGE_SIZE));
+        return;
+      }
+
       await api.sendMessage(chatId, 'Пользователей пока нет.', {
         reply_markup: adminKeyboard(),
       });
@@ -293,9 +319,30 @@ export function createTelegramBot(options) {
       callback_data: `admin:${entry.status === 'active' ? 'revoke' : 'activate'}:${entry.telegramId}`,
     }]);
 
+    const pagination = [];
+
+    if (offset > 0) {
+      pagination.push({
+        text: '← Назад',
+        callback_data: `admin:list:${Math.max(0, offset - USER_PAGE_SIZE)}`,
+      });
+    }
+
+    if (hasNextPage) {
+      pagination.push({
+        text: 'Дальше →',
+        callback_data: `admin:list:${offset + USER_PAGE_SIZE}`,
+      });
+    }
+
+    if (pagination.length > 0) {
+      buttons.push(pagination);
+    }
+
     buttons.push([{ text: '➕ Добавить', callback_data: 'admin:add' }]);
     buttons.push([{ text: '↩️ В меню', callback_data: 'user:menu' }]);
-    await api.sendMessage(chatId, `Пользователи:\n\n${lines.join('\n')}`, {
+    const pageNumber = Math.floor(offset / USER_PAGE_SIZE) + 1;
+    await api.sendMessage(chatId, `Пользователи · страница ${pageNumber}:\n\n${lines.join('\n')}`, {
       reply_markup: { inline_keyboard: buttons },
     });
   }
@@ -378,36 +425,6 @@ function formatTtl(ttlSeconds) {
   return `${minutes} мин.`;
 }
 
-export function createTelegramApi(botToken, fetchImpl = fetch, timeoutMs = 10_000) {
-  async function request(method, payload = {}) {
-    const response = await fetchImpl(`https://api.telegram.org/bot${botToken}/${method}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    const body = await response.json().catch(() => ({}));
-
-    if (!response.ok || !body.ok) {
-      throw new Error(`Telegram API ${method} failed: ${body.description || response.statusText}`);
-    }
-
-    return body.result;
-  }
-
-  return {
-    answerCallbackQuery: (callbackQueryId, extra = {}) => request('answerCallbackQuery', {
-      callback_query_id: callbackQueryId,
-      ...extra,
-    }),
-    sendMessage: (chatId, text, extra = {}) => request('sendMessage', {
-      chat_id: chatId,
-      text,
-      ...extra,
-    }),
-  };
-}
-
 function getPrivateSender(update) {
   if (update?.callback_query?.message?.chat?.type === 'private') {
     return toProfile(update.callback_query.from);
@@ -451,4 +468,8 @@ function cleanOptional(value, maxLength) {
 
   const cleaned = value.trim();
   return cleaned ? cleaned.slice(0, maxLength) : null;
+}
+
+function getErrorMessage(error) {
+  return error instanceof Error ? error.message : 'unknown error';
 }

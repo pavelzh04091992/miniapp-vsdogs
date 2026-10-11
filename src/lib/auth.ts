@@ -18,16 +18,18 @@ interface ResolveAccessOptions {
   initData?: string;
   authSignal?: string | null;
   fetchImpl?: typeof fetch;
+  requestTimeoutMs?: number;
 }
 
 export async function resolveAppAccess(options: ResolveAccessOptions = {}): Promise<AppAccessResult> {
   const fetchImpl = options.fetchImpl ?? fetch;
+  const requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
 
   try {
-    const sessionResponse = await fetchImpl('/api/me', {
+    const sessionResponse = await fetchWithTimeout(fetchImpl, '/api/me', {
       credentials: 'same-origin',
       headers: { Accept: 'application/json' },
-    });
+    }, requestTimeoutMs);
 
     if (sessionResponse.ok) {
       const user = await readAuthenticatedUser(sessionResponse);
@@ -39,12 +41,15 @@ export async function resolveAppAccess(options: ResolveAccessOptions = {}): Prom
     }
 
     if (options.initData) {
-      const response = await fetchImpl('/api/auth/telegram', {
+      const response = await fetchWithTimeout(fetchImpl, '/api/auth/telegram', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ initData: options.initData }),
-      });
+      }, requestTimeoutMs);
 
       if (response.ok) {
         const user = await readAuthenticatedUser(response);
@@ -52,13 +57,16 @@ export async function resolveAppAccess(options: ResolveAccessOptions = {}): Prom
       }
 
       if (response.status === 403) {
-        return { status: 'denied', botUrl: await loadBotUrl(fetchImpl) };
+        return {
+          status: 'denied',
+          botUrl: await loadBotUrl(fetchImpl, requestTimeoutMs),
+        };
       }
 
       return { status: 'error' };
     }
 
-    const botUrl = await loadBotUrl(fetchImpl);
+    const botUrl = await loadBotUrl(fetchImpl, requestTimeoutMs);
     return options.authSignal === 'invalid-link'
       ? { status: 'invalid-link', botUrl }
       : { status: 'unauthenticated', botUrl };
@@ -75,8 +83,12 @@ async function readAuthenticatedUser(response: Response): Promise<AuthenticatedU
     !body?.ok ||
     !user ||
     typeof user.telegramId !== 'string' ||
+    !/^[1-9]\d{0,19}$/.test(user.telegramId) ||
     !['admin', 'user'].includes(user.role) ||
-    user.status !== 'active'
+    user.status !== 'active' ||
+    !isNullableString(user.username) ||
+    !isNullableString(user.firstName) ||
+    !isNullableString(user.lastName)
   ) {
     return null;
   }
@@ -84,12 +96,12 @@ async function readAuthenticatedUser(response: Response): Promise<AuthenticatedU
   return user as AuthenticatedUser;
 }
 
-async function loadBotUrl(fetchImpl: typeof fetch): Promise<string | null> {
+async function loadBotUrl(fetchImpl: typeof fetch, timeoutMs: number): Promise<string | null> {
   try {
-    const response = await fetchImpl('/api/auth/config', {
+    const response = await fetchWithTimeout(fetchImpl, '/api/auth/config', {
       credentials: 'same-origin',
       headers: { Accept: 'application/json' },
-    });
+    }, timeoutMs);
 
     if (!response.ok) {
       return null;
@@ -102,4 +114,24 @@ async function loadBotUrl(fetchImpl: typeof fetch): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+async function fetchWithTimeout(
+  fetchImpl: typeof fetch,
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetchImpl(input, { ...init, signal: controller.signal });
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
 }

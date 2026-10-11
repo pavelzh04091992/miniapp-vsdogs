@@ -55,6 +55,9 @@ test('static server falls back to the SPA without allowing path traversal', asyn
       '/DATA/videos.json',
       '/data./videos.json',
       '/data%20/videos.json',
+      '/a%70i/me',
+      '/au%74h/magic',
+      '/TELEGRAM/webhook',
     ]) {
       const protectedResponse = fakeResponse();
       await serveStaticFile(encodedProtectedPath, 'GET', protectedResponse);

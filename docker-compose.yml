@@ -71,6 +71,7 @@ services:
       TELEGRAM_WEBHOOK_PATH: "${TELEGRAM_WEBHOOK_PATH:-/telegram/webhook}"
       TELEGRAM_WEBHOOK_SECRET: "${TELEGRAM_WEBHOOK_SECRET:-}"
       TELEGRAM_INIT_DATA_MAX_AGE_SECONDS: "${TELEGRAM_INIT_DATA_MAX_AGE_SECONDS:-900}"
+      TRUST_PROXY_HEADERS: "${TRUST_PROXY_HEADERS:-true}"
       WEBHOOK_MAX_BODY_BYTES: "${WEBHOOK_MAX_BODY_BYTES:-1048576}"
     expose:
       - "8787"
@@ -92,6 +93,11 @@ services:
       - "traefik.http.middlewares.security-headers.headers.stsincludesubdomains=true"
     volumes:
       - "./data:/app/data:rw"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
     healthcheck:
       test:
         - CMD
@@ -129,6 +135,11 @@ services:
     volumes:
       - "./infra/media-nginx.conf:/etc/nginx/nginx.conf:ro"
       - "./media:/usr/share/nginx/html/media:ro"
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/media-health || exit 1"]
       interval: 10s
@@ -153,6 +164,11 @@ services:
       - "${APP_BIND_ADDRESS:-127.0.0.1}:${LOCAL_APP_PORT:-8080}:80"
     volumes:
       - "./infra/local-gateway-nginx.conf:/etc/nginx/nginx.conf:ro"
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/health || exit 1"]
       interval: 10s
