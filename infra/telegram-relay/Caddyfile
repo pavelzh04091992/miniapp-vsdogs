@@ -1,0 +1,23 @@
+{
+  admin off
+}
+
+{$RELAY_DOMAIN} {
+  @telegram_webhook {
+    method POST
+    path /telegram/webhook
+  }
+
+  handle @telegram_webhook {
+    reverse_proxy {$UPSTREAM_ORIGIN} {
+      header_up Host {$UPSTREAM_HOST}
+      transport http {
+        tls_server_name {$UPSTREAM_HOST}
+      }
+    }
+  }
+
+  handle {
+    respond "Not Found" 404
+  }
+}

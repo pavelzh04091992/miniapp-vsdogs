@@ -150,6 +150,12 @@ Sidecar подключается только к исходящей сети app
 SSH-host не имеет рабочего IPv6, задайте `TELEGRAM_EGRESS_TARGET_HOST` текущим IPv4 из
 `getent ahostsv4 api.telegram.org` и ограничьте tunnel key тем же `permitopen`.
 
+Если сеть основного VPS также не принимает входящие соединения Telegram, на egress-host можно
+запустить relay из `infra/telegram-relay`. Его Caddyfile принимает только POST
+`/telegram/webhook`, проксирует запрос к основному test-host и возвращает `404` на остальные
+пути. В `.env.test-prod` задайте relay-origin через `TELEGRAM_WEBHOOK_PUBLIC_BASE_URL`, после
+чего повторно запустите `scripts/set-webhook.mjs`.
+
 ## Подготовка видео
 
 Для обычного MP4 достаточно положить файл по адресу:

@@ -5,9 +5,12 @@ loadDotEnv();
 
 const botToken = getRequiredEnv('BOT_TOKEN');
 const publicBaseUrl = getRequiredEnv('PUBLIC_BASE_URL').replace(/\/+$/, '');
+const webhookPublicBaseUrl = normalizeWebhookBaseUrl(
+  process.env.TELEGRAM_WEBHOOK_PUBLIC_BASE_URL || publicBaseUrl,
+);
 const webhookPath = process.env.TELEGRAM_WEBHOOK_PATH || '/telegram/webhook';
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET || '';
-const webhookUrl = `${publicBaseUrl}${webhookPath}`;
+const webhookUrl = new URL(webhookPath, `${webhookPublicBaseUrl}/`).toString();
 
 const payload = {
   url: webhookUrl,
@@ -22,3 +25,20 @@ const result = await createTelegramApi(botToken).request('setWebhook', payload);
 
 console.log(`Webhook configured: ${webhookUrl}`);
 console.log(JSON.stringify(result, null, 2));
+
+function normalizeWebhookBaseUrl(value) {
+  const parsed = new URL(value);
+
+  if (
+    parsed.protocol !== 'https:'
+    || parsed.username
+    || parsed.password
+    || parsed.pathname !== '/'
+    || parsed.search
+    || parsed.hash
+  ) {
+    throw new Error('TELEGRAM_WEBHOOK_PUBLIC_BASE_URL must be an HTTPS origin');
+  }
+
+  return parsed.origin;
+}
