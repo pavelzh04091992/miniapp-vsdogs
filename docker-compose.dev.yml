@@ -1,0 +1,8 @@
+services:
+  app:
+    ports:
+      - "127.0.0.1:${LOCAL_API_PORT:-8787}:8787"
+
+  media:
+    ports:
+      - "127.0.0.1:${MEDIA_PORT:-8081}:80"

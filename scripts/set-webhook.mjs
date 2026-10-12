@@ -1,42 +1,63 @@
-import { getRequiredEnv, loadDotEnv } from './video-catalog.mjs';
+import { getRequiredEnv, loadDotEnv } from './env.mjs';
+import { createTelegramApi } from './telegram-api.mjs';
 
 loadDotEnv();
 
 const botToken = getRequiredEnv('BOT_TOKEN');
 const publicBaseUrl = getRequiredEnv('PUBLIC_BASE_URL').replace(/\/+$/, '');
+const miniAppUrl = normalizeMiniAppUrl(process.env.MINI_APP_URL || publicBaseUrl);
+const webhookPublicBaseUrl = normalizeWebhookBaseUrl(
+  process.env.TELEGRAM_WEBHOOK_PUBLIC_BASE_URL || publicBaseUrl,
+);
 const webhookPath = process.env.TELEGRAM_WEBHOOK_PATH || '/telegram/webhook';
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET || '';
-const webhookUrl = `${publicBaseUrl}${webhookPath}`;
+const webhookUrl = new URL(webhookPath, `${webhookPublicBaseUrl}/`).toString();
 
 const payload = {
   url: webhookUrl,
-  allowed_updates: ['channel_post', 'edited_channel_post'],
+  allowed_updates: ['message', 'callback_query', 'channel_post', 'edited_channel_post'],
 };
 
 if (webhookSecret) {
   payload.secret_token = webhookSecret;
 }
 
-const result = await telegramRequest('setWebhook', payload);
+const api = createTelegramApi(botToken);
+const result = await api.request('setWebhook', payload);
+const menuButton = await api.setChatMenuButton({
+  type: 'web_app',
+  text: 'PuppyApp 🐶',
+  web_app: { url: miniAppUrl },
+});
 
 console.log(`Webhook configured: ${webhookUrl}`);
 console.log(JSON.stringify(result, null, 2));
+console.log(`Telegram Web App menu configured: ${miniAppUrl}`);
+console.log(JSON.stringify(menuButton, null, 2));
 
-async function telegramRequest(method, requestPayload) {
-  const response = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestPayload),
-  });
+function normalizeMiniAppUrl(value) {
+  const parsed = new URL(value);
 
-  const body = await response.json();
-
-  if (!response.ok || !body.ok) {
-    const description = body.description || response.statusText;
-    throw new Error(`Telegram API ${method} failed: ${description}`);
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.hash) {
+    throw new Error('MINI_APP_URL must be an HTTPS URL without credentials or a fragment');
   }
 
-  return body.result;
+  return parsed.toString();
+}
+
+function normalizeWebhookBaseUrl(value) {
+  const parsed = new URL(value);
+
+  if (
+    parsed.protocol !== 'https:'
+    || parsed.username
+    || parsed.password
+    || parsed.pathname !== '/'
+    || parsed.search
+    || parsed.hash
+  ) {
+    throw new Error('TELEGRAM_WEBHOOK_PUBLIC_BASE_URL must be an HTTPS origin');
+  }
+
+  return parsed.origin;
 }

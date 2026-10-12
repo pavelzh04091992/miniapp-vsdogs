@@ -101,7 +101,10 @@ img {
   width: 100%;
   min-height: 100dvh;
   display: grid;
+  grid-template-columns: 1fr;
+  align-content: center;
   place-items: center;
+  gap: 14px;
   background: #ffffff;
 }
 
@@ -112,6 +115,89 @@ img {
   border-top-color: #1150a1;
   border-radius: 50%;
   animation: initial-loader-spin 700ms linear infinite;
+}
+
+.initial-loader__label {
+  margin: 0;
+  color: #607086;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.access-gate {
+  width: 100%;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 28px 20px;
+  background:
+    radial-gradient(circle at 50% 8%, rgba(74, 145, 229, 0.2), transparent 42%),
+    linear-gradient(180deg, #f8fbff 0%, #eef5fc 100%);
+}
+
+.access-gate__card {
+  width: min(100%, 420px);
+  padding: 36px 28px 30px;
+  border: 1px solid rgba(17, 80, 161, 0.1);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 22px 60px rgba(26, 74, 123, 0.14);
+  text-align: center;
+}
+
+.access-gate__mark {
+  width: 76px;
+  height: 69px;
+  display: block;
+  object-fit: contain;
+  margin: 0 auto 18px;
+}
+
+.access-gate h1 {
+  margin: 0;
+  color: #17324f;
+  font-size: clamp(25px, 7vw, 32px);
+  line-height: 1.12;
+}
+
+.access-gate__message {
+  max-width: 330px;
+  margin: 16px auto 0;
+  color: #607086;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.access-gate__actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.access-gate__actions:empty {
+  display: none;
+}
+
+.access-gate__button {
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 16px;
+  background: #1150a1;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 750;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(17, 80, 161, 0.2);
+}
+
+.access-gate__button:focus-visible {
+  outline: 3px solid rgba(17, 80, 161, 0.28);
+  outline-offset: 3px;
 }
 
 @keyframes initial-loader-spin {

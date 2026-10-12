@@ -1,4 +1,4 @@
-import { loadDotEnv } from './video-catalog.mjs';
+import { loadDotEnv } from './env.mjs';
 
 loadDotEnv();
 
@@ -7,21 +7,32 @@ const videoId =
   process.env.SMOKE_VIDEO_ID === undefined
     ? 'map-puppy-fitness-house'
     : process.env.SMOKE_VIDEO_ID.trim();
+const sessionCookie = process.env.SMOKE_SESSION_COOKIE?.trim() || '';
 
 await checkJson('/health', (payload) => payload?.ok === true, 'health endpoint');
 await checkText('/', (body) => body.includes('<div id="app"></div>'), 'frontend');
-await checkJson(
-  '/data/videos.json',
-  (payload) => Array.isArray(payload?.videos),
-  'video catalog',
-);
-await checkVideoRange(videoId);
+
+if (sessionCookie) {
+  await checkJson(
+    '/data/videos.json',
+    (payload) => Array.isArray(payload?.videos),
+    'authenticated video catalog',
+    sessionHeaders(),
+  );
+  await checkStatus('/assets/hero-dog.webp', 200, 'authenticated private asset', sessionHeaders());
+  await checkVideoRange(videoId);
+} else {
+  await checkStatus('/data/videos.json', 401, 'anonymous video catalog rejection');
+  await checkStatus('/assets/hero-dog.webp', 401, 'anonymous private asset rejection');
+  await checkStatus('/media/smoke-protected/video.mp4', 401, 'anonymous media rejection');
+  console.log('[smoke] authenticated checks skipped (SMOKE_SESSION_COOKIE is empty)');
+}
 
 console.log(`[smoke] deployment is ready: ${baseUrl}`);
 
-async function checkJson(pathname, validate, label) {
+async function checkJson(pathname, validate, label, headers = {}) {
   const response = await fetch(`${baseUrl}${pathname}`, {
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/json', ...headers },
     signal: AbortSignal.timeout(10_000),
   });
   const payload = await response.json();
@@ -30,6 +41,21 @@ async function checkJson(pathname, validate, label) {
     fail(`${label} failed with status ${response.status}`);
   }
 
+  console.log(`[smoke] ok: ${label}`);
+}
+
+async function checkStatus(pathname, expectedStatus, label, headers = {}) {
+  const response = await fetch(`${baseUrl}${pathname}`, {
+    headers,
+    redirect: 'manual',
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  if (response.status !== expectedStatus) {
+    fail(`${label} failed with status ${response.status}; expected ${expectedStatus}`);
+  }
+
+  await response.body?.cancel();
   console.log(`[smoke] ok: ${label}`);
 }
 
@@ -53,7 +79,7 @@ async function checkVideoRange(id) {
   }
 
   const response = await fetch(`${baseUrl}/media/${encodeURIComponent(id)}/video.mp4`, {
-    headers: { Range: 'bytes=0-1023' },
+    headers: { Range: 'bytes=0-1023', ...sessionHeaders() },
     signal: AbortSignal.timeout(10_000),
   });
   const contentRange = response.headers.get('content-range') || '';
@@ -64,6 +90,10 @@ async function checkVideoRange(id) {
 
   await response.body?.cancel();
   console.log(`[smoke] ok: video range request (${id})`);
+}
+
+function sessionHeaders() {
+  return sessionCookie ? { Cookie: sessionCookie } : {};
 }
 
 function normalizeBaseUrl(value) {

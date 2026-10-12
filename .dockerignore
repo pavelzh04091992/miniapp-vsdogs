@@ -1,7 +1,9 @@
 .git
 node_modules
 dist
-.env
+.env*
+.test-secrets
+HANDOFF*.md
 .idea
 .agents
 *.log

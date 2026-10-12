@@ -2661,8 +2661,8 @@ export function createAppMarkup(
   return createHomeMarkup();
 }
 
-export function getAllAppAssetPaths(): string[] {
-  const paths = [
+export function getInitialAppAssetPaths(): string[] {
+  return [
     '/assets/logo-dog.svg',
     '/assets/hero-dog.webp',
     '/assets/nav-home.svg',
@@ -2683,27 +2683,32 @@ export function getAllAppAssetPaths(): string[] {
     '/assets/icons/comp_lil_check.webp',
     '/assets/icons/comp_middle_check.webp',
     '/assets/icons/comp_big_check.webp',
+  ].map(resolveCardImagePath);
+}
+
+export function getAllAppAssetPaths(): string[] {
+  const paths = getInitialAppAssetPaths();
+  const situations = [
+    ...puppySituations,
+    ...adultLargeSituations,
+    ...adultSmallSituations,
   ];
 
-  const addSituationAssets = (
-    situations: Array<{ imagePath: string; topics: Array<{ imagePath: string; lessons: Array<{ coverPath?: string }> }> }>,
-  ): void => {
-    paths.push(
-      ...situations.flatMap((situation) => [
-        situation.imagePath,
-        ...situation.topics.flatMap((topic) => [
-          topic.imagePath,
-          ...topic.lessons.map((lesson) => lesson.coverPath).filter((path): path is string => Boolean(path)),
-        ]),
-      ]),
-    );
-  };
+  situations.forEach((situation) => {
+    paths.push(resolveCardImagePath(situation.imagePath));
 
-  addSituationAssets(puppySituations);
-  addSituationAssets(adultLargeSituations);
-  addSituationAssets(adultSmallSituations);
+    situation.topics.forEach((topic) => {
+      paths.push(resolveCardImagePath(topic.imagePath));
 
-  return [...new Set(paths.filter((path): path is string => Boolean(path)).map(resolveCardImagePath))];
+      topic.lessons.forEach((lesson) => {
+        if (lesson.coverPath) {
+          paths.push(resolveCardImagePath(lesson.coverPath));
+        }
+      });
+    });
+  });
+
+  return [...new Set(paths)];
 }
 export function getSituationSlugFromRoute(route: AppRoute): PuppySituationSlug | null {
   if (!route.startsWith('puppy-situation:')) {
@@ -2889,7 +2894,6 @@ function createSubpageHeaderMarkup(title: string, backRoute: AppRoute): string {
     </header>
   `;
 }
-
 function createPuppiesMarkup(activeFilter: PuppyFilter): string {
   const visibleSituations =
     activeFilter === 'all'
@@ -3647,7 +3651,6 @@ function createLessonDescriptionIcon(icon: LessonDescriptionIcon): string {
     </svg>
   `;
 }
-
 function createSituationVideoContent(videosState: SituationVideosState): string {
   if (videosState.status === 'loading' || videosState.status === 'idle') {
     return `

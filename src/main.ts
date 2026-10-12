@@ -4,10 +4,11 @@ import {
   SituationVideosState,
   createAppMarkup,
   getAllAppAssetPaths,
+  getInitialAppAssetPaths,
   getVideoSourceSlugForRoute,
 } from './app';
 import { fetchSituationVideos } from './lib/videos';
-import { initTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
+import { getTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
 import {
   ComplexRevealOrigin,
   animateComplexRevealTransition,
@@ -23,7 +24,7 @@ if (!appRoot) {
 }
 
 const root = appRoot;
-const webApp = isTelegramMiniAppLaunch() ? initTelegramWebApp() : null;
+const webApp = isTelegramMiniAppLaunch() ? getTelegramWebApp() : null;
 
 let activeFilter: PuppyFilter = 'all';
 let videosState: SituationVideosState = { status: 'idle' };
@@ -33,7 +34,14 @@ let pendingTransitionDirection: PageTransitionDirection | null = null;
 const pageScrollPositions = new Map<AppRoute, number>();
 let pendingComplexTransitionOrigin: ComplexRevealOrigin | null = null;
 let destroyLessonVideoPlayer: (() => void) | null = null;
+let routeSyncSequence = 0;
+let videoCatalogAbortController: AbortController | null = null;
+let renderSequence = 0;
 let playerTitleFitFrame: number | null = null;
+// Protected assets use `no-store`, so keep decoded Image instances alive for
+// the lifetime of this authenticated page instead of relying on disk cache.
+const preloadedImages = new Map<string, HTMLImageElement>();
+const assetPreloadPromises = new Map<string, Promise<void>>();
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -44,7 +52,7 @@ if (webApp) {
   document.documentElement.dataset.launchContext = 'browser';
 }
 
-void initializeApp();
+export const appReady = startPrivateApp();
 window.addEventListener('hashchange', () => {
   void syncRouteState();
 });
@@ -96,7 +104,6 @@ window.addEventListener(
   },
   { capture: true },
 );
-
 document.addEventListener('click', (event) => {
   const target = event.target;
 
@@ -136,7 +143,7 @@ document.addEventListener('click', (event) => {
     }
 
     activeFilter = nextFilter;
-    render();
+    void render();
     return;
   }
 
@@ -166,25 +173,30 @@ document.addEventListener('click', (event) => {
   showFeedback(message);
 });
 
-async function initializeApp(): Promise<void> {
-  root.innerHTML = `
-    <main class="initial-loader" role="status" aria-live="polite" aria-label="Загрузка приложения">
-      <span class="initial-loader__spinner" aria-hidden="true"></span>
-    </main>
-  `;
-
-  await preloadAllAssets(getAllAppAssetPaths());
+async function startPrivateApp(): Promise<void> {
+  await preloadAllAssets(getInitialAppAssetPaths());
   await syncRouteState();
+  window.setTimeout(() => {
+    void preloadAllAssets(getAllAppAssetPaths(), 4);
+  }, 0);
 }
-function render(): void {
+async function render(): Promise<void> {
+  const sequence = ++renderSequence;
   const route = getCurrentRoute();
+  const markup = createAppMarkup(route, activeFilter, videosState);
+
+  await preloadAllAssets(getMarkupAssetPaths(markup));
+
+  if (sequence !== renderSequence || route !== getCurrentRoute()) {
+    return;
+  }
+
   const complexTransitionOrigin = pendingComplexTransitionOrigin;
   pendingComplexTransitionOrigin = null;
   const routeChanged = lastRenderedRoute !== null && lastRenderedRoute !== route;
   const direction = pendingTransitionDirection ?? getRouteTransitionDirection(lastRenderedRoute, route);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const savedScrollTop = routeChanged ? getSavedPageScrollTop(route) : getCurrentScrollTop();
-  const markup = createAppMarkup(route, activeFilter, videosState);
   const isComplexTransition =
     routeChanged &&
     ((lastRenderedRoute === 'home' && route === 'complex') ||
@@ -506,18 +518,78 @@ function setupLiquidGlassCards(): void {
   });
 }
 
-async function preloadAllAssets(paths: string[]): Promise<void> {
-  await Promise.all(paths.map((path) => preloadAsset(path)));
+async function preloadAllAssets(paths: string[], concurrency = 6): Promise<void> {
+  const uniquePaths = [...new Set(paths)];
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), uniquePaths.length);
+
+  const preloadNext = async (): Promise<void> => {
+    while (nextIndex < uniquePaths.length) {
+      const path = uniquePaths[nextIndex];
+      nextIndex += 1;
+      await preloadAsset(path);
+    }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, () => preloadNext()));
 }
 
-function preloadAsset(path: string): Promise<void> {
-  return new Promise((resolve) => {
-    const image = new Image();
-    image.decoding = 'async';
-    image.onload = () => resolve();
-    image.onerror = () => resolve();
+async function preloadAsset(path: string): Promise<void> {
+  const existingPromise = assetPreloadPromises.get(path);
+
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const image = new Image();
+  image.decoding = 'async';
+  preloadedImages.set(path, image);
+
+  const preloadPromise = new Promise<void>((resolve) => {
+    const finish = (): void => {
+      image.onload = null;
+      image.onerror = null;
+      resolve();
+    };
+
+    image.onload = () => {
+      const decode = typeof image.decode === 'function'
+        ? image.decode()
+        : Promise.resolve();
+      void decode.catch(() => undefined).then(finish);
+    };
+    image.onerror = () => {
+      preloadedImages.delete(path);
+      assetPreloadPromises.delete(path);
+      finish();
+    };
     image.src = path;
   });
+
+  assetPreloadPromises.set(path, preloadPromise);
+  return preloadPromise;
+}
+
+function getMarkupAssetPaths(markup: string): string[] {
+  const template = document.createElement('template');
+  template.innerHTML = markup.trim();
+  const paths = Array.from(template.content.querySelectorAll<HTMLImageElement>('img[src]'))
+    .map((image) => image.getAttribute('src'))
+    .filter((path): path is string => path !== null && isCacheableImagePath(path));
+
+  template.content.querySelectorAll<HTMLElement>('[data-video-id]').forEach((player) => {
+    const videoId = player.dataset.videoId;
+
+    if (videoId) {
+      paths.push(`/media/${encodeURIComponent(videoId)}/poster.webp`);
+    }
+  });
+
+  return [...new Set(paths)];
+}
+
+function isCacheableImagePath(path: string): boolean {
+  return path.startsWith('/assets/') || path.startsWith('/media/');
 }
 
 function applyCategoryGlassVariation(card: HTMLElement): void {
@@ -599,6 +671,9 @@ function getCurrentRoute(): AppRoute {
 }
 
 async function syncRouteState(): Promise<void> {
+  const sequence = ++routeSyncSequence;
+  videoCatalogAbortController?.abort();
+  videoCatalogAbortController = null;
   const route = getCurrentRoute();
   const videoSourceSlug = getVideoSourceSlugForRoute(route);
 
@@ -607,25 +682,37 @@ async function syncRouteState(): Promise<void> {
   }
 
   if (videoSourceSlug) {
+    const controller = new AbortController();
+    videoCatalogAbortController = controller;
     videosState = { status: 'loading' };
-    render();
+    await render();
 
     try {
-      const videos = await fetchSituationVideos(videoSourceSlug);
+      const videos = await fetchSituationVideos(videoSourceSlug, { signal: controller.signal });
+
+      if (sequence !== routeSyncSequence) {
+        return;
+      }
+
       videosState = { status: 'ready', videos };
     } catch {
+      if (controller.signal.aborted || sequence !== routeSyncSequence) {
+        return;
+      }
+
       videosState = {
         status: 'error',
         message: 'Попробуйте открыть этот экран чуть позже',
       };
     }
 
-    render();
+    videoCatalogAbortController = null;
+    await render();
     return;
   }
 
   videosState = { status: 'idle' };
-  render();
+  await render();
 }
 
 function navigateTo(route: AppRoute): void {
@@ -652,7 +739,6 @@ function isEditableElement(target: EventTarget | null): boolean {
     (target instanceof HTMLElement && target.isContentEditable)
   );
 }
-
 function showFeedback(message: string): void {
   webApp?.HapticFeedback?.impactOccurred('light');
 
@@ -664,8 +750,22 @@ function showFeedback(message: string): void {
   window.alert(message);
 }
 
-function openExternalUrl(url: string): void {
-  if (url.startsWith('https://t.me/') || url.startsWith('http://t.me/')) {
+function openExternalUrl(rawUrl: string): void {
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    return;
+  }
+
+  if (parsedUrl.protocol !== 'https:') {
+    return;
+  }
+
+  const url = parsedUrl.toString();
+
+  if (parsedUrl.hostname === 't.me') {
     if (webApp?.openTelegramLink) {
       webApp.openTelegramLink(url);
       return;

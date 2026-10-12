@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:media": "docker compose up -d media",
-    "build": "tsc --noEmit && vite build",
-    "verify": "npm run build && npm run media:check",
+    "dev:media": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build app media",
+    "build": "tsc --noEmit && vite build && node scripts/check-private-bundle.mjs",
+    "verify": "npm run test:auth && npm run build && npm run media:check",
     "preview": "vite preview",
     "start": "node scripts/app-server.mjs",
     "test:smoke": "node scripts/smoke-test.mjs",
+    "test:auth": "node --test --experimental-test-isolation=none scripts/branding.test.mjs scripts/env.test.mjs scripts/telegram-api.test.mjs scripts/telegram-auth.test.mjs scripts/auth-database.test.mjs scripts/telegram-bot.test.mjs scripts/frontend-auth.test.mjs scripts/frontend-videos.test.mjs scripts/rate-limit.test.mjs scripts/server-config.test.mjs scripts/http-utils.test.mjs scripts/protected-routes.test.mjs scripts/static-server.test.mjs scripts/video-catalog.test.mjs",
     "send:channel-message": "node scripts/send-channel-message.mjs",
     "bot:server": "node scripts/app-server.mjs",
     "bot:set-webhook": "node scripts/set-webhook.mjs",
@@ -25,5 +26,8 @@
   },
   "dependencies": {
     "hls.js": "^1.7.3"
+  },
+  "overrides": {
+    "source-map-js": "^1.2.2"
   }
 }

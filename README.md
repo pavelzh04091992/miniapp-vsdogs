@@ -15,27 +15,31 @@
 
 ```bash
 npm ci
-npm run dev:media
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build app media
 npm run dev
 ```
 
 Vite доступен на `http://localhost:3000`. Запросы `/media/` проксируются на media-контейнер
-через порт `8081`; тестовый каталог `/data/videos.json` берётся из `public/`. Полный Docker-стек
-доступен на `http://localhost:8080` после `docker compose up -d --build`.
+через порт `8081`, а `/api/`, `/auth/` и `/data/` — в единый app-контейнер через локальный порт
+`8787`. Для входа нужны Telegram-настройки из `.env` и активный доступ в боте. Не запускайте
+параллельно `npm start`: backend и media должны читать одну SQLite-базу внутри Docker. Полный
+Docker-стек доступен на `http://localhost:8080` после
+`docker compose up -d --build`.
 
 Проверки без Docker:
 
 ```bash
 npm run typecheck
 npm run build
+npm run test:auth
 npm run verify
 ```
 
 `npm run verify` выполняет production-сборку и проверяет, что MP4 подготовлены с fast start.
 
-## Тестовое развёртывание на сервере
+## Локальный Docker-стек
 
-Нужны Docker Engine с Compose v2 и открытый TCP-порт приложения.
+Нужен Docker Engine с Compose v2.
 
 1. Скопируйте репозиторий на сервер и создайте конфигурацию:
 
@@ -43,17 +47,7 @@ npm run verify
    cp .env.example .env
    ```
 
-2. Для доступа по IP измените в `.env`:
-
-   ```dotenv
-   APP_BIND_ADDRESS=0.0.0.0
-   LOCAL_APP_PORT=8080
-   ```
-
-   Не открывайте порт всему интернету без настроенного firewall. Для доступа только через
-   локальный reverse proxy оставьте `APP_BIND_ADDRESS=127.0.0.1`.
-
-3. Загрузите видео отдельно — каталог `media/` намеренно не хранится в Git:
+2. Загрузите видео отдельно — каталог `media/` намеренно не хранится в Git:
 
    ```text
    media/
@@ -61,21 +55,22 @@ npm run verify
        video.mp4
    ```
 
-4. Запустите стек:
+3. Запустите стек:
 
    ```bash
    docker compose up -d --build
    docker compose ps
    ```
 
-5. Выполните smoke-тест:
+4. Выполните smoke-тест:
 
    ```bash
    npm run test:smoke -- http://127.0.0.1:8080
    ```
 
-После этого приложение доступно по адресу `http://SERVER_IP:8080`. `BOT_TOKEN` для просмотра
-приложения и видео не нужен. Если `TELEGRAM_WEBHOOK_SECRET` пуст, webhook отключён.
+После этого приложение доступно локально по адресу `http://127.0.0.1:8080`. Для входа и просмотра видео
+нужны настроенный `BOT_TOKEN`, webhook и активный доступ пользователя. Если
+`TELEGRAM_WEBHOOK_SECRET` пуст, webhook отключён.
 
 Полезные команды:
 
@@ -95,34 +90,73 @@ mkdir -p letsencrypt
 docker compose --profile production up -d --build
 ```
 
-Traefik получает сертификат Let's Encrypt, направляет `/media/` непосредственно в Nginx, а
-остальные запросы — в приложение. Локальный gateway остаётся доступен на адресе из
-`APP_BIND_ADDRESS` и может использоваться для диагностики.
+Traefik получает сертификат Let's Encrypt и направляет весь трафик в gateway. Gateway проксирует
+обычные запросы в app, а `/media/` — в media. App и media находятся во внутренней сети, а app
+использует отдельную исходящую сеть для Telegram API. Локальный gateway остаётся доступен на
+адресе из `APP_BIND_ADDRESS` для диагностики.
 
-## Изолированный тестовый контур
+## Locked test-prod на существующем Traefik
 
-Тестовый Compose-проект не использует продовые контейнеры, сеть или Traefik. Наружу
-публикуется только gateway на порту `8000`, а всё приложение защищено Basic Auth.
+Test-prod запускается отдельным Compose-проектом и использует собственные app, media-контейнер
+и SQLite-БД. С продом общими остаются только read-only медиатека и proxy-сеть Traefik. `MEDIA_PATH`
+должен указывать непосредственно на каталог с подпапками `<video-id>/`, а не на его родителя.
+Внешний
+доступ разрешён только по HTTPS-домену; диагностический порт `8000` слушает loopback.
+
+Перед обновлением сохраните текущую release-копию и test data в `/opt/miniapp-test/backups/`.
+Не используйте `docker compose down -v`: persistent data подключаются bind mount-ами и должны
+оставаться вне release-каталога.
 
 ```bash
-cp .env.test.example .env.test
-mkdir -p .test-secrets
-docker run --rm --entrypoint htpasswd httpd:2.4-alpine -nbB miniapp-test 'unique-test-password' \
-  > .test-secrets/.htpasswd
-docker compose --env-file .env.test -f docker-compose.test.yml up -d --build
+cp .env.test-prod.example .env.test-prod
+# Заполните BOT_TOKEN и TELEGRAM_WEBHOOK_SECRET, не добавляя файл в Git.
+docker compose --env-file .env.test-prod -p miniapp-puppys-test config --quiet
+docker compose --env-file .env.test-prod -p miniapp-puppys-test \
+  up -d --build --remove-orphans app media gateway
 ```
 
-Для серверного запуска задайте в `.env.test` отдельные пути:
+После получения сертификата:
 
-```dotenv
-TEST_DATA_PATH=/opt/miniapp-test/data
-TEST_MEDIA_PATH=/opt/miniapp/app/media
-TEST_HTPASSWD_PATH=/opt/miniapp-test/secrets/.htpasswd
+```bash
+curl -fsS https://dev-82-146-52-99.sslip.io/health
+docker compose --env-file .env.test-prod -p miniapp-puppys-test \
+  run --rm app node scripts/set-webhook.mjs
+npm run test:smoke -- https://dev-82-146-52-99.sslip.io
 ```
 
-Медиатека подключается к отдельному test-media контейнеру только для чтения. Webhook в
-тестовом Compose-проекте всегда выключен. Basic Auth поверх HTTP не шифрует credentials,
-поэтому используйте только случайный временный пароль, который нигде больше не применяется.
+`LOCKED_MODE=true` запрещает запуск с неполным Telegram/HTTPS-конфигом. Test-prod использует
+отдельного бота: Telegram поддерживает только один webhook на bot token.
+
+Для rollback верните сохранённую release-копию, оставьте `/opt/miniapp-test/data` на месте и
+повторно выполните Compose-команду из восстановленного каталога. Продовый проект
+`miniapp-puppys` при обновлении или rollback теста не перезапускается.
+
+### Временный Telegram egress через SSH
+
+Если deployment-host не может подключиться к `api.telegram.org:443`, опциональный override
+`docker-compose.telegram-egress.yml` прокидывает только это TLS-соединение через доверенный
+SSH-сервер. Используйте отдельный ключ и закреплённый `known_hosts`; SSH-пароль нельзя хранить
+в Compose или `.env`.
+
+```bash
+docker compose -p miniapp-puppys-test \
+  --env-file .env.test-prod \
+  -f docker-compose.yml \
+  -f docker-compose.telegram-egress.yml \
+  up -d --build telegram-egress
+```
+
+Sidecar подключается только к исходящей сети app под alias `api.telegram.org`. TLS завершается
+на стороне Telegram: SSH-сервер видит только зашифрованный TCP-трафик. Когда прямой маршрут
+восстановится, sidecar нужно остановить и запускать базовый Compose без override. Если remote
+SSH-host не имеет рабочего IPv6, задайте `TELEGRAM_EGRESS_TARGET_HOST` текущим IPv4 из
+`getent ahostsv4 api.telegram.org` и ограничьте tunnel key тем же `permitopen`.
+
+Если сеть основного VPS также не принимает входящие соединения Telegram, на egress-host можно
+запустить relay из `infra/telegram-relay`. Его Caddyfile принимает только POST
+`/telegram/webhook`, проксирует запрос к основному test-host и возвращает `404` на остальные
+пути. В `.env.test-prod` задайте relay-origin через `TELEGRAM_WEBHOOK_PUBLIC_BASE_URL`, после
+чего повторно запустите `scripts/set-webhook.mjs`.
 
 ## Подготовка видео
 
@@ -164,17 +198,26 @@ media/<video-id>/
 
 ## Telegram webhook
 
-Webhook не участвует в воспроизведении локальных видео. Он нужен только для прежнего сценария,
-в котором посты Telegram добавляются в каталог `/data/videos.json`.
+Один webhook обслуживает публикации канала, личные сообщения бота и callback-кнопки.
+Бот хранит пользователей и выданные доступы в `data/auth.sqlite`.
 
 Для его включения задайте как минимум:
 
 ```dotenv
 TELEGRAM_WEBHOOK_SECRET=long-random-secret
-PUBLIC_CHANNEL_USERNAME=channel_username
 PUBLIC_BASE_URL=https://example.com
 BOT_TOKEN=telegram-bot-token
+BOT_USERNAME=your_bot_username
+ADMIN_TELEGRAM_ID=123456789
+MINI_APP_URL=https://example.com
+MAGIC_LINK_TTL_SECONDS=600
+PUBLIC_CHANNEL_ID=-1001234567890
+PUBLIC_CHANNEL_USERNAME=your_channel_username
 ```
+
+`PUBLIC_CHANNEL_ID` — предпочтительный allowlist для публикаций канала. Если ID не задан,
+используется точное сравнение `PUBLIC_CHANNEL_USERNAME`; без обоих значений webhook не изменяет
+видеокаталог.
 
 Затем зарегистрируйте webhook:
 
@@ -182,13 +225,49 @@ BOT_TOKEN=telegram-bot-token
 npm run bot:set-webhook
 ```
 
-`BOT_TOKEN` используется только вспомогательными командами регистрации webhook и отправки
-сообщений; в контейнер приложения он не передаётся.
+После `/start` администратор получает меню выдачи и отзыва доступа. Если указанный пользователь
+уже запускал бота, он сразу получит уведомление и кнопку Mini App. Иначе администратор получит
+персональную deep link, которую нужно передать пользователю. При переходе бот проверяет, что
+приглашение открыто тем Telegram ID, которому оно выдано.
+
+Сервер предоставляет API для следующего этапа интеграции фронтенда:
+
+- `POST /api/auth/telegram` — принимает `{ "initData": "..." }`, проверяет подпись Telegram,
+  срок `auth_date` и наличие активного доступа, затем создаёт HttpOnly-сессию;
+- `GET /api/auth/config` — возвращает публичную ссылку на бота для экрана входа;
+- `GET /api/me` — возвращает пользователя текущей сессии;
+- `POST /api/logout` — отзывает текущую сессию.
+
+Mini App обменивает проверенный `initData` на серверную сессию. В обычном браузере пользователь
+нажимает в боте «Войти в браузере», получает одноразовую ссылку и после перехода также получает
+HttpOnly-сессию. До успешной проверки frontend показывает только экран входа или отказа в доступе.
+POST-запросы, меняющие авторизацию, принимаются только с Origin из `PUBLIC_BASE_URL`,
+`MINI_APP_URL` или `ALLOWED_ORIGINS`. Подтверждение magic link дополнительно привязано к браузеру
+короткоживущей HttpOnly-cookie, поэтому ссылку нельзя незаметно навязать чужому браузеру.
+Production-сессия по умолчанию использует cookie с префиксом `__Host-`; после перехода со старого
+имени cookie пользователю потребуется один раз войти заново. Для работы Mini App во фрейме
+Telegram production-cookie использует `SameSite=None; Secure`; локальный HTTP compose override
+явно переключает её на `SameSite=Lax`.
+Запросы Telegram-auth, magic link и приватные команды бота ограничены по частоте; лимиты и общее
+окно настраиваются переменными `AUTH_RATE_LIMIT_MAX`, `MAGIC_LINK_RATE_LIMIT_MAX`,
+`BOT_COMMAND_RATE_LIMIT_MAX` и `RATE_LIMIT_WINDOW_SECONDS`. Заголовки
+`X-Forwarded-For`/`X-Real-IP` используются для лимитов только при
+`TRUST_PROXY_HEADERS=true`; включайте этот параметр лишь когда app-контейнер недоступен напрямую
+из интернета и запросы всегда проходят через доверенный reverse proxy.
+
+Публичными остаются только `index.html` и минимальный auth-bootstrap для показа экрана входа.
+Основной JS/CSS находится в `/private/`, изображения — в `/assets/`; оба префикса, каталог
+`/data/videos.json` и файлы `/media/` доступны только с действующей HttpOnly-сессией. Для медиа
+Nginx выполняет внутреннюю проверку сессии перед выдачей HLS, MP4, постеров и Range-ответов.
+Изменяемый `data/videos.json` не входит в `public/` и production bundle; dev-сервер блокирует
+закодированные и mixed-case варианты приватных маршрутов и проверяет сессию перед выдачей
+приватных исходников и ассетов.
 
 ## Хранение данных и резервные копии
 
 - `media/` — видеофайлы; монтируется в media-контейнер только для чтения.
-- `data/` — изменяемый каталог Telegram-видео; монтируется в app-контейнер для записи.
+- `data/` — изменяемый каталог Telegram-видео и SQLite-база `auth.sqlite`; монтируется в
+  app-контейнер для записи.
 - `letsencrypt/` — сертификаты Traefik.
 
 Перед обновлением сервера сохраняйте эти три каталога. На Linux пользователь контейнера
@@ -196,21 +275,35 @@ npm run bot:set-webhook
 
 ## Ограничение доступа к видео
 
-На тестовом этапе `/media/` остаётся публичным. Скрытие URL и отключение кнопки скачивания —
-только базовая защита интерфейса. Для закрытого контента следующим этапом нужны короткоживущие
-подписанные URL или проверка сессии на media endpoint.
+Без действующей сессии каталог и прямые ссылки `/media/` возвращают `401`. Сессия проверяется
+на каждый запрос плейлиста, сегмента, MP4 или постера; поддержка `Range` после проверки
+сохраняется. Это закрывает доступ по одной только прямой ссылке, хотя авторизованный пользователь
+по-прежнему технически может сохранить уже доступный ему контент.
 
 ## Структура
 
 ```text
+docker-compose.yml          # Единый locked-стек для prod и test-prod
+docker-compose.dev.yml      # Loopback-порты app/media для локального Vite
 infra/
   local-gateway-nginx.conf  # HTTP gateway для локального и тестового запуска
-  media-nginx.conf          # Раздача MP4/HLS с поддержкой Range
+  media-nginx.conf          # Защищённая раздача MP4/HLS с поддержкой Range
 scripts/
-  app-server.mjs            # Фронтенд, healthcheck и Telegram webhook
+  app-server.mjs            # Фронтенд, auth API, healthcheck и Telegram webhook
+  auth-database.mjs         # SQLite: пользователи, приглашения и сессии
+  env.mjs                   # Единая загрузка и проверка переменных из .env
+  http-utils.mjs            # HTTP parsing, cookies, Origin и security headers
+  protected-routes.mjs      # Единая граница динамических и статических маршрутов
+  rate-limit.mjs            # Ограничение частоты auth и bot-запросов
+  server-config.mjs         # Проверка и нормализация серверной конфигурации
+  static-server.mjs         # Безопасная раздача production frontend
+  telegram-auth.mjs         # Проверка Telegram initData
+  telegram-api.mjs          # Безопасный клиент Telegram Bot API с timeout
+  telegram-bot.mjs          # Админское и пользовательское меню бота
   prepare-video.mjs         # Подготовка HLS/MP4/poster через FFmpeg
   smoke-test.mjs            # Проверка развёрнутого стека
 src/
+  bootstrap.ts              # Публичный auth gate и загрузка приватного приложения
   app.ts                    # Экраны и разметка
   main.ts                   # Инициализация и маршрутизация
   video-player.ts           # Логика собственного плеера

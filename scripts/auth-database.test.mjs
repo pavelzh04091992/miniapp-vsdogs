@@ -1,0 +1,272 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import test from 'node:test';
+import { createAuthDatabase } from './auth-database.mjs';
+
+test('stores access, profiles, invitations and revocable sessions', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-auth-'));
+  let currentTime = 1_800_000_000;
+  const database = createAuthDatabase(join(directory, 'auth.sqlite'), {
+    now: () => currentTime,
+  });
+
+  try {
+    const admin = database.ensureAdmin('10001');
+    assert.equal(admin.role, 'admin');
+    assert.equal(admin.status, 'active');
+
+    database.ensureAdmin('10002');
+    assert.equal(database.getUser('10001').role, 'user');
+    database.ensureAdmin('10001');
+    assert.equal(database.isTelegramUpdateProcessed(12345), false);
+    database.markTelegramUpdateProcessed(12345);
+    assert.equal(database.isTelegramUpdateProcessed(12345), true);
+    assert.equal(database.claimTelegramUpdate(12346), true);
+    assert.equal(database.claimTelegramUpdate(12346), false);
+    database.releaseTelegramUpdate(12346);
+    assert.equal(database.claimTelegramUpdate(12346), true);
+
+    const granted = database.grantUser('20002', '10001');
+    assert.equal(granted.status, 'active');
+    database.grantUser('20003', '10001');
+    database.grantUser('20004', '10001');
+    assert.deepEqual(
+      database.listManagedUsers(2, 0).map((user) => user.telegramId),
+      ['20004', '20003'],
+    );
+    assert.deepEqual(
+      database.listManagedUsers(2, 2).map((user) => user.telegramId),
+      ['20002', '10002'],
+    );
+
+    database.touchTelegramUser({
+      id: '20002',
+      firstName: 'Grace',
+      lastName: 'Hopper',
+      username: 'grace',
+    });
+    assert.equal(database.getUser('20002').username, 'grace');
+
+    const invite = database.createInvite('20002', '10001', 60);
+    assert.deepEqual(database.consumeInvite(invite.token, '30003'), {
+      ok: false,
+      reason: 'telegram_id_mismatch',
+    });
+    assert.equal(database.consumeInvite(invite.token, '20002').ok, true);
+    assert.equal(database.consumeInvite(invite.token, '20002').ok, false);
+
+    database.setBotState('10001', 'awaiting_grant_id');
+    assert.equal(database.getBotState('10001', 60), 'awaiting_grant_id');
+    currentTime += 61;
+    assert.equal(database.getBotState('10001', 60), null);
+
+    const session = database.createSession('20002', 60);
+    assert.equal(database.getSessionUser(session.token).telegramId, '20002');
+
+    for (let index = 0; index < 25; index += 1) {
+      database.createSession('20002', 60);
+    }
+
+    const sessionInspector = new DatabaseSync(join(directory, 'auth.sqlite'), { readOnly: true });
+    const storedSessions = sessionInspector.prepare(
+      'SELECT COUNT(*) AS count FROM sessions WHERE telegram_id = ?',
+    ).get('20002');
+    sessionInspector.close();
+    assert.equal(storedSessions.count, 20);
+    assert.equal(database.getSessionUser(session.token), null);
+
+    const revocableSession = database.createSession('20002', 60);
+
+    database.setUserStatus('20002', 'revoked', '10001');
+    assert.equal(database.getSessionUser(revocableSession.token), null);
+    assert.equal(database.getUser('20002').status, 'revoked');
+
+    currentTime += 120;
+    database.setUserStatus('20002', 'active', '10001');
+    const expiringSession = database.createSession('20002', 60);
+    currentTime += 61;
+    assert.equal(database.getSessionUser(expiringSession.token), null);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('stores the authentication database without group or world access', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-auth-permissions-'));
+  const databasePath = join(directory, 'permissions.sqlite');
+  const database = createAuthDatabase(databasePath);
+
+  database.close();
+
+  try {
+    if (process.platform !== 'win32') {
+      assert.equal(statSync(databasePath).mode & 0o077, 0);
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('magic links are hashed, short-lived, single-use and revoke previous links', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-magic-'));
+  const databasePath = join(directory, 'auth.sqlite');
+  let currentTime = 1_800_000_000;
+  const database = createAuthDatabase(databasePath, { now: () => currentTime });
+
+  try {
+    database.ensureAdmin('10001');
+    database.grantUser('20002', '10001');
+
+    const first = database.createMagicLink('20002', '20002', 600);
+    const inspector = new DatabaseSync(databasePath, { readOnly: true });
+    const stored = inspector.prepare('SELECT token_hash FROM magic_links').get();
+    inspector.close();
+    assert.notEqual(stored.token_hash, first.token);
+    assert.match(stored.token_hash, /^[a-f\d]{64}$/);
+
+    const second = database.createMagicLink('20002', '20002', 600);
+    assert.equal(database.isMagicLinkUsable(first.token), false);
+    assert.equal(database.isMagicLinkUsable(second.token), true);
+    assert.equal(database.consumeMagicLink(first.token), null);
+
+    const linkStates = new DatabaseSync(databasePath, { readOnly: true });
+    const rows = linkStates.prepare(`
+      SELECT used_at, revoked_at
+      FROM magic_links
+      WHERE telegram_id = ?
+      ORDER BY id
+    `).all('20002');
+    linkStates.close();
+    assert.equal(rows.length, 2);
+    assert.notEqual(rows[0].revoked_at, null);
+    assert.equal(rows[1].revoked_at, null);
+
+    const attempts = await Promise.all([
+      Promise.resolve(database.consumeMagicLink(second.token, 120)),
+      Promise.resolve(database.consumeMagicLink(second.token, 120)),
+    ]);
+    assert.equal(attempts.filter(Boolean).length, 1);
+    assert.equal(database.isMagicLinkUsable(second.token), false);
+    assert.equal(database.getSessionUser(attempts.find(Boolean).token).telegramId, '20002');
+
+    const expired = database.createMagicLink('20002', '20002', 10);
+    const supersededStates = new DatabaseSync(databasePath, { readOnly: true });
+    const supersededRows = supersededStates.prepare(`
+      SELECT used_at, revoked_at
+      FROM magic_links
+      WHERE telegram_id = ?
+      ORDER BY id
+    `).all('20002');
+    supersededStates.close();
+    assert.notEqual(supersededRows[1].used_at, null);
+    assert.notEqual(supersededRows[1].revoked_at, null);
+    assert.equal(supersededRows[2].revoked_at, null);
+
+    currentTime += 11;
+    assert.equal(database.consumeMagicLink(expired.token), null);
+
+    const revoked = database.createMagicLink('20002', '20002', 600);
+    database.setUserStatus('20002', 'revoked', '10001');
+    assert.equal(database.consumeMagicLink(revoked.token), null);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('activates a prepared magic link only after delivery and persists message cleanup state', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-delivery-'));
+  const databasePath = join(directory, 'auth.sqlite');
+  let currentTime = 1_800_000_000;
+  let database = createAuthDatabase(databasePath, { now: () => currentTime });
+
+  try {
+    database.ensureAdmin('10001');
+    database.grantUser('20002', '10001');
+
+    const first = database.prepareMagicLinkDelivery('20002', 600);
+    assert.equal(database.isMagicLinkUsable(first.token), false);
+    assert.deepEqual(
+      database.finalizeMagicLinkDelivery(first.token, '20002', '20002', 101),
+      { previousMessage: null },
+    );
+    assert.equal(database.isMagicLinkUsable(first.token), true);
+
+    const aborted = database.prepareMagicLinkDelivery('20002', 600);
+    database.abortMagicLinkDelivery(aborted.token);
+    assert.equal(database.isMagicLinkUsable(first.token), true);
+    assert.equal(database.isMagicLinkUsable(aborted.token), false);
+
+    database.trackBotMessage('20002', '20002', 201, 'browser_request');
+    const replacement = database.prepareMagicLinkDelivery('20002', 600);
+    assert.equal(database.isMagicLinkUsable(first.token), true);
+    assert.deepEqual(
+      database.finalizeMagicLinkDelivery(replacement.token, '20002', '20002', 102),
+      {
+        previousMessage: {
+          telegramId: '20002',
+          chatId: '20002',
+          messageId: 101,
+          kind: 'browser_link',
+          isCurrent: true,
+          createdAt: currentTime,
+        },
+      },
+    );
+    assert.equal(database.isMagicLinkUsable(first.token), false);
+    assert.equal(database.isMagicLinkUsable(replacement.token), true);
+    assert.deepEqual(
+      database.listBotMessagesForCleanup('20002').map(({ messageId }) => messageId),
+      [101, 201],
+    );
+
+    const concurrentA = database.prepareMagicLinkDelivery('20002', 600);
+    const concurrentB = database.prepareMagicLinkDelivery('20002', 600);
+    const finalized = await Promise.all([
+      Promise.resolve(database.finalizeMagicLinkDelivery(concurrentA.token, '20002', '20002', 103)),
+      Promise.resolve(database.finalizeMagicLinkDelivery(concurrentB.token, '20002', '20002', 104)),
+    ]);
+    assert.equal(finalized.filter(Boolean).length, 1);
+
+    database.close();
+    database = createAuthDatabase(databasePath, { now: () => currentTime });
+    assert.deepEqual(
+      database.listBotMessagesForCleanup('20002').map(({ messageId }) => messageId),
+      [101, 102, 201],
+    );
+
+    currentTime += 2 * 86_400 + 1;
+    database.cleanup();
+    assert.deepEqual(database.listBotMessagesForCleanup('20002'), []);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('migrates existing magic links as already delivered', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-magic-migration-'));
+  const databasePath = join(directory, 'auth.sqlite');
+  let database = createAuthDatabase(databasePath);
+
+  try {
+    database.ensureAdmin('10001');
+    const link = database.createMagicLink('10001', '10001', 600);
+    database.close();
+    database = null;
+
+    const legacyDatabase = new DatabaseSync(databasePath);
+    legacyDatabase.exec('ALTER TABLE magic_links DROP COLUMN delivered_at');
+    legacyDatabase.close();
+
+    database = createAuthDatabase(databasePath);
+    assert.equal(database.isMagicLinkUsable(link.token), true);
+  } finally {
+    database?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

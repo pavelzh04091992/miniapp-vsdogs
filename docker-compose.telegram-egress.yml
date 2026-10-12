@@ -1,0 +1,59 @@
+services:
+  app:
+    # Docker's embedded DNS does not override public dotted names through a
+    # network alias consistently. A scoped link writes the tunnel address for
+    # api.telegram.org into this container only and also orders startup.
+    links:
+      - telegram-egress:api.telegram.org
+
+  telegram-egress:
+    build:
+      context: .
+      dockerfile: infra/telegram-egress.Dockerfile
+    command:
+      - -NT
+      - -L
+      - "0.0.0.0:443:${TELEGRAM_EGRESS_TARGET_HOST:-api.telegram.org}:443"
+      - -o
+      - BatchMode=yes
+      - -o
+      - IdentitiesOnly=yes
+      - -o
+      - StrictHostKeyChecking=yes
+      - -o
+      - UserKnownHostsFile=/run/secrets/known_hosts
+      - -o
+      - ExitOnForwardFailure=yes
+      - -o
+      - ServerAliveInterval=30
+      - -o
+      - ServerAliveCountMax=3
+      - -i
+      - /run/secrets/id_ed25519
+      - -p
+      - "${TELEGRAM_EGRESS_SSH_PORT:-22}"
+      - "${TELEGRAM_EGRESS_SSH_USER:-root}@${TELEGRAM_EGRESS_SSH_HOST:-egress.example.com}"
+    expose: ["443"]
+    volumes:
+      - "${TELEGRAM_EGRESS_SSH_KEY_PATH:-./.test-secrets/telegram-egress_ed25519}:/run/secrets/id_ed25519:ro"
+      - "${TELEGRAM_EGRESS_KNOWN_HOSTS_PATH:-./.test-secrets/telegram-egress_known_hosts}:/run/secrets/known_hosts:ro"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD-SHELL, "nc -z 127.0.0.1 443 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      egress:
+        aliases: [api.telegram.org]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
