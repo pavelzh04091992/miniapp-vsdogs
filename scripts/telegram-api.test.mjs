@@ -13,10 +13,22 @@ test('Telegram API wrapper sends JSON and returns successful results', async () 
 
   assert.deepEqual(await api.sendMessage('123', 'hello'), { message_id: 7 });
   assert.deepEqual(await api.deleteMessage('123', 7), { message_id: 7 });
+  assert.deepEqual(await api.setChatMenuButton({
+    type: 'web_app',
+    text: 'PuppyApp 🐶',
+    web_app: { url: 'https://example.test/' },
+  }), { message_id: 7 });
   assert.equal(JSON.parse(requests[0].options.body).chat_id, '123');
   assert.deepEqual(JSON.parse(requests[1].options.body), {
     chat_id: '123',
     message_id: 7,
+  });
+  assert.deepEqual(JSON.parse(requests[2].options.body), {
+    menu_button: {
+      type: 'web_app',
+      text: 'PuppyApp 🐶',
+      web_app: { url: 'https://example.test/' },
+    },
   });
 });
 

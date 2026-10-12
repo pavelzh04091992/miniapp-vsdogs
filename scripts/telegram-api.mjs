@@ -54,5 +54,8 @@ export function createTelegramApi(botToken, options = {}) {
       chat_id: chatId,
       message_id: messageId,
     }),
+    setChatMenuButton: (menuButton) => request('setChatMenuButton', {
+      menu_button: menuButton,
+    }),
   };
 }

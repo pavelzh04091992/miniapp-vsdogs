@@ -5,6 +5,7 @@ loadDotEnv();
 
 const botToken = getRequiredEnv('BOT_TOKEN');
 const publicBaseUrl = getRequiredEnv('PUBLIC_BASE_URL').replace(/\/+$/, '');
+const miniAppUrl = normalizeMiniAppUrl(process.env.MINI_APP_URL || publicBaseUrl);
 const webhookPublicBaseUrl = normalizeWebhookBaseUrl(
   process.env.TELEGRAM_WEBHOOK_PUBLIC_BASE_URL || publicBaseUrl,
 );
@@ -21,10 +22,28 @@ if (webhookSecret) {
   payload.secret_token = webhookSecret;
 }
 
-const result = await createTelegramApi(botToken).request('setWebhook', payload);
+const api = createTelegramApi(botToken);
+const result = await api.request('setWebhook', payload);
+const menuButton = await api.setChatMenuButton({
+  type: 'web_app',
+  text: 'PuppyApp 🐶',
+  web_app: { url: miniAppUrl },
+});
 
 console.log(`Webhook configured: ${webhookUrl}`);
 console.log(JSON.stringify(result, null, 2));
+console.log(`Telegram Web App menu configured: ${miniAppUrl}`);
+console.log(JSON.stringify(menuButton, null, 2));
+
+function normalizeMiniAppUrl(value) {
+  const parsed = new URL(value);
+
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.hash) {
+    throw new Error('MINI_APP_URL must be an HTTPS URL without credentials or a fragment');
+  }
+
+  return parsed.toString();
+}
 
 function normalizeWebhookBaseUrl(value) {
   const parsed = new URL(value);
