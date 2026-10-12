@@ -2874,6 +2874,22 @@ function createHomeMarkup(): string {
   `;
 }
 
+function createSubpageHeaderMarkup(title: string, backRoute: AppRoute): string {
+  return `
+    <header class="subpage-header">
+      <div class="content-frame">
+        <div class="subpage-header__inner subpage-header__inner--branded">
+          <img class="subpage-header__logo" src="/assets/logo-dog.svg" alt="" aria-hidden="true" />
+          <h1 class="subpage-title">${escapeHtml(title)}</h1>
+          <button class="back-button" type="button" data-route="${escapeHtml(backRoute)}" aria-label="Назад">
+            <span class="back-button__icon" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </header>
+  `;
+}
+
 function createPuppiesMarkup(activeFilter: PuppyFilter): string {
   const visibleSituations =
     activeFilter === 'all'
@@ -2882,16 +2898,7 @@ function createPuppiesMarkup(activeFilter: PuppyFilter): string {
 
   return `
     <div class="app-shell">
-      <header class="subpage-header">
-        <div class="content-frame">
-          <div class="subpage-header__inner">
-            <button class="back-button" type="button" data-route="home" aria-label="Назад">
-              <span class="back-button__icon" aria-hidden="true"></span>
-            </button>
-            <h1 class="subpage-title">Щенки</h1>
-          </div>
-        </div>
-      </header>
+      ${createSubpageHeaderMarkup('Щенки', 'home')}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -2938,16 +2945,7 @@ function createPuppiesMarkup(activeFilter: PuppyFilter): string {
 function createAdultLargeMarkup(): string {
   return `
     <div class="app-shell">
-      <header class="subpage-header">
-        <div class="content-frame">
-          <div class="subpage-header__inner">
-            <button class="back-button" type="button" data-route="home" aria-label="Назад">
-              <span class="back-button__icon" aria-hidden="true"></span>
-            </button>
-            <h1 class="subpage-title">Большие собаки</h1>
-          </div>
-        </div>
-      </header>
+      ${createSubpageHeaderMarkup('Большие собаки', 'home')}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -2992,16 +2990,7 @@ function createAdultLargeSituationTopicsMarkup(slug: AdultLargeSituationSlug): s
 
   return `
     <div class="app-shell">
-      <header class="subpage-header">
-        <div class="content-frame">
-          <div class="subpage-header__inner">
-            <button class="back-button" type="button" data-route="adult-large" aria-label="Назад">
-              <span class="back-button__icon" aria-hidden="true"></span>
-            </button>
-            <h1 class="subpage-title">${situation.title}</h1>
-          </div>
-        </div>
-      </header>
+      ${createSubpageHeaderMarkup(situation.title, 'adult-large')}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -3030,21 +3019,7 @@ function createAdultLargeTopicLessonsMarkup(slug: AdultLargeTopicSlug): string {
 
   return `
     <div class="app-shell">
-      <header class="subpage-header">
-        <div class="content-frame">
-          <div class="subpage-header__inner">
-            <button
-              class="back-button"
-              type="button"
-              data-route="adult-large-situation:${topic.parentSlug}"
-              aria-label="Назад"
-            >
-              <span class="back-button__icon" aria-hidden="true"></span>
-            </button>
-            <h1 class="subpage-title">${topic.title}</h1>
-          </div>
-        </div>
-      </header>
+      ${createSubpageHeaderMarkup(topic.title, `adult-large-situation:${topic.parentSlug}`)}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -3067,16 +3042,7 @@ function createAdultLargeTopicLessonsMarkup(slug: AdultLargeTopicSlug): string {
 function createAdultSmallMarkup(): string {
   return `
     <div class="app-shell">
-      <header class="subpage-header">
-        <div class="content-frame">
-          <div class="subpage-header__inner">
-            <button class="back-button" type="button" data-route="home" aria-label="Назад">
-              <span class="back-button__icon" aria-hidden="true"></span>
-            </button>
-            <h1 class="subpage-title">Маленькие собаки</h1>
-          </div>
-        </div>
-      </header>
+      ${createSubpageHeaderMarkup('Маленькие собаки', 'home')}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -3121,16 +3087,7 @@ function createAdultSmallSituationTopicsMarkup(slug: AdultSmallSituationSlug): s
 
   return `
     <div class="app-shell">
-      <header class="subpage-header">
-        <div class="content-frame">
-          <div class="subpage-header__inner">
-            <button class="back-button" type="button" data-route="adult-small" aria-label="Назад">
-              <span class="back-button__icon" aria-hidden="true"></span>
-            </button>
-            <h1 class="subpage-title">${situation.title}</h1>
-          </div>
-        </div>
-      </header>
+      ${createSubpageHeaderMarkup(situation.title, 'adult-small')}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -3159,21 +3116,7 @@ function createAdultSmallTopicLessonsMarkup(slug: AdultSmallTopicSlug): string {
 
   return `
     <div class="app-shell">
-      <header class="subpage-header">
-        <div class="content-frame">
-          <div class="subpage-header__inner">
-            <button
-              class="back-button"
-              type="button"
-              data-route="adult-small-situation:${topic.parentSlug}"
-              aria-label="Назад"
-            >
-              <span class="back-button__icon" aria-hidden="true"></span>
-            </button>
-            <h1 class="subpage-title">${topic.title}</h1>
-          </div>
-        </div>
-      </header>
+      ${createSubpageHeaderMarkup(topic.title, `adult-small-situation:${topic.parentSlug}`)}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -3202,16 +3145,7 @@ function createSituationTopicsMarkup(slug: PuppySituationSlug): string {
 
   return `
     <div class="app-shell">
-      <header class="subpage-header">
-        <div class="content-frame">
-          <div class="subpage-header__inner">
-            <button class="back-button" type="button" data-route="puppies" aria-label="Назад">
-              <span class="back-button__icon" aria-hidden="true"></span>
-            </button>
-            <h1 class="subpage-title">${situation.title}</h1>
-          </div>
-        </div>
-      </header>
+      ${createSubpageHeaderMarkup(situation.title, 'puppies')}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -3252,21 +3186,7 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
 
   return `
     <div class="app-shell">
-      <header class="subpage-header">
-        <div class="content-frame">
-          <div class="subpage-header__inner">
-            <button
-              class="back-button"
-              type="button"
-              data-route="puppy-situation:${topic.parentSlug}"
-              aria-label="Назад"
-            >
-              <span class="back-button__icon" aria-hidden="true"></span>
-            </button>
-            <h1 class="subpage-title">${topic.title}</h1>
-          </div>
-        </div>
-      </header>
+      ${createSubpageHeaderMarkup(topic.title, `puppy-situation:${topic.parentSlug}`)}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -3289,6 +3209,7 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
 
 function createLessonPlayerMarkup(video: LessonVideoEntry): string {
   const escapedTitle = escapeHtml(video.title);
+  const titleMarkup = createPlayerTitleMarkup(video.title);
   const descriptionMarkup = video.description
     ? createLessonDescriptionMarkup(video.description)
     : '';
@@ -3299,11 +3220,11 @@ function createLessonPlayerMarkup(video: LessonVideoEntry): string {
     <div class="app-shell">
       <header class="subpage-header">
         <div class="content-frame">
-          <div class="subpage-header__inner">
+          <div class="subpage-header__inner subpage-header__inner--player">
+            <h1 class="subpage-title subpage-title--player">${titleMarkup}</h1>
             <button class="back-button" type="button" data-route="${video.backRoute}" aria-label="Назад">
               <span class="back-button__icon" aria-hidden="true"></span>
             </button>
-            <h1 class="subpage-title">${escapedTitle}</h1>
           </div>
         </div>
       </header>
@@ -3393,7 +3314,9 @@ function createLessonPlayerMarkup(video: LessonVideoEntry): string {
                   </div>
                 </div>
               </div>
-              <p class="lesson-player-card__title">${escapedTitle}</p>
+              <div class="lesson-player-card__divider" aria-hidden="true">
+                <span class="lesson-player-card__divider-dog"></span>
+              </div>
               ${descriptionMarkup}
             </div>
           </section>
@@ -3403,6 +3326,31 @@ function createLessonPlayerMarkup(video: LessonVideoEntry): string {
       ${createBottomNav('lessons')}
     </div>
   `;
+}
+
+function createPlayerTitleMarkup(title: string): string {
+  const parts = title.match(/\S+|\s+/gu) ?? [];
+  const markup: string[] = [];
+
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index];
+
+    if (!part.includes('/')) {
+      markup.push(escapeHtml(part));
+      continue;
+    }
+
+    let nonBreakingText = part;
+
+    if (part.endsWith('/') && /^\s+$/u.test(parts[index + 1] ?? '') && parts[index + 2]) {
+      nonBreakingText += `${parts[index + 1]}${parts[index + 2]}`;
+      index += 2;
+    }
+
+    markup.push(`<span class="subpage-title__no-break">${escapeHtml(nonBreakingText)}</span>`);
+  }
+
+  return markup.join('');
 }
 
 type LessonDescriptionTone = 'default' | 'mistakes' | 'note';

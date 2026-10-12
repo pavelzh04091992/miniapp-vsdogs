@@ -37,6 +37,7 @@ let destroyLessonVideoPlayer: (() => void) | null = null;
 let routeSyncSequence = 0;
 let videoCatalogAbortController: AbortController | null = null;
 let renderSequence = 0;
+let playerTitleFitFrame: number | null = null;
 // Protected assets use `no-store`, so keep decoded Image instances alive for
 // the lifetime of this authenticated page instead of relying on disk cache.
 const preloadedImages = new Map<string, HTMLImageElement>();
@@ -60,7 +61,49 @@ window.addEventListener('popstate', () => {
 });
 window.addEventListener('resize', () => {
   updateBottomNavIndicatorPosition();
+  schedulePlayerHeaderTitleFit();
 });
+
+document.addEventListener('keydown', (event) => {
+  if (
+    event.defaultPrevented ||
+    event.repeat ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    (event.key !== 'Escape' && event.key !== 'Backspace') ||
+    (event.key === 'Backspace' && isEditableElement(event.target))
+  ) {
+    return;
+  }
+
+  const backButton = root.querySelector<HTMLButtonElement>('.back-button[data-route]');
+
+  if (!backButton) {
+    return;
+  }
+
+  event.preventDefault();
+  activateBackControl(backButton);
+});
+
+window.addEventListener(
+  'mousedown',
+  (event) => {
+    if (event.button !== 3 && event.button !== 4) {
+      return;
+    }
+
+    const direction: PageTransitionDirection = event.button === 3 ? 'back' : 'forward';
+    pendingTransitionDirection = direction;
+    window.setTimeout(() => {
+      if (pendingTransitionDirection === direction) {
+        pendingTransitionDirection = null;
+      }
+    }, 1000);
+  },
+  { capture: true },
+);
 
 document.addEventListener('click', (event) => {
   const target = event.target;
@@ -169,6 +212,7 @@ async function render(): Promise<void> {
   const finishMarkupUpdate = (): void => {
     document.body.style.overflow = '';
     restoreScrollPosition(savedScrollTop);
+    schedulePlayerHeaderTitleFit();
     setupLiquidGlassCards();
     destroyLessonVideoPlayer = setupLessonVideoPlayer();
     const navInner = document.querySelector<HTMLElement>('.bottom-nav__inner');
@@ -312,6 +356,49 @@ function restoreScrollPosition(scrollTop: number): void {
   if (nextContent) {
     nextContent.scrollTop = scrollTop;
   }
+}
+
+function schedulePlayerHeaderTitleFit(): void {
+  if (playerTitleFitFrame !== null) {
+    window.cancelAnimationFrame(playerTitleFitFrame);
+  }
+
+  playerTitleFitFrame = window.requestAnimationFrame(() => {
+    playerTitleFitFrame = null;
+    fitPlayerHeaderTitle();
+  });
+}
+
+function fitPlayerHeaderTitle(): void {
+  const title = root.querySelector<HTMLElement>('.subpage-title--player');
+
+  if (!title || title.clientWidth === 0) {
+    return;
+  }
+
+  title.style.removeProperty('font-size');
+
+  const maximumFontSize = Number.parseFloat(window.getComputedStyle(title).fontSize);
+  const minimumFontSize = 12;
+  const lineHeightRatio = 1.14;
+  const maxLines = 2;
+  let fontSize = maximumFontSize;
+
+  while (fontSize > minimumFontSize) {
+    title.style.fontSize = `${fontSize}px`;
+
+    const maximumHeight = fontSize * lineHeightRatio * maxLines + 1;
+    const fitsVertically = title.scrollHeight <= maximumHeight;
+    const fitsHorizontally = title.scrollWidth <= title.clientWidth + 1;
+
+    if (fitsVertically && fitsHorizontally) {
+      return;
+    }
+
+    fontSize -= 0.5;
+  }
+
+  title.style.fontSize = `${minimumFontSize}px`;
 }
 
 function updatePageMarkup(markup: string): void {
@@ -642,6 +729,19 @@ function navigateTo(route: AppRoute): void {
   const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
   window.history.pushState(null, '', nextUrl);
   void syncRouteState();
+}
+
+function activateBackControl(backButton: HTMLButtonElement): void {
+  backButton.click();
+}
+
+function isEditableElement(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
 }
 
 function showFeedback(message: string): void {

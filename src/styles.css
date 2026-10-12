@@ -277,10 +277,31 @@ img {
 
 .subpage-header__inner {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 44px;
   gap: 12px;
   align-items: center;
   padding: 0 4px;
+}
+
+.subpage-header__inner--branded {
+  grid-template-columns: 58px minmax(0, 1fr) 44px;
+  padding: 0;
+}
+
+.subpage-header__logo {
+  width: 58px;
+  height: 58px;
+  display: block;
+  object-fit: contain;
+}
+
+.subpage-header__inner--branded .back-button {
+  justify-self: end;
+}
+
+.subpage-header__inner--player .subpage-title {
+  width: 100%;
+  max-width: none;
 }
 
 .back-button {
@@ -308,11 +329,30 @@ img {
 }
 
 .subpage-title {
+  min-width: 0;
+  width: fit-content;
+  max-width: min(100%, 30ch);
   margin: 0;
-  font-size: clamp(24px, 5.8vw, 28px);
-  line-height: 1.06;
+  font-size: clamp(20px, 5vw, 28px);
+  line-height: 1.14;
   font-weight: 800;
   color: var(--primary-dark);
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  text-wrap: balance;
+}
+
+.subpage-title--player {
+  font-size: clamp(20px, 5vw, 28px);
+  line-height: 1.14;
+}
+
+.subpage-title__no-break {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .brand-mark {
@@ -2508,12 +2548,32 @@ img {
   stroke-linejoin: round;
 }
 
-.lesson-player-card__title {
-  margin: 10px 4px 0;
-  color: var(--primary-dark);
-  font-size: 14px;
-  line-height: 1.35;
-  font-weight: 700;
+.lesson-player-card__divider {
+  margin: 15px 7px 2px;
+  display: grid;
+  grid-template-columns: minmax(24px, 1fr) 36px minmax(24px, 1fr);
+  align-items: center;
+  gap: 15px;
+}
+
+.lesson-player-card__divider::before,
+.lesson-player-card__divider::after {
+  content: '';
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(20, 76, 148, 0.24));
+}
+
+.lesson-player-card__divider::after {
+  background: linear-gradient(90deg, rgba(20, 76, 148, 0.24), transparent);
+}
+
+.lesson-player-card__divider-dog {
+  width: 36px;
+  height: 32px;
+  display: block;
+  background: rgba(20, 76, 148, 0.58);
+  -webkit-mask: url('/assets/logo-dog.svg') center / contain no-repeat;
+  mask: url('/assets/logo-dog.svg') center / contain no-repeat;
 }
 
 .lesson-player-card__description {
