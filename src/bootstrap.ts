@@ -83,8 +83,7 @@ function renderAccessScreen(access: Exclude<AppAccessResult, { status: 'authenti
   root.innerHTML = `
     <main class="access-gate" aria-labelledby="access-gate-title">
       <section class="access-gate__card">
-        <div class="access-gate__mark" aria-hidden="true">🐾</div>
-        <p class="access-gate__eyebrow">Puppys</p>
+        <img class="access-gate__mark" src="/assets/logo-dog.svg" alt="Высшая школа собак" />
         <h1 id="access-gate-title">${content.title}</h1>
         <p class="access-gate__message">${content.message}</p>
         <div class="access-gate__actions">${botButton}${retryButton}</div>

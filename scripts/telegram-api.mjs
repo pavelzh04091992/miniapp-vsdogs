@@ -50,5 +50,9 @@ export function createTelegramApi(botToken, options = {}) {
       text,
       ...extra,
     }),
+    deleteMessage: (chatId, messageId) => request('deleteMessage', {
+      chat_id: chatId,
+      message_id: messageId,
+    }),
   };
 }

@@ -12,7 +12,12 @@ test('Telegram API wrapper sends JSON and returns successful results', async () 
   });
 
   assert.deepEqual(await api.sendMessage('123', 'hello'), { message_id: 7 });
+  assert.deepEqual(await api.deleteMessage('123', 7), { message_id: 7 });
   assert.equal(JSON.parse(requests[0].options.body).chat_id, '123');
+  assert.deepEqual(JSON.parse(requests[1].options.body), {
+    chat_id: '123',
+    message_id: 7,
+  });
 });
 
 test('Telegram API wrapper never exposes the bot token in network errors', async () => {

@@ -12,6 +12,12 @@ export const PROTECTED_ROUTE_PREFIXES = Object.freeze([
   '/telegram',
 ]);
 
+export const PUBLIC_BRAND_ASSET_PATH = '/assets/logo-dog.svg';
+
+export function isPublicBrandAssetPath(pathname) {
+  return normalizeRequestPathname(pathname).toLowerCase() === PUBLIC_BRAND_ASSET_PATH;
+}
+
 export function isPrivateStaticAssetPath(pathname) {
   const normalizedPathname = String(pathname || '').toLowerCase();
   return ['/assets', '/private'].some(

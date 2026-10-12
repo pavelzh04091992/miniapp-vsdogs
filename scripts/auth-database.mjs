@@ -102,6 +102,9 @@ export function createAuthDatabase(databasePath, options = {}) {
         statements.revokeSessions.run(timestamp, targetId);
         statements.revokeInvitesForUser.run(timestamp, targetId);
         statements.revokeMagicLinksForUser.run(timestamp, targetId);
+        if (status !== 'active') {
+          statements.demoteCurrentBotMessage.run(timestamp, targetId, 'browser_link');
+        }
         statements.insertAudit.run(actorId, status === 'active' ? 'grant' : status, targetId, null, timestamp);
       });
 
@@ -257,6 +260,7 @@ export function createAuthDatabase(databasePath, options = {}) {
           userId,
           expiresAt,
           timestamp,
+          timestamp,
         );
         statements.insertAudit.run(
           actorId,
@@ -270,6 +274,89 @@ export function createAuthDatabase(databasePath, options = {}) {
       return { token, expiresAt };
     },
 
+    prepareMagicLinkDelivery(telegramId, ttlSeconds = 600) {
+      const userId = requireTelegramId(telegramId);
+      const user = statements.getUser.get(userId);
+
+      if (!user || user.status !== 'active') {
+        return null;
+      }
+
+      const token = createOpaqueToken();
+      const timestamp = now();
+      const expiresAt = timestamp + ttlSeconds;
+      statements.insertMagicLink.run(
+        hashOpaqueToken(token),
+        userId,
+        expiresAt,
+        timestamp,
+        null,
+      );
+      return { token, expiresAt };
+    },
+
+    finalizeMagicLinkDelivery(token, telegramId, chatId, messageId) {
+      if (!isOpaqueToken(token)) {
+        return null;
+      }
+
+      const userId = requireTelegramId(telegramId);
+      const normalizedChatId = requireTelegramId(chatId);
+      const normalizedMessageId = requireMessageId(messageId);
+      const tokenHash = hashOpaqueToken(token);
+      const timestamp = now();
+
+      return transaction(database, () => {
+        const link = statements.getMagicLink.get(tokenHash);
+
+        if (
+          !link ||
+          link.telegram_id !== userId ||
+          link.delivered_at !== null ||
+          link.used_at !== null ||
+          link.revoked_at !== null ||
+          link.expires_at <= timestamp ||
+          link.user_status !== 'active'
+        ) {
+          return null;
+        }
+
+        const delivered = statements.markMagicLinkDelivered.run(timestamp, link.id, timestamp);
+
+        if (delivered.changes !== 1) {
+          return null;
+        }
+
+        statements.revokeOtherMagicLinks.run(timestamp, userId, tokenHash);
+        const previousMessage = statements.getCurrentBotMessage.get(userId, 'browser_link');
+        statements.demoteCurrentBotMessage.run(timestamp, userId, 'browser_link');
+        statements.insertBotMessage.run(
+          userId,
+          normalizedChatId,
+          normalizedMessageId,
+          'browser_link',
+          1,
+          timestamp,
+          timestamp,
+        );
+        statements.insertAudit.run(
+          userId,
+          'magic_link_created',
+          userId,
+          JSON.stringify({ expiresAt: link.expires_at }),
+          timestamp,
+        );
+
+        return { previousMessage: mapBotMessage(previousMessage) };
+      });
+    },
+
+    abortMagicLinkDelivery(token) {
+      if (isOpaqueToken(token)) {
+        statements.abortMagicLinkDelivery.run(now(), hashOpaqueToken(token));
+      }
+    },
+
     isMagicLinkUsable(token) {
       if (!isOpaqueToken(token)) {
         return false;
@@ -279,6 +366,7 @@ export function createAuthDatabase(databasePath, options = {}) {
       const timestamp = now();
       return Boolean(
         link &&
+        link.delivered_at !== null &&
         link.used_at === null &&
         link.revoked_at === null &&
         link.expires_at > timestamp &&
@@ -299,6 +387,7 @@ export function createAuthDatabase(databasePath, options = {}) {
 
         if (
           !link ||
+          link.delivered_at === null ||
           link.used_at !== null ||
           link.revoked_at !== null ||
           link.expires_at <= timestamp ||
@@ -362,6 +451,46 @@ export function createAuthDatabase(databasePath, options = {}) {
       if (isOpaqueToken(token)) {
         statements.revokeSession.run(now(), hashOpaqueToken(token));
       }
+    },
+
+    trackBotMessage(telegramId, chatId, messageId, kind, isCurrent = false) {
+      const userId = requireTelegramId(telegramId);
+      const normalizedChatId = requireTelegramId(chatId);
+      const normalizedMessageId = requireMessageId(messageId);
+      const normalizedKind = requireBotMessageKind(kind);
+      const timestamp = now();
+
+      return transaction(database, () => {
+        const previousMessage = isCurrent
+          ? statements.getCurrentBotMessage.get(userId, normalizedKind)
+          : null;
+
+        if (isCurrent) {
+          statements.demoteCurrentBotMessage.run(timestamp, userId, normalizedKind);
+        }
+
+        statements.insertBotMessage.run(
+          userId,
+          normalizedChatId,
+          normalizedMessageId,
+          normalizedKind,
+          isCurrent ? 1 : 0,
+          timestamp,
+          timestamp,
+        );
+        return mapBotMessage(previousMessage);
+      });
+    },
+
+    listBotMessagesForCleanup(telegramId) {
+      const userId = requireTelegramId(telegramId);
+      return statements.listBotMessagesForCleanup.all(userId).map(mapBotMessage);
+    },
+
+    removeTrackedBotMessage(chatId, messageId) {
+      const normalizedChatId = requireTelegramId(chatId);
+      const normalizedMessageId = requireMessageId(messageId);
+      statements.deleteBotMessage.run(normalizedChatId, normalizedMessageId);
     },
 
     isTelegramUpdateProcessed(updateId) {
@@ -443,6 +572,7 @@ function migrate(database) {
       telegram_id TEXT NOT NULL REFERENCES users(telegram_id),
       expires_at INTEGER NOT NULL,
       created_at INTEGER NOT NULL,
+      delivered_at INTEGER,
       used_at INTEGER,
       revoked_at INTEGER
     ) STRICT;
@@ -467,11 +597,35 @@ function migrate(database) {
       processed_at INTEGER NOT NULL
     ) STRICT;
 
+    CREATE TABLE IF NOT EXISTS bot_messages (
+      telegram_id TEXT NOT NULL,
+      chat_id TEXT NOT NULL,
+      message_id INTEGER NOT NULL CHECK (message_id > 0),
+      kind TEXT NOT NULL CHECK (kind IN ('status', 'browser_link', 'browser_request', 'admin_menu')),
+      is_current INTEGER NOT NULL CHECK (is_current IN (0, 1)),
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (chat_id, message_id)
+    ) STRICT;
+
     CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(telegram_id);
     CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS invites_target_idx ON invites(target_telegram_id, status);
     CREATE INDEX IF NOT EXISTS magic_links_user_idx ON magic_links(telegram_id, expires_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS bot_messages_current_idx
+      ON bot_messages(telegram_id, kind) WHERE is_current = 1;
+    CREATE INDEX IF NOT EXISTS bot_messages_cleanup_idx
+      ON bot_messages(telegram_id, is_current, created_at);
   `);
+
+  const magicLinkColumns = database.prepare('PRAGMA table_info(magic_links)').all();
+
+  if (!magicLinkColumns.some((column) => column.name === 'delivered_at')) {
+    database.exec(`
+      ALTER TABLE magic_links ADD COLUMN delivered_at INTEGER;
+      UPDATE magic_links SET delivered_at = created_at WHERE delivered_at IS NULL;
+    `);
+  }
 }
 
 function prepareStatements(database) {
@@ -557,12 +711,12 @@ function prepareStatements(database) {
       )
     `),
     insertMagicLink: database.prepare(`
-      INSERT INTO magic_links (token_hash, telegram_id, expires_at, created_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO magic_links (token_hash, telegram_id, expires_at, created_at, delivered_at)
+      VALUES (?, ?, ?, ?, ?)
     `),
     getMagicLink: database.prepare(`
       SELECT magic_links.id, magic_links.telegram_id, magic_links.expires_at,
-        magic_links.used_at, magic_links.revoked_at, users.role,
+        magic_links.delivered_at, magic_links.used_at, magic_links.revoked_at, users.role,
         users.status AS user_status, users.status, users.username,
         users.first_name, users.last_name, users.created_at, users.last_seen_at
       FROM magic_links JOIN users ON users.telegram_id = magic_links.telegram_id
@@ -570,7 +724,21 @@ function prepareStatements(database) {
     `),
     consumeMagicLink: database.prepare(`
       UPDATE magic_links SET used_at = ?
-      WHERE id = ? AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?
+      WHERE id = ? AND delivered_at IS NOT NULL
+        AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?
+    `),
+    markMagicLinkDelivered: database.prepare(`
+      UPDATE magic_links SET delivered_at = ?
+      WHERE id = ? AND delivered_at IS NULL AND used_at IS NULL
+        AND revoked_at IS NULL AND expires_at > ?
+    `),
+    revokeOtherMagicLinks: database.prepare(`
+      UPDATE magic_links SET revoked_at = ?
+      WHERE telegram_id = ? AND token_hash <> ? AND revoked_at IS NULL
+    `),
+    abortMagicLinkDelivery: database.prepare(`
+      UPDATE magic_links SET revoked_at = ?
+      WHERE token_hash = ? AND delivered_at IS NULL AND revoked_at IS NULL
     `),
     revokeMagicLinksForUser: database.prepare(`
       UPDATE magic_links SET revoked_at = ?
@@ -603,6 +771,30 @@ function prepareStatements(database) {
         OR (used_at IS NOT NULL AND used_at <= ?)
         OR (revoked_at IS NOT NULL AND revoked_at <= ?)
     `),
+    getCurrentBotMessage: database.prepare(`
+      SELECT * FROM bot_messages
+      WHERE telegram_id = ? AND kind = ? AND is_current = 1
+    `),
+    demoteCurrentBotMessage: database.prepare(`
+      UPDATE bot_messages SET is_current = 0, updated_at = ?
+      WHERE telegram_id = ? AND kind = ? AND is_current = 1
+    `),
+    insertBotMessage: database.prepare(`
+      INSERT INTO bot_messages
+        (telegram_id, chat_id, message_id, kind, is_current, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    listBotMessagesForCleanup: database.prepare(`
+      SELECT * FROM bot_messages
+      WHERE telegram_id = ? AND is_current = 0
+      ORDER BY created_at, message_id
+    `),
+    deleteBotMessage: database.prepare(`
+      DELETE FROM bot_messages WHERE chat_id = ? AND message_id = ?
+    `),
+    deleteOldBotMessages: database.prepare(`
+      DELETE FROM bot_messages WHERE is_current = 0 AND created_at <= ?
+    `),
     deleteOldBotStates: database.prepare('DELETE FROM bot_states WHERE updated_at <= ?'),
     deleteOldAuditEntries: database.prepare('DELETE FROM audit_log WHERE created_at <= ?'),
   };
@@ -614,6 +806,7 @@ function cleanupExpiredData(statements, timestamp) {
   statements.deleteOldInvites.run(retentionCutoff);
   statements.deleteOldSessions.run(retentionCutoff, retentionCutoff);
   statements.deleteOldMagicLinks.run(retentionCutoff, retentionCutoff, retentionCutoff);
+  statements.deleteOldBotMessages.run(timestamp - 2 * 86_400);
   statements.deleteOldBotStates.run(retentionCutoff);
   statements.deleteOldProcessedUpdates.run(retentionCutoff);
   statements.deleteOldAuditEntries.run(timestamp - 180 * 86_400);
@@ -633,6 +826,21 @@ function mapUser(row) {
     lastName: row.last_name,
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
+  };
+}
+
+function mapBotMessage(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    telegramId: row.telegram_id,
+    chatId: row.chat_id,
+    messageId: row.message_id,
+    kind: row.kind,
+    isCurrent: Boolean(row.is_current),
+    createdAt: row.created_at,
   };
 }
 
@@ -657,6 +865,31 @@ function requireTelegramId(value) {
   }
 
   return id;
+}
+
+const BOT_MESSAGE_KINDS = new Set([
+  'status',
+  'browser_link',
+  'browser_request',
+  'admin_menu',
+]);
+
+function requireBotMessageKind(value) {
+  if (!BOT_MESSAGE_KINDS.has(value)) {
+    throw new Error('Unsupported bot message kind');
+  }
+
+  return value;
+}
+
+function requireMessageId(value) {
+  const messageId = Number(value);
+
+  if (!Number.isSafeInteger(messageId) || messageId <= 0) {
+    throw new Error('Invalid Telegram message ID');
+  }
+
+  return messageId;
 }
 
 function nullable(value) {

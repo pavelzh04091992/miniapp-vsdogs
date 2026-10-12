@@ -177,3 +177,96 @@ test('magic links are hashed, short-lived, single-use and revoke previous links'
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test('activates a prepared magic link only after delivery and persists message cleanup state', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-delivery-'));
+  const databasePath = join(directory, 'auth.sqlite');
+  let currentTime = 1_800_000_000;
+  let database = createAuthDatabase(databasePath, { now: () => currentTime });
+
+  try {
+    database.ensureAdmin('10001');
+    database.grantUser('20002', '10001');
+
+    const first = database.prepareMagicLinkDelivery('20002', 600);
+    assert.equal(database.isMagicLinkUsable(first.token), false);
+    assert.deepEqual(
+      database.finalizeMagicLinkDelivery(first.token, '20002', '20002', 101),
+      { previousMessage: null },
+    );
+    assert.equal(database.isMagicLinkUsable(first.token), true);
+
+    const aborted = database.prepareMagicLinkDelivery('20002', 600);
+    database.abortMagicLinkDelivery(aborted.token);
+    assert.equal(database.isMagicLinkUsable(first.token), true);
+    assert.equal(database.isMagicLinkUsable(aborted.token), false);
+
+    database.trackBotMessage('20002', '20002', 201, 'browser_request');
+    const replacement = database.prepareMagicLinkDelivery('20002', 600);
+    assert.equal(database.isMagicLinkUsable(first.token), true);
+    assert.deepEqual(
+      database.finalizeMagicLinkDelivery(replacement.token, '20002', '20002', 102),
+      {
+        previousMessage: {
+          telegramId: '20002',
+          chatId: '20002',
+          messageId: 101,
+          kind: 'browser_link',
+          isCurrent: true,
+          createdAt: currentTime,
+        },
+      },
+    );
+    assert.equal(database.isMagicLinkUsable(first.token), false);
+    assert.equal(database.isMagicLinkUsable(replacement.token), true);
+    assert.deepEqual(
+      database.listBotMessagesForCleanup('20002').map(({ messageId }) => messageId),
+      [101, 201],
+    );
+
+    const concurrentA = database.prepareMagicLinkDelivery('20002', 600);
+    const concurrentB = database.prepareMagicLinkDelivery('20002', 600);
+    const finalized = await Promise.all([
+      Promise.resolve(database.finalizeMagicLinkDelivery(concurrentA.token, '20002', '20002', 103)),
+      Promise.resolve(database.finalizeMagicLinkDelivery(concurrentB.token, '20002', '20002', 104)),
+    ]);
+    assert.equal(finalized.filter(Boolean).length, 1);
+
+    database.close();
+    database = createAuthDatabase(databasePath, { now: () => currentTime });
+    assert.deepEqual(
+      database.listBotMessagesForCleanup('20002').map(({ messageId }) => messageId),
+      [101, 102, 201],
+    );
+
+    currentTime += 2 * 86_400 + 1;
+    database.cleanup();
+    assert.deepEqual(database.listBotMessagesForCleanup('20002'), []);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('migrates existing magic links as already delivered', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-magic-migration-'));
+  const databasePath = join(directory, 'auth.sqlite');
+  let database = createAuthDatabase(databasePath);
+
+  try {
+    database.ensureAdmin('10001');
+    const link = database.createMagicLink('10001', '10001', 600);
+    database.close();
+    database = null;
+
+    const legacyDatabase = new DatabaseSync(databasePath);
+    legacyDatabase.exec('ALTER TABLE magic_links DROP COLUMN delivered_at');
+    legacyDatabase.close();
+
+    database = createAuthDatabase(databasePath);
+    assert.equal(database.isMagicLinkUsable(link.token), true);
+  } finally {
+    database?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

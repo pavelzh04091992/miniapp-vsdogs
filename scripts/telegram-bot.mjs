@@ -6,7 +6,7 @@ export { createTelegramApi } from './telegram-api.mjs';
 
 const USER_PAGE_SIZE = 8;
 const APP_BUTTON_TEXT = 'PuppyApp 🐶';
-const BROWSER_BUTTON_TEXT = 'Браузер ↗️';
+const BROWSER_BUTTON_TEXT = 'Браузер 🌐';
 
 export function createTelegramBot(options) {
   const {
@@ -85,14 +85,14 @@ export function createTelegramBot(options) {
     const currentUser = database.getUser(sender.id);
 
     if (!currentUser || currentUser.status !== 'active') {
-      await sendAccessStatus(message.chat.id, currentUser);
+      await sendAccessStatus(message.chat.id, sender.id, currentUser);
       return;
     }
 
     database.touchTelegramUser(sender);
 
     if (message.text === BROWSER_BUTTON_TEXT) {
-      await sendBrowserLogin(message.chat.id, sender.id);
+      await sendBrowserLogin(message.chat.id, sender.id, message.message_id);
       return;
     }
 
@@ -131,7 +131,7 @@ export function createTelegramBot(options) {
     let user = database.getUser(sender.id);
 
     if (!user || user.status !== 'active') {
-      await sendAccessStatus(chatId, user);
+      await sendAccessStatus(chatId, sender.id, user);
       return;
     }
 
@@ -145,7 +145,7 @@ export function createTelegramBot(options) {
     const targetId = normalizeTelegramId(text);
 
     if (!targetId) {
-      await api.sendMessage(chatId, 'Пришлите числовой Telegram ID или нажмите «Отмена».', {
+      await sendTrackedMessage(chatId, actorId, 'admin_menu', 'Пришлите числовой Telegram ID или нажмите «Отмена».', {
         reply_markup: cancelKeyboard(),
       });
       return;
@@ -153,7 +153,7 @@ export function createTelegramBot(options) {
 
     if (targetId === adminTelegramId) {
       database.clearBotState(actorId);
-      await api.sendMessage(chatId, 'Этот Telegram ID уже является администратором.', {
+      await sendTrackedMessage(chatId, actorId, 'admin_menu', 'Этот Telegram ID уже является администратором.', {
         reply_markup: adminKeyboard(),
       });
       return;
@@ -165,7 +165,7 @@ export function createTelegramBot(options) {
     let userWasNotified = false;
 
     try {
-      await api.sendMessage(targetId, 'Статус доступа: активен ✅\n\nВам открыт доступ к PuppyApp.', {
+      await sendTrackedMessage(targetId, targetId, 'status', 'Статус доступа: активен ✅\n\nВам открыт доступ к PuppyApp.', {
         reply_markup: appReplyKeyboard(),
       });
       userWasNotified = true;
@@ -176,14 +176,14 @@ export function createTelegramBot(options) {
         ? `\n\nПользователь ещё не открыл бота. Передайте ему ссылку:\n${link}`
         : '\n\nБот не смог написать пользователю. Настройте BOT_USERNAME, чтобы получать ссылки-приглашения.';
 
-      await api.sendMessage(chatId, `Доступ для ${targetId} выдан.${suffix}`, {
+      await sendTrackedMessage(chatId, actorId, 'admin_menu', `Доступ для ${targetId} выдан.${suffix}`, {
         reply_markup: adminKeyboard(),
       });
       console.warn(`[telegram-bot] could not notify user ${targetId}: ${getErrorMessage(error)}`);
     }
 
     if (userWasNotified) {
-      await api.sendMessage(chatId, `Доступ для ${targetId} выдан, пользователь уведомлён.`, {
+      await sendTrackedMessage(chatId, actorId, 'admin_menu', `Доступ для ${targetId} выдан, пользователь уведомлён.`, {
         reply_markup: adminKeyboard(),
       });
     }
@@ -212,7 +212,7 @@ export function createTelegramBot(options) {
     const chatId = query.message?.chat?.id ?? sender.id;
 
     if (!user || user.status !== 'active') {
-      await sendAccessStatus(chatId, user);
+      await sendAccessStatus(chatId, sender.id, user);
       return;
     }
 
@@ -237,7 +237,7 @@ export function createTelegramBot(options) {
 
     if (action === 'admin:add') {
       database.setBotState(sender.id, 'awaiting_grant_id');
-      await api.sendMessage(chatId, 'Отправьте числовой Telegram ID пользователя.', {
+      await sendTrackedMessage(chatId, sender.id, 'admin_menu', 'Отправьте числовой Telegram ID пользователя.', {
         reply_markup: cancelKeyboard(),
       });
       return;
@@ -290,56 +290,102 @@ export function createTelegramBot(options) {
     const heading = `Статус доступа: активен ✅${isAdmin ? '\nРоль: администратор.' : ''}`;
     const text = prefix ? `${prefix}\n\n${heading}` : heading;
 
-    await api.sendMessage(chatId, text, {
+    await sendTrackedMessage(chatId, user.telegramId, 'status', text, {
       reply_markup: appReplyKeyboard(),
     });
 
     if (isAdmin) {
-      await api.sendMessage(chatId, 'Управление доступами:', {
+      await sendTrackedMessage(chatId, user.telegramId, 'admin_menu', 'Управление доступами:', {
         reply_markup: adminKeyboard(),
       });
     }
   }
 
-  async function sendAccessStatus(chatId, user) {
+  async function sendAccessStatus(chatId, telegramId, user) {
     const statusText = {
       revoked: 'Статус доступа: отозван ⛔',
       blocked: 'Статус доступа: заблокирован 🚫',
     }[user?.status] || 'Статус доступа: не выдан ⏳';
 
-    await api.sendMessage(chatId, `${statusText}\n\nОбратитесь к администратору.`, {
+    await sendTrackedMessage(chatId, telegramId, 'status', `${statusText}\n\nОбратитесь к администратору.`, {
       reply_markup: { remove_keyboard: true },
     });
   }
 
-  async function sendBrowserLogin(chatId, telegramId) {
-    const magicLink = database.createMagicLink(telegramId, telegramId, magicLinkTtlSeconds);
+  async function sendBrowserLogin(chatId, telegramId, requestMessageId = null) {
+    if (requestMessageId) {
+      database.trackBotMessage(telegramId, chatId, requestMessageId, 'browser_request');
+    }
+
+    const magicLink = database.prepareMagicLinkDelivery(telegramId, magicLinkTtlSeconds);
     const url = magicLink ? buildMagicLink(magicLink.token) : null;
 
-    await api.sendMessage(
-      chatId,
-      url
-        ? `Одноразовая ссылка для входа в браузере действует ${formatTtl(magicLinkTtlSeconds)}.`
-        : 'Не удалось создать безопасную ссылку. Проверьте PUBLIC_BASE_URL или обратитесь к администратору.',
-      url ? {
-        link_preview_options: { is_disabled: true },
-        reply_markup: {
-          inline_keyboard: [[{ text: 'Открыть в браузере ↗️', url }]],
+    if (!magicLink || !url) {
+      if (magicLink) {
+        database.abortMagicLinkDelivery(magicLink.token);
+      }
+      await api.sendMessage(
+        chatId,
+        'Не удалось создать безопасную ссылку. Проверьте PUBLIC_BASE_URL или обратитесь к администратору.',
+      );
+      return;
+    }
+
+    let sentMessage;
+
+    try {
+      sentMessage = await api.sendMessage(
+        chatId,
+        `Одноразовая ссылка для входа в браузере действует ${formatTtl(magicLinkTtlSeconds)}.`,
+        {
+          link_preview_options: { is_disabled: true },
+          reply_markup: {
+            inline_keyboard: [[{ text: 'Открыть в браузере 🔗', url }]],
+          },
         },
-      } : {},
-    );
+      );
+    } catch (error) {
+      database.abortMagicLinkDelivery(magicLink.token);
+      throw error;
+    }
+
+    const messageId = getSentMessageId(sentMessage);
+
+    if (!messageId) {
+      database.abortMagicLinkDelivery(magicLink.token);
+      throw new Error('Telegram did not return a message ID for the browser link');
+    }
+
+    try {
+      const finalized = database.finalizeMagicLinkDelivery(
+        magicLink.token,
+        telegramId,
+        chatId,
+        messageId,
+      );
+
+      if (finalized === null) {
+        throw new Error('Could not activate the delivered browser link');
+      }
+    } catch (error) {
+      database.abortMagicLinkDelivery(magicLink.token);
+      await api.deleteMessage(chatId, messageId).catch(() => {});
+      throw error;
+    }
+
+    await cleanupTrackedMessages(telegramId);
   }
 
   async function notifyAccessStatus(targetId, status) {
     try {
       if (status === 'active') {
-        await api.sendMessage(targetId, 'Статус доступа: активен ✅\n\nДоступ к PuppyApp восстановлен.', {
+        await sendTrackedMessage(targetId, targetId, 'status', 'Статус доступа: активен ✅\n\nДоступ к PuppyApp восстановлен.', {
           reply_markup: appReplyKeyboard(),
         });
         return;
       }
 
-      await api.sendMessage(targetId, 'Статус доступа: отозван ⛔', {
+      await sendTrackedMessage(targetId, targetId, 'status', 'Статус доступа: отозван ⛔', {
         reply_markup: { remove_keyboard: true },
       });
     } catch (error) {
@@ -359,7 +405,7 @@ export function createTelegramBot(options) {
         return;
       }
 
-      await api.sendMessage(chatId, 'Пользователей пока нет.', {
+      await sendTrackedMessage(chatId, adminTelegramId, 'admin_menu', 'Пользователей пока нет.', {
         reply_markup: adminKeyboard(),
       });
       return;
@@ -398,9 +444,43 @@ export function createTelegramBot(options) {
     buttons.push([{ text: '➕ Добавить', callback_data: 'admin:add' }]);
     buttons.push([{ text: '↩️ В меню', callback_data: 'user:menu' }]);
     const pageNumber = Math.floor(offset / USER_PAGE_SIZE) + 1;
-    await api.sendMessage(chatId, `Пользователи · страница ${pageNumber}:\n\n${lines.join('\n')}`, {
+    await sendTrackedMessage(chatId, adminTelegramId, 'admin_menu', `Пользователи · страница ${pageNumber}:\n\n${lines.join('\n')}`, {
       reply_markup: { inline_keyboard: buttons },
     });
+  }
+
+  async function sendTrackedMessage(chatId, telegramId, kind, text, extra = {}) {
+    const sentMessage = await api.sendMessage(chatId, text, extra);
+    const messageId = getSentMessageId(sentMessage);
+
+    if (!messageId) {
+      throw new Error(`Telegram did not return a message ID for ${kind}`);
+    }
+
+    try {
+      database.trackBotMessage(telegramId, chatId, messageId, kind, true);
+    } catch (error) {
+      await api.deleteMessage(chatId, messageId).catch(() => {});
+      throw error;
+    }
+
+    await cleanupTrackedMessages(telegramId);
+    return sentMessage;
+  }
+
+  async function cleanupTrackedMessages(telegramId) {
+    const messages = database.listBotMessagesForCleanup(telegramId);
+
+    for (const message of messages) {
+      try {
+        await api.deleteMessage(message.chatId, message.messageId);
+        database.removeTrackedBotMessage(message.chatId, message.messageId);
+      } catch (error) {
+        console.warn(
+          `[telegram-bot] could not delete stale ${message.kind} message: ${getErrorMessage(error)}`,
+        );
+      }
+    }
   }
 
   function adminKeyboard() {
@@ -473,9 +553,30 @@ export function createTelegramBot(options) {
   }
 }
 
-function formatTtl(ttlSeconds) {
+export function formatTtl(ttlSeconds) {
   const minutes = Math.max(1, Math.ceil(ttlSeconds / 60));
-  return `${minutes} мин.`;
+  return `${minutes} ${pluralizeMinutes(minutes)}`;
+}
+
+function pluralizeMinutes(minutes) {
+  const lastTwoDigits = minutes % 100;
+
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
+    return 'минут';
+  }
+
+  const lastDigit = minutes % 10;
+
+  if (lastDigit === 1) {
+    return 'минута';
+  }
+
+  return lastDigit >= 2 && lastDigit <= 4 ? 'минуты' : 'минут';
+}
+
+function getSentMessageId(result) {
+  const messageId = Number(result?.message_id);
+  return Number.isSafeInteger(messageId) && messageId > 0 ? messageId : null;
 }
 
 function getPrivateSender(update) {

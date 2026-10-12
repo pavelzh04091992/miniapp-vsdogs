@@ -15,6 +15,7 @@ import {
   writeResponseHead,
 } from './http-utils.mjs';
 import { createRateLimiter } from './rate-limit.mjs';
+import { isPublicBrandAssetPath } from './protected-routes.mjs';
 import { readServerConfig } from './server-config.mjs';
 import { createStaticServer } from './static-server.mjs';
 import { createTelegramBot } from './telegram-bot.mjs';
@@ -154,6 +155,16 @@ async function handleRequest(request, response) {
     pathname === '/private' ||
     pathname.startsWith('/private/')
   ) {
+    if (isPublicBrandAssetPath(pathname)) {
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET, HEAD' });
+        return;
+      }
+
+      await serveStaticFile(pathname, request.method, response, { allowPrivateAssets: true });
+      return;
+    }
+
     await handlePrivateAsset(request, response, pathname);
     return;
   }
@@ -462,11 +473,11 @@ function respondMagicLinkConfirmation(response, token, extraHeaders = {}) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>Вход в Puppys</title>
+  <title>Вход — Высшая школа собак</title>
 </head>
 <body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#eef5fc;font-family:system-ui,sans-serif;color:#17324f">
   <main style="width:min(86vw,380px);padding:32px 24px;border-radius:24px;background:#fff;text-align:center;box-shadow:0 20px 50px rgba(26,74,123,.14)">
-    <div style="font-size:42px" aria-hidden="true">🐾</div>
+    <img src="/assets/logo-dog.svg" alt="Высшая школа собак" style="width:76px;height:69px;display:block;object-fit:contain;margin:0 auto" />
     <h1 style="margin:14px 0 8px;font-size:26px">Войти в приложение?</h1>
     <p style="margin:0 0 24px;color:#607086;line-height:1.5">Ссылка одноразовая. Нажмите кнопку, чтобы подтвердить вход в этом браузере.</p>
     <form method="post" action="${action}">

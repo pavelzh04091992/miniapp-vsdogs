@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   getDecodedRequestPathname,
+  isPublicBrandAssetPath,
   isProtectedRoutePath,
   normalizeRequestPathname,
   shouldBlockDevStaticFallback,
@@ -25,6 +26,9 @@ test('recognizes protected routes after decoding and Windows path normalization'
   assert.equal(normalizeRequestPathname('/public/.. /src/main.ts'), '/src/main.ts');
   assert.equal(normalizeRequestPathname('/src\\main.ts'), '/src/main.ts');
   assert.equal(isProtectedRoutePath('/public/index.js'), false);
+  assert.equal(isPublicBrandAssetPath('/assets/logo-dog.svg'), true);
+  assert.equal(isPublicBrandAssetPath('/ASSETS/LOGO-DOG.SVG'), true);
+  assert.equal(isPublicBrandAssetPath('/assets/hero-dog.webp'), false);
 });
 
 test('blocks protected paths from falling through the Vite static server', () => {
