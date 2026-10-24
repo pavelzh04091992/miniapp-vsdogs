@@ -111,7 +111,7 @@
     { "topicSlug": "fitness-bunny", "lessonTitle": "Зайка", "mediaId": "puppy-bunny" },
     { "topicSlug": "fitness-house", "lessonTitle": "Домик", "mediaId": "puppy-house" },
     { "topicSlug": "fitness-paw", "lessonTitle": "«Дай лапу»", "mediaId": "puppy-paw" },
-    { "topicSlug": "fitness-wipe-muzzle", "lessonTitle": "Вытри морду (тач на тряпочку)", "mediaId": "touch" },
+    { "topicSlug": "fitness-wipe-muzzle", "lessonTitle": "Поставь лапки или \"тач\"", "mediaId": "touch" },
     { "topicSlug": "fitness-spin", "lessonTitle": "Круть-верть", "mediaId": "puppy-spin" },
     { "topicSlug": "fitness-left-right", "lessonTitle": "Влево-вправо", "mediaId": "puppy-left-right" },
 

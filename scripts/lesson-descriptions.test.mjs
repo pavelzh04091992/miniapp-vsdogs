@@ -74,9 +74,8 @@ test('keeps undocumented video lessons free of invented descriptions', async () 
     .sort();
 
   assert.deepEqual(undocumentedLessons, [
-    'adult-large-scooters-bikes|Бросается на самокаты и велосипеды',
     'adult-large-wipe-muzzle|Вытри морду',
-    'fitness-wipe-muzzle|Вытри морду (тач на тряпочку)',
+    'fitness-paw|«Дай лапу»',
   ]);
 });
 
@@ -102,7 +101,7 @@ test('maps the supplemental descriptions to their existing player cards', async 
   assert.match(descriptions['63'], /Приучение взрослой собаки к стрижке когтей/u);
   assert.match(
     appSource,
-    /topicSlug: 'fitness-paw', lessonTitle: '«Дай лапу»', descriptionId: '54'/u,
+    /topicSlug: 'fitness-wipe-muzzle', lessonTitle: 'Поставь лапки или "тач"', descriptionId: '54'/u,
   );
   assert.match(
     appSource,
@@ -139,6 +138,10 @@ test('maps the supplemental descriptions to their existing player cards', async 
   assert.match(
     appSource,
     /topicSlug: 'adult-large-claws', lessonTitle: 'Когти', descriptionId: '63'/u,
+  );
+  assert.match(
+    appSource,
+    /topicSlug: 'adult-large-scooters-bikes', lessonTitle: 'Бросается на самокаты и велосипеды', descriptionId: '28'/u,
   );
 });
 
