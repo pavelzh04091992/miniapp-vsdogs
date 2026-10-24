@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import { extname, posix, resolve, sep } from 'node:path';
 import { respondJson, writeResponseHead } from './http-utils.mjs';
 import { isPrivateStaticAssetPath, isProtectedRoutePath } from './protected-routes.mjs';
@@ -17,15 +18,23 @@ export function createStaticServer(distPath) {
     }
 
     try {
-      const content = await readFile(targetPath);
+      const metadata = await getFileMetadata(targetPath);
+      const cacheControl = getCacheControl(targetPath);
 
-      writeResponseHead(response, 200, {
-        'Cache-Control': getCacheControl(targetPath),
-        'Content-Length': String(content.byteLength),
-        'Content-Type': getContentType(targetPath),
-      });
+      if (isNotModified(options.requestHeaders, metadata)) {
+        writeResponseHead(response, 304, createFileHeaders(metadata, cacheControl));
+        response.end();
+        return;
+      }
 
-      response.end(method === 'HEAD' ? undefined : content);
+      writeResponseHead(response, 200, createFileHeaders(metadata, cacheControl));
+
+      if (method === 'HEAD') {
+        response.end();
+        return;
+      }
+
+      await streamFile(targetPath, response);
     } catch (error) {
       if (error.code === 'ENOENT' && shouldFallbackToIndex && targetPath !== indexHtmlPath) {
         await serveIndexFile(indexHtmlPath, method, response);
@@ -45,15 +54,16 @@ export function createStaticServer(distPath) {
 
 async function serveIndexFile(indexHtmlPath, method, response) {
   try {
-    const content = await readFile(indexHtmlPath);
+    const metadata = await getFileMetadata(indexHtmlPath);
 
-    writeResponseHead(response, 200, {
-      'Cache-Control': 'no-cache',
-      'Content-Length': String(content.byteLength),
-      'Content-Type': 'text/html; charset=utf-8',
-    });
+    writeResponseHead(response, 200, createFileHeaders(metadata, 'no-cache'));
 
-    response.end(method === 'HEAD' ? undefined : content);
+    if (method === 'HEAD') {
+      response.end();
+      return;
+    }
+
+    await streamFile(indexHtmlPath, response);
   } catch (error) {
     if (error.code === 'ENOENT') {
       respondJson(response, 503, { ok: false, error: 'frontend_not_built' });
@@ -132,12 +142,66 @@ function isSpaRoute(pathname) {
 
 function getCacheControl(filePath) {
   if (filePath.includes(`${sep}assets${sep}`) || filePath.includes(`${sep}private${sep}`)) {
-    return 'private, no-store';
+    return 'private, no-cache';
   }
 
   return filePath.includes(`${sep}public${sep}`)
     ? 'public, max-age=31536000, immutable'
     : 'no-cache';
+}
+
+async function getFileMetadata(filePath) {
+  const fileStat = await stat(filePath);
+
+  if (!fileStat.isFile()) {
+    const error = new Error('Path is not a file');
+    error.code = 'EISDIR';
+    throw error;
+  }
+
+  return {
+    contentLength: fileStat.size,
+    contentType: getContentType(filePath),
+    etag: `W/"${fileStat.size.toString(16)}-${Math.trunc(fileStat.mtimeMs).toString(16)}"`,
+    lastModified: fileStat.mtime.toUTCString(),
+  };
+}
+
+function createFileHeaders(metadata, cacheControl) {
+  return {
+    'Cache-Control': cacheControl,
+    'Content-Length': String(metadata.contentLength),
+    'Content-Type': metadata.contentType,
+    ETag: metadata.etag,
+    'Last-Modified': metadata.lastModified,
+  };
+}
+
+function isNotModified(requestHeaders = {}, metadata) {
+  const ifNoneMatch = requestHeaders['if-none-match'];
+
+  if (typeof ifNoneMatch === 'string') {
+    return ifNoneMatch.split(',').map((value) => value.trim()).includes(metadata.etag);
+  }
+
+  const ifModifiedSince = requestHeaders['if-modified-since'];
+
+  if (typeof ifModifiedSince !== 'string') {
+    return false;
+  }
+
+  const modifiedSince = Date.parse(ifModifiedSince);
+  const lastModified = Date.parse(metadata.lastModified);
+  return Number.isFinite(modifiedSince) && modifiedSince >= lastModified;
+}
+
+function streamFile(filePath, response) {
+  return new Promise((resolveStream, rejectStream) => {
+    const stream = createReadStream(filePath);
+    stream.on('error', rejectStream);
+    stream.on('end', resolveStream);
+    stream.pipe(response, { end: true });
+  });
 }
 
 function getContentType(filePath) {

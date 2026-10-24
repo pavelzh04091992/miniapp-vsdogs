@@ -202,6 +202,8 @@ test('activates a prepared magic link only after delivery and persists message c
     assert.equal(database.isMagicLinkUsable(aborted.token), false);
 
     database.trackBotMessage('20002', '20002', 201, 'browser_request');
+    database.trackBotMessage('20002', '20002', 201, 'browser_request');
+    assert.equal(database.listBotMessagesForCleanup('20002').length, 1);
     const replacement = database.prepareMagicLinkDelivery('20002', 600);
     assert.equal(database.isMagicLinkUsable(first.token), true);
     assert.deepEqual(
@@ -267,6 +269,111 @@ test('migrates existing magic links as already delivered', () => {
     assert.equal(database.isMagicLinkUsable(link.token), true);
   } finally {
     database?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('enforces subscription expiry independently from session lifetime and requires a new login after renewal', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-subscription-'));
+  const databasePath = join(directory, 'auth.sqlite');
+  let currentTime = 1_900_000_000;
+  const database = createAuthDatabase(databasePath, { now: () => currentTime });
+
+  try {
+    const admin = database.ensureAdmin('10001');
+    assert.equal(admin.accessExpiresAt, null);
+    assert.equal(database.getUserAccess('10001').state, 'active');
+
+    const granted = database.grantUser('20002', '10001', currentTime + 120);
+    assert.equal(granted.accessExpiresAt, currentTime + 120);
+    assert.equal(database.getUserAccess('20002').state, 'active');
+    const session = database.createSession('20002', 3_600);
+    const magicLink = database.createMagicLink('20002', '20002', 600);
+    assert.ok(session);
+    assert.ok(magicLink);
+
+    currentTime += 120;
+    assert.equal(database.getUserAccess('20002').state, 'expired');
+    assert.equal(database.getSessionAccess(session.token).state, 'expired');
+    assert.equal(database.getSessionUser(session.token), null);
+    assert.equal(database.isMagicLinkUsable(magicLink.token), false);
+
+    const renewed = database.extendUserAccess('20002', 7, '10001');
+    assert.equal(renewed.accessExpiresAt, currentTime + 7 * 86_400);
+    assert.equal(database.getUserAccess('20002').state, 'active');
+    assert.equal(database.getSessionAccess(session.token).state, 'invalid');
+    assert.ok(database.createSession('20002', 600));
+
+    const extended = database.extendUserAccess('20002', 30, '10001');
+    assert.equal(extended.accessExpiresAt, renewed.accessExpiresAt + 30 * 86_400);
+    assert.equal(database.setUserAccessExpiry('20002', null, '10001').accessExpiresAt, null);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('claims subscription warning and expiration notifications once per expiry', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-subscription-notify-'));
+  let currentTime = 1_900_000_000;
+  const database = createAuthDatabase(join(directory, 'auth.sqlite'), { now: () => currentTime });
+
+  try {
+    database.ensureAdmin('10001');
+    const expiresAt = currentTime + 3 * 86_400;
+    database.grantUser('20002', '10001', expiresAt);
+
+    const warning = database.claimDueSubscriptionNotifications();
+    assert.deepEqual(warning.map(({ telegramId, accessExpiresAt, kind }) => ({
+      telegramId,
+      accessExpiresAt,
+      kind,
+    })), [{ telegramId: '20002', accessExpiresAt: expiresAt, kind: 'warning' }]);
+    assert.deepEqual(database.claimDueSubscriptionNotifications(), []);
+    database.markSubscriptionNotificationDelivered('20002', expiresAt, 'warning');
+
+    currentTime = expiresAt;
+    database.expireSubscriptions();
+    const expired = database.claimDueSubscriptionNotifications();
+    assert.equal(expired.length, 1);
+    assert.equal(expired[0].kind, 'expired');
+    database.markSubscriptionNotificationDelivered('20002', expiresAt, 'expired');
+    assert.deepEqual(database.claimDueSubscriptionNotifications(), []);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('migrates existing active users to unlimited subscriptions', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-subscription-migration-'));
+  const databasePath = join(directory, 'auth.sqlite');
+  const legacy = new DatabaseSync(databasePath);
+  legacy.exec(`
+    CREATE TABLE users (
+      telegram_id TEXT PRIMARY KEY,
+      role TEXT NOT NULL CHECK (role IN ('admin', 'user')),
+      status TEXT NOT NULL CHECK (status IN ('active', 'revoked', 'blocked')),
+      username TEXT,
+      first_name TEXT,
+      last_name TEXT,
+      created_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      last_seen_at INTEGER
+    ) STRICT;
+    INSERT INTO users
+      (telegram_id, role, status, created_by, created_at, updated_at)
+    VALUES ('20002', 'user', 'active', '10001', 1, 1);
+  `);
+  legacy.close();
+  const database = createAuthDatabase(databasePath);
+
+  try {
+    assert.equal(database.getUser('20002').accessExpiresAt, null);
+    assert.equal(database.getUserAccess('20002').state, 'active');
+  } finally {
+    database.close();
     rmSync(directory, { recursive: true, force: true });
   }
 });

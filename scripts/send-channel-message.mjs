@@ -1,5 +1,6 @@
 import { getRequiredEnv, loadDotEnv, parseEnvBoolean } from './env.mjs';
 import { createTelegramApi } from './telegram-api.mjs';
+import { createTelegramTransportFromEnv } from './telegram-transport.mjs';
 
 loadDotEnv();
 
@@ -10,7 +11,8 @@ const messageText = process.env.MESSAGE_TEXT || 'Откройте mini-app че�
 const buttonText = process.env.BUTTON_TEXT || 'Открыть приложение';
 const shouldPinMessage = parseEnvBoolean(process.env.PIN_MESSAGE);
 const disablePinNotification = parseEnvBoolean(process.env.DISABLE_PIN_NOTIFICATION, true);
-const telegramApi = createTelegramApi(botToken);
+const telegramTransport = createTelegramTransportFromEnv();
+const telegramApi = createTelegramApi(botToken, { fetchImpl: telegramTransport.fetch });
 
 validateMiniAppLink(miniAppLink);
 
@@ -40,6 +42,8 @@ if (shouldPinMessage) {
 
   console.log(`Message pinned in ${channelId}.`);
 }
+
+await telegramTransport.close();
 
 function validateMiniAppLink(value) {
   const url = new URL(value);

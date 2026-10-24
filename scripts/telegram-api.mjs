@@ -1,3 +1,5 @@
+import { openAsBlob } from 'node:fs';
+
 export class TelegramApiError extends Error {
   constructor(method, message, statusCode = null) {
     super(`Telegram API ${method} failed: ${message}`);
@@ -10,6 +12,7 @@ export class TelegramApiError extends Error {
 export function createTelegramApi(botToken, options = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? 10_000;
+  const uploadTimeoutMs = options.uploadTimeoutMs ?? 10 * 60_000;
 
   async function request(method, payload = {}) {
     let response;
@@ -39,6 +42,44 @@ export function createTelegramApi(botToken, options = {}) {
     return body.result;
   }
 
+  async function requestMultipart(method, payload, fieldName, file) {
+    const form = new FormData();
+
+    for (const [key, value] of Object.entries(payload)) {
+      if (value === undefined || value === null) continue;
+      form.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+    }
+
+    form.append(
+      fieldName,
+      await openAsBlob(file.path, { type: file.mimeType || 'application/octet-stream' }),
+      file.originalName || 'attachment',
+    );
+
+    let response;
+
+    try {
+      response = await fetchImpl(`https://api.telegram.org/bot${botToken}/${method}`, {
+        method: 'POST',
+        body: form,
+        signal: AbortSignal.timeout(uploadTimeoutMs),
+      });
+    } catch {
+      throw new TelegramApiError(method, 'network request failed');
+    }
+
+    const body = await response.json().catch(() => null);
+
+    if (!response.ok || !body?.ok) {
+      const description = typeof body?.description === 'string'
+        ? body.description.slice(0, 500)
+        : response.statusText || `HTTP ${response.status}`;
+      throw new TelegramApiError(method, description, response.status);
+    }
+
+    return body.result;
+  }
+
   return {
     request,
     answerCallbackQuery: (callbackQueryId, extra = {}) => request('answerCallbackQuery', {
@@ -50,6 +91,19 @@ export function createTelegramApi(botToken, options = {}) {
       text,
       ...extra,
     }),
+    sendPhotoFile: (chatId, file, extra = {}) => requestMultipart('sendPhoto', {
+      chat_id: chatId,
+      ...extra,
+    }, 'photo', file),
+    sendVideoFile: (chatId, file, extra = {}) => requestMultipart('sendVideo', {
+      chat_id: chatId,
+      supports_streaming: true,
+      ...extra,
+    }, 'video', file),
+    sendDocumentFile: (chatId, file, extra = {}) => requestMultipart('sendDocument', {
+      chat_id: chatId,
+      ...extra,
+    }, 'document', file),
     deleteMessage: (chatId, messageId) => request('deleteMessage', {
       chat_id: chatId,
       message_id: messageId,

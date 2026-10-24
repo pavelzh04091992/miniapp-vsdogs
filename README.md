@@ -152,11 +152,22 @@ Sidecar подключается только к исходящей сети app
 SSH-host не имеет рабочего IPv6, задайте `TELEGRAM_EGRESS_TARGET_HOST` текущим IPv4 из
 `getent ahostsv4 api.telegram.org` и ограничьте tunnel key тем же `permitopen`.
 
+Приложение использует отдельный Telegram transport и не читает глобальные `HTTP_PROXY` или
+`HTTPS_PROXY`. Override задаёт `TELEGRAM_EGRESS_MODE=ssh-tunnel`; обычные HTTP-запросы остаются
+прямыми. Для будущего штатного HTTP CONNECT proxy используйте
+`TELEGRAM_EGRESS_MODE=http-proxy` и секретный `TELEGRAM_PROXY_URL`. Проверить выбранный маршрут
+можно командой `npm run telegram:check`; URL proxy и bot token она не выводит.
+
 Если сеть основного VPS также не принимает входящие соединения Telegram, на egress-host можно
 запустить relay из `infra/telegram-relay`. Его Caddyfile принимает только POST
 `/telegram/webhook`, проксирует запрос к основному test-host и возвращает `404` на остальные
 пути. В `.env.test-prod` задайте relay-origin через `TELEGRAM_WEBHOOK_PUBLIC_BASE_URL`, после
 чего повторно запустите `scripts/set-webhook.mjs`.
+
+Если relay пересылает запросы на hostname без основного frontend-роутера, задайте
+`TELEGRAM_WEBHOOK_UPSTREAM_HOST` и запускайте Compose с дополнительным файлом
+`docker-compose.webhook-relay.yml`. Он публикует на этом hostname только `POST` на путь
+`TELEGRAM_WEBHOOK_PATH`; остальные страницы и test-prod не становятся доступными.
 
 ## Подготовка видео
 
@@ -211,6 +222,8 @@ BOT_USERNAME=your_bot_username
 ADMIN_TELEGRAM_ID=123456789
 MINI_APP_URL=https://example.com
 MAGIC_LINK_TTL_SECONDS=600
+SUBSCRIPTION_WARNING_SECONDS=259200
+SUBSCRIPTION_SWEEP_INTERVAL_SECONDS=300
 PUBLIC_CHANNEL_ID=-1001234567890
 PUBLIC_CHANNEL_USERNAME=your_channel_username
 ```
@@ -225,7 +238,10 @@ PUBLIC_CHANNEL_USERNAME=your_channel_username
 npm run bot:set-webhook
 ```
 
-После `/start` администратор получает меню выдачи и отзыва доступа. Если указанный пользователь
+После `/start` администратор получает меню пользователей. При выдаче доступа бот предлагает срок
+7, 30, 90 или 365 дней, бессрочный режим либо дату окончания по Москве. Карточка пользователя
+позволяет продлевать подписку, менять дату, делать доступ бессрочным, отзывать и восстанавливать его.
+За три дня до окончания и при истечении бот отправляет отдельные уведомления. Если указанный пользователь
 уже запускал бота, он сразу получит уведомление и кнопку Mini App. Иначе администратор получит
 персональную deep link, которую нужно передать пользователю. При переходе бот проверяет, что
 приглашение открыто тем Telegram ID, которому оно выдано.
@@ -233,14 +249,19 @@ npm run bot:set-webhook
 Сервер предоставляет API для следующего этапа интеграции фронтенда:
 
 - `POST /api/auth/telegram` — принимает `{ "initData": "..." }`, проверяет подпись Telegram,
-  срок `auth_date` и наличие активного доступа, затем создаёт HttpOnly-сессию;
+  срок `auth_date`, административный статус и срок подписки, затем создаёт HttpOnly-сессию;
 - `GET /api/auth/config` — возвращает публичную ссылку на бота для экрана входа;
 - `GET /api/me` — возвращает пользователя текущей сессии;
-- `POST /api/logout` — отзывает текущую сессию.
+- `POST /api/logout` — отзывает текущую сессию;
+- `POST /api/feedback` — принимает авторизованный multipart-вопрос с максимум пятью фото/видео,
+  временно сохраняет вложения в `/tmp`, пересылает их администратору через Telegram и удаляет
+  локальные копии после доставки.
 
 Mini App обменивает проверенный `initData` на серверную сессию. В обычном браузере пользователь
 нажимает в боте «Войти в браузере», получает одноразовую ссылку и после перехода также получает
-HttpOnly-сессию. До успешной проверки frontend показывает только экран входа или отказа в доступе.
+HttpOnly-сессию. До успешной проверки frontend показывает экран входа, отказа либо отдельное
+состояние завершившейся подписки. Истечение подписки немедленно закрывает защищённые API, ассеты и
+медиа независимо от оставшегося срока cookie; после продления требуется новый вход.
 POST-запросы, меняющие авторизацию, принимаются только с Origin из `PUBLIC_BASE_URL`,
 `MINI_APP_URL` или `ALLOWED_ORIGINS`. Подтверждение magic link дополнительно привязано к браузеру
 короткоживущей HttpOnly-cookie, поэтому ссылку нельзя незаметно навязать чужому браузеру.
@@ -254,6 +275,8 @@ Telegram production-cookie использует `SameSite=None; Secure`; лок�
 `X-Forwarded-For`/`X-Real-IP` используются для лимитов только при
 `TRUST_PROXY_HEADERS=true`; включайте этот параметр лишь когда app-контейнер недоступен напрямую
 из интернета и запросы всегда проходят через доверенный reverse proxy.
+Для формы обратной связи используется отдельный пользовательский лимит
+`FEEDBACK_RATE_LIMIT_MAX` за `FEEDBACK_RATE_LIMIT_WINDOW_SECONDS`.
 
 Публичными остаются только `index.html` и минимальный auth-bootstrap для показа экрана входа.
 Основной JS/CSS находится в `/private/`, изображения — в `/assets/`; оба префикса, каталог
@@ -292,6 +315,7 @@ scripts/
   app-server.mjs            # Фронтенд, auth API, healthcheck и Telegram webhook
   auth-database.mjs         # SQLite: пользователи, приглашения и сессии
   env.mjs                   # Единая загрузка и проверка переменных из .env
+  feedback.mjs              # Валидация вложений и доставка вопросов в Telegram
   http-utils.mjs            # HTTP parsing, cookies, Origin и security headers
   protected-routes.mjs      # Единая граница динамических и статических маршрутов
   rate-limit.mjs            # Ограничение частоты auth и bot-запросов

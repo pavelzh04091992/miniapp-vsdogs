@@ -6,26 +6,32 @@
   "scripts": {
     "dev": "vite",
     "dev:media": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build app media",
-    "build": "tsc --noEmit && vite build && node scripts/check-private-bundle.mjs",
+    "build": "tsc --noEmit && vite build && node scripts/check-private-bundle.mjs && node scripts/check-performance-budget.mjs",
     "verify": "npm run test:auth && npm run build && npm run media:check",
     "preview": "vite preview",
     "start": "node scripts/app-server.mjs",
     "test:smoke": "node scripts/smoke-test.mjs",
-    "test:auth": "node --test --experimental-test-isolation=none scripts/branding.test.mjs scripts/env.test.mjs scripts/telegram-api.test.mjs scripts/telegram-auth.test.mjs scripts/auth-database.test.mjs scripts/telegram-bot.test.mjs scripts/frontend-auth.test.mjs scripts/frontend-videos.test.mjs scripts/rate-limit.test.mjs scripts/server-config.test.mjs scripts/http-utils.test.mjs scripts/protected-routes.test.mjs scripts/static-server.test.mjs scripts/video-catalog.test.mjs",
+    "test:auth": "node --test --experimental-test-isolation=none scripts/branding.test.mjs scripts/env.test.mjs scripts/telegram-api.test.mjs scripts/telegram-transport.test.mjs scripts/telegram-auth.test.mjs scripts/auth-database.test.mjs scripts/telegram-bot.test.mjs scripts/feedback.test.mjs scripts/feedback-copy.test.mjs scripts/feedback-handler.test.mjs scripts/frontend-auth.test.mjs scripts/frontend-feedback.test.mjs scripts/frontend-performance.test.mjs scripts/frontend-videos.test.mjs scripts/lesson-descriptions.test.mjs scripts/navigation-history.test.mjs scripts/rate-limit.test.mjs scripts/server-config.test.mjs scripts/http-utils.test.mjs scripts/protected-routes.test.mjs scripts/static-server.test.mjs scripts/video-catalog.test.mjs",
+    "telegram:check": "node scripts/telegram-egress-check.mjs",
     "send:channel-message": "node scripts/send-channel-message.mjs",
     "bot:server": "node scripts/app-server.mjs",
     "bot:set-webhook": "node scripts/set-webhook.mjs",
     "media:check": "node scripts/check-media.mjs",
     "video:catalog:check": "node scripts/check-video-catalog.mjs",
     "video:prepare": "node scripts/prepare-video.mjs",
+    "assets:optimize": "node scripts/optimize-images.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "sharp": "^0.35.5",
     "typescript": "^5.9.3",
     "vite": "^7.1.7"
   },
   "dependencies": {
-    "hls.js": "^1.7.3"
+    "@twemoji/svg": "^15.0.0",
+    "busboy": "^1.6.0",
+    "hls.js": "^1.7.3",
+    "undici": "^7.29.1"
   },
   "overrides": {
     "source-map-js": "^1.2.2"

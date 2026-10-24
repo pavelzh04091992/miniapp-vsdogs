@@ -22,6 +22,8 @@ export interface TelegramWebApp {
   initDataUnsafe?: Record<string, unknown>;
   isExpanded?: boolean;
   platform?: string;
+  viewportHeight?: number;
+  viewportStableHeight?: number;
   themeParams: TelegramThemeParams;
   ready: () => void;
   close?: () => void;
@@ -29,11 +31,16 @@ export interface TelegramWebApp {
   enableClosingConfirmation?: () => void;
   openLink?: (url: string) => void;
   openTelegramLink?: (url: string) => void;
+  onEvent?: (eventType: string, callback: (event: unknown) => void) => void;
+  offEvent?: (eventType: string, callback: (event: unknown) => void) => void;
   HapticFeedback?: {
     impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
   };
   showAlert?: (message: string) => void;
 }
+
+const TELEGRAM_SDK_URL = 'https://telegram.org/js/telegram-web-app.js';
+let telegramSdkPromise: Promise<TelegramWebApp | null> | null = null;
 
 export function getTelegramWebApp(): TelegramWebApp | null {
   return window.Telegram?.WebApp ?? null;
@@ -43,6 +50,53 @@ export function isTelegramMiniAppLaunch(): boolean {
   const webApp = getTelegramWebApp();
 
   return Boolean(webApp?.initData);
+}
+
+export function hasTelegramLaunchParameters(locationValue: Pick<Location, 'search' | 'hash'> = window.location): boolean {
+  const serialized = `${locationValue.search.replace(/^\?/, '')}&${locationValue.hash.replace(/^#/, '')}`;
+  const params = new URLSearchParams(serialized);
+
+  return params.has('tgWebAppData') || params.has('tgWebAppVersion');
+}
+
+export function loadTelegramWebAppSdk(timeoutMs = 8_000): Promise<TelegramWebApp | null> {
+  const existing = getTelegramWebApp();
+
+  if (existing) {
+    return Promise.resolve(existing);
+  }
+
+  if (!hasTelegramLaunchParameters()) {
+    return Promise.resolve(null);
+  }
+
+  if (telegramSdkPromise) {
+    return telegramSdkPromise;
+  }
+
+  telegramSdkPromise = new Promise<TelegramWebApp | null>((resolve, reject) => {
+    const script = document.createElement('script');
+    const timeout = window.setTimeout(() => {
+      script.remove();
+      telegramSdkPromise = null;
+      reject(new Error('Telegram WebApp SDK loading timed out'));
+    }, timeoutMs);
+
+    script.src = TELEGRAM_SDK_URL;
+    script.async = true;
+    script.addEventListener('load', () => {
+      window.clearTimeout(timeout);
+      resolve(getTelegramWebApp());
+    }, { once: true });
+    script.addEventListener('error', () => {
+      window.clearTimeout(timeout);
+      telegramSdkPromise = null;
+      reject(new Error('Telegram WebApp SDK could not be loaded'));
+    }, { once: true });
+    document.head.append(script);
+  });
+
+  return telegramSdkPromise;
 }
 
 export function initTelegramWebApp(): TelegramWebApp | null {

@@ -3,11 +3,17 @@ import { Readable } from 'node:stream';
 import test from 'node:test';
 import {
   RequestError,
+  SECURITY_HEADERS,
   getClientIdentifier,
   hasAllowedOrigin,
   parseCookies,
   readJsonBody,
 } from './http-utils.mjs';
+
+test('content security policy allows local attachment previews', () => {
+  assert.match(SECURITY_HEADERS['Content-Security-Policy'], /img-src 'self' data: blob: https:/);
+  assert.match(SECURITY_HEADERS['Content-Security-Policy'], /media-src 'self' blob:/);
+});
 
 test('origin checks require an explicitly allowed browser origin', () => {
   const allowedOrigins = new Set(['https://app.example.com']);

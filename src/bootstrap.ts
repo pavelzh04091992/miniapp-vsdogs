@@ -1,5 +1,11 @@
 import { AppAccessResult, resolveAppAccess } from './lib/auth';
-import { initTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
+import {
+  hasTelegramLaunchParameters,
+  initTelegramWebApp,
+  isTelegramMiniAppLaunch,
+  loadTelegramWebAppSdk,
+} from './lib/telegram';
+import type { TelegramWebApp } from './lib/telegram';
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
 
@@ -9,14 +15,8 @@ if (!appRoot) {
 
 const root = appRoot;
 
-const webApp = isTelegramMiniAppLaunch() ? initTelegramWebApp() : null;
+let webApp: TelegramWebApp | null = null;
 let initializationSequence = 0;
-
-document.documentElement.dataset.launchContext = webApp ? 'telegram' : 'browser';
-
-if (webApp) {
-  document.documentElement.dataset.tgPlatform = webApp.platform || 'unknown';
-}
 
 document.addEventListener('click', (event) => {
   const target = event.target;
@@ -27,7 +27,28 @@ document.addEventListener('click', (event) => {
   }
 });
 
-void initializeApp();
+void startBootstrap();
+
+async function startBootstrap(): Promise<void> {
+  try {
+    if (hasTelegramLaunchParameters()) {
+      renderLoading('Подключаем Telegram');
+      await loadTelegramWebAppSdk();
+    }
+
+    webApp = isTelegramMiniAppLaunch() ? initTelegramWebApp() : null;
+    document.documentElement.dataset.launchContext = webApp ? 'telegram' : 'browser';
+
+    if (webApp) {
+      document.documentElement.dataset.tgPlatform = webApp.platform || 'unknown';
+    }
+
+    await initializeApp();
+  } catch {
+    document.documentElement.dataset.launchContext = 'telegram';
+    renderAccessScreen({ status: 'error' });
+  }
+}
 
 async function initializeApp(): Promise<void> {
   const sequence = ++initializationSequence;
@@ -106,6 +127,11 @@ function getAccessScreenContent(
         title: 'Ссылка больше не работает',
         message: 'Запросите в боте новую одноразовую ссылку для входа в браузере.',
       };
+    case 'subscription-expired':
+      return {
+        title: 'Подписка закончилась',
+        message: `Доступ завершился ${formatSubscriptionDate(access.accessExpiresAt)}. Откройте Telegram-бота, чтобы обратиться к администратору.`,
+      };
     case 'unauthenticated':
       return {
         title: 'Войдите через Telegram',
@@ -117,6 +143,15 @@ function getAccessScreenContent(
         message: 'Проверьте соединение и повторите попытку.',
       };
   }
+}
+
+function formatSubscriptionDate(timestamp: number): string {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Moscow',
+  }).format(new Date(timestamp * 1000));
 }
 
 function clearAuthSignal(): void {

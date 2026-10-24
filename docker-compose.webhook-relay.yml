@@ -1,0 +1,9 @@
+services:
+  gateway:
+    labels:
+      - "traefik.http.routers.${TRAEFIK_WEBHOOK_RELAY_ROUTER_NAME:-miniapp-webhook-relay}.rule=Host(`${TELEGRAM_WEBHOOK_UPSTREAM_HOST:?TELEGRAM_WEBHOOK_UPSTREAM_HOST is required}`) && Path(`${TELEGRAM_WEBHOOK_PATH:-/telegram/webhook}`) && Method(`POST`)"
+      - "traefik.http.routers.${TRAEFIK_WEBHOOK_RELAY_ROUTER_NAME:-miniapp-webhook-relay}.entrypoints=websecure"
+      - "traefik.http.routers.${TRAEFIK_WEBHOOK_RELAY_ROUTER_NAME:-miniapp-webhook-relay}.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${TRAEFIK_WEBHOOK_RELAY_ROUTER_NAME:-miniapp-webhook-relay}.priority=200"
+      - "traefik.http.routers.${TRAEFIK_WEBHOOK_RELAY_ROUTER_NAME:-miniapp-webhook-relay}.middlewares=${TRAEFIK_MIDDLEWARE_NAME:-miniapp-security-headers}@docker"
+      - "traefik.http.routers.${TRAEFIK_WEBHOOK_RELAY_ROUTER_NAME:-miniapp-webhook-relay}.service=${TRAEFIK_SERVICE_NAME:-miniapp}"

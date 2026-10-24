@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { normalizeTelegramId } from './telegram-auth.mjs';
+import { normalizeTelegramEgressMode } from './telegram-transport.mjs';
 
 const LOOPBACK_ORIGINS = [
   'http://localhost:3000',
@@ -67,6 +68,8 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
       900,
       'TELEGRAM_INIT_DATA_MAX_AGE_SECONDS',
     ),
+    telegramEgressMode: normalizeTelegramEgressMode(env.TELEGRAM_EGRESS_MODE),
+    telegramProxyUrl: env.TELEGRAM_PROXY_URL?.trim() || '',
     sessionTtlSeconds: parsePositiveInteger(
       env.SESSION_TTL_SECONDS,
       7 * 24 * 60 * 60,
@@ -86,6 +89,16 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
       env.BOT_STATE_TTL_SECONDS,
       10 * 60,
       'BOT_STATE_TTL_SECONDS',
+    ),
+    subscriptionWarningSeconds: parsePositiveInteger(
+      env.SUBSCRIPTION_WARNING_SECONDS,
+      3 * 24 * 60 * 60,
+      'SUBSCRIPTION_WARNING_SECONDS',
+    ),
+    subscriptionSweepIntervalSeconds: parsePositiveInteger(
+      env.SUBSCRIPTION_SWEEP_INTERVAL_SECONDS,
+      5 * 60,
+      'SUBSCRIPTION_SWEEP_INTERVAL_SECONDS',
     ),
     rateLimitWindowSeconds: parsePositiveInteger(
       env.RATE_LIMIT_WINDOW_SECONDS,
@@ -107,6 +120,16 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
       40,
       'BOT_COMMAND_RATE_LIMIT_MAX',
     ),
+    feedbackRateLimitMax: parsePositiveInteger(
+      env.FEEDBACK_RATE_LIMIT_MAX,
+      4,
+      'FEEDBACK_RATE_LIMIT_MAX',
+    ),
+    feedbackRateLimitWindowSeconds: parsePositiveInteger(
+      env.FEEDBACK_RATE_LIMIT_WINDOW_SECONDS,
+      10 * 60,
+      'FEEDBACK_RATE_LIMIT_WINDOW_SECONDS',
+    ),
     sessionCookieName: normalizeCookieName(env.SESSION_COOKIE_NAME, secureSessionCookie),
     sessionCookieSameSite,
     secureSessionCookie,
@@ -119,6 +142,11 @@ export function readServerConfig(env = process.env, cwd = process.cwd()) {
   };
 
   validateLockedConfig(config);
+
+  if (config.telegramEgressMode === 'http-proxy' && !config.telegramProxyUrl) {
+    throw new Error('TELEGRAM_PROXY_URL is required for http-proxy mode');
+  }
+
   return config;
 }
 

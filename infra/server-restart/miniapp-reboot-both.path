@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for an authenticated Miniapp server restart request
+
+[Path]
+PathExists=/opt/miniapp/persistent/data/restart-servers.request
+Unit=miniapp-reboot-both.service
+
+[Install]
+WantedBy=multi-user.target

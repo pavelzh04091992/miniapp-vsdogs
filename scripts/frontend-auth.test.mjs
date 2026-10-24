@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { resolveAppAccess } from '../src/lib/auth.ts';
+import { hasTelegramLaunchParameters } from '../src/lib/telegram.ts';
 
 const USER = {
   telegramId: '20002',
@@ -9,7 +11,23 @@ const USER = {
   username: 'pup',
   firstName: 'Pup',
   lastName: null,
+  accessExpiresAt: null,
 };
+
+test('loads the Telegram SDK only for Telegram launch parameters', async () => {
+  const [html, bootstrapSource, telegramSource] = await Promise.all([
+    readFile(new URL('../index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../src/bootstrap.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/lib/telegram.ts', import.meta.url), 'utf8'),
+  ]);
+
+  assert.doesNotMatch(html, /telegram-web-app\.js/);
+  assert.match(bootstrapSource, /hasTelegramLaunchParameters\(\)/);
+  assert.match(telegramSource, /script\.src = TELEGRAM_SDK_URL/);
+  assert.equal(hasTelegramLaunchParameters({ search: '', hash: '' }), false);
+  assert.equal(hasTelegramLaunchParameters({ search: '', hash: '#tgWebAppVersion=8.0' }), true);
+  assert.equal(hasTelegramLaunchParameters({ search: '?tgWebAppData=signed', hash: '' }), true);
+});
 
 test('authenticates a Telegram Mini App using raw initData', async () => {
   const requests = [];
@@ -67,6 +85,38 @@ test('distinguishes denied Telegram access and invalid browser links', async () 
 
   assert.equal(denied.status, 'denied');
   assert.equal(invalidLink.status, 'invalid-link');
+});
+
+test('shows a dedicated subscription-expired result for browser and Telegram sessions', async () => {
+  const expiresAt = 1_900_000_000;
+  const browser = await resolveAppAccess({
+    fetchImpl: sequenceFetch([
+      response(403, { ok: false, error: 'subscription_expired', accessExpiresAt: expiresAt }),
+      response(200, { ok: true, botUrl: 'https://t.me/access_bot' }),
+    ]),
+  });
+  const telegram = await resolveAppAccess({
+    initData: 'signed-init-data',
+    fetchImpl: sequenceFetch([
+      response(401, { ok: false }),
+      response(403, { ok: false, error: 'subscription_expired', accessExpiresAt: expiresAt }),
+      response(200, { ok: true, botUrl: 'https://t.me/access_bot' }),
+    ]),
+  });
+
+  assert.deepEqual(browser, {
+    status: 'subscription-expired',
+    botUrl: 'https://t.me/access_bot',
+    accessExpiresAt: expiresAt,
+  });
+  assert.deepEqual(telegram, browser);
+});
+
+test('renders dedicated copy for an expired subscription', async () => {
+  const bootstrapSource = await readFile(new URL('../src/bootstrap.ts', import.meta.url), 'utf8');
+  assert.match(bootstrapSource, /case 'subscription-expired'/);
+  assert.match(bootstrapSource, /Подписка закончилась/);
+  assert.match(bootstrapSource, /Europe\/Moscow/);
 });
 
 test('shows an invalid magic link even when the browser already has a session', async () => {

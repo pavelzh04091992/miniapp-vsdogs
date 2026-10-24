@@ -50,6 +50,12 @@ export function createAuthDatabase(databasePath, options = {}) {
       return id ? mapUser(statements.getUser.get(id)) : null;
     },
 
+    getUserAccess(telegramId) {
+      const id = normalizeTelegramId(telegramId);
+      const user = id ? mapUser(statements.getUser.get(id)) : null;
+      return { state: getUserAccessState(user, now()), user };
+    },
+
     touchTelegramUser(profile) {
       const id = requireTelegramId(profile?.id);
       const timestamp = now();
@@ -64,15 +70,105 @@ export function createAuthDatabase(databasePath, options = {}) {
       return mapUser(statements.getUser.get(id));
     },
 
-    grantUser(targetTelegramId, actorTelegramId) {
+    grantUser(targetTelegramId, actorTelegramId, accessExpiresAt = null) {
       const targetId = requireTelegramId(targetTelegramId);
       const actorId = requireTelegramId(actorTelegramId);
       const timestamp = now();
+      const expiresAt = normalizeAccessExpiry(accessExpiresAt, timestamp);
+      const previous = statements.getUser.get(targetId);
 
       transaction(database, () => {
-        statements.grantUser.run(targetId, actorId, timestamp, timestamp);
+        if (previous && !isRowAccessActive(previous, timestamp)) {
+          revokeUserCredentials(statements, targetId, timestamp);
+        }
+        statements.grantUser.run(targetId, actorId, timestamp, timestamp, expiresAt);
         statements.revokeInvitesForUser.run(timestamp, targetId);
-        statements.insertAudit.run(actorId, 'grant', targetId, null, timestamp);
+        statements.insertAudit.run(
+          actorId,
+          'grant',
+          targetId,
+          JSON.stringify({
+            previousAccessExpiresAt: previous?.access_expires_at ?? null,
+            accessExpiresAt: expiresAt,
+          }),
+          timestamp,
+        );
+      });
+
+      return mapUser(statements.getUser.get(targetId));
+    },
+
+    extendUserAccess(targetTelegramId, days, actorTelegramId) {
+      const targetId = requireTelegramId(targetTelegramId);
+      const actorId = requireTelegramId(actorTelegramId);
+      const durationDays = Number(days);
+      const existing = statements.getUser.get(targetId);
+
+      if (!existing) {
+        return null;
+      }
+      if (existing.role === 'admin') {
+        throw new Error('Admin access is always unlimited');
+      }
+      if (!Number.isInteger(durationDays) || durationDays <= 0 || durationDays > 3_650) {
+        throw new Error('Unsupported subscription duration');
+      }
+
+      const timestamp = now();
+      const base = existing.access_expires_at > timestamp ? existing.access_expires_at : timestamp;
+      const expiresAt = base + durationDays * 86_400;
+
+      transaction(database, () => {
+        if (!isRowAccessActive(existing, timestamp)) {
+          revokeUserCredentials(statements, targetId, timestamp);
+        }
+        statements.setAccessExpiry.run(expiresAt, timestamp, targetId);
+        statements.insertAudit.run(
+          actorId,
+          'subscription_extended',
+          targetId,
+          JSON.stringify({
+            days: durationDays,
+            previousAccessExpiresAt: existing.access_expires_at ?? null,
+            accessExpiresAt: expiresAt,
+          }),
+          timestamp,
+        );
+      });
+
+      return mapUser(statements.getUser.get(targetId));
+    },
+
+    setUserAccessExpiry(targetTelegramId, accessExpiresAt, actorTelegramId) {
+      const targetId = requireTelegramId(targetTelegramId);
+      const actorId = requireTelegramId(actorTelegramId);
+      const existing = statements.getUser.get(targetId);
+
+      if (!existing) {
+        return null;
+      }
+      if (existing.role === 'admin') {
+        throw new Error('Admin access is always unlimited');
+      }
+
+      const timestamp = now();
+      const expiresAt = normalizeAccessExpiry(accessExpiresAt, timestamp);
+
+      transaction(database, () => {
+        if (!isRowAccessActive(existing, timestamp)) {
+          revokeUserCredentials(statements, targetId, timestamp);
+        }
+        statements.setAccessExpiry.run(expiresAt, timestamp, targetId);
+        statements.insertAudit.run(
+          actorId,
+          expiresAt === null ? 'subscription_unlimited' : 'subscription_set',
+          targetId,
+          JSON.stringify({
+            previousAccessExpiresAt: existing.access_expires_at ?? null,
+            accessExpiresAt: expiresAt,
+          }),
+          timestamp,
+        );
       });
 
       return mapUser(statements.getUser.get(targetId));
@@ -97,15 +193,27 @@ export function createAuthDatabase(databasePath, options = {}) {
 
       const timestamp = now();
 
+      if (status === 'active' && !isRowSubscriptionCurrent(existing, timestamp)) {
+        throw new Error('Renew the subscription before restoring access');
+      }
+
       transaction(database, () => {
         statements.setStatus.run(status, timestamp, targetId);
-        statements.revokeSessions.run(timestamp, targetId);
-        statements.revokeInvitesForUser.run(timestamp, targetId);
-        statements.revokeMagicLinksForUser.run(timestamp, targetId);
+        revokeUserCredentials(statements, targetId, timestamp);
         if (status !== 'active') {
           statements.demoteCurrentBotMessage.run(timestamp, targetId, 'browser_link');
         }
-        statements.insertAudit.run(actorId, status === 'active' ? 'grant' : status, targetId, null, timestamp);
+        statements.insertAudit.run(
+          actorId,
+          status === 'active' ? 'access_restored' : status,
+          targetId,
+          JSON.stringify({
+            previousStatus: existing.status,
+            status,
+            accessExpiresAt: existing.access_expires_at ?? null,
+          }),
+          timestamp,
+        );
       });
 
       return mapUser(statements.getUser.get(targetId));
@@ -223,13 +331,13 @@ export function createAuthDatabase(databasePath, options = {}) {
     createSession(telegramId, ttlSeconds = 7 * 86_400) {
       const userId = requireTelegramId(telegramId);
       const user = statements.getUser.get(userId);
+      const timestamp = now();
 
-      if (!user || user.status !== 'active') {
+      if (!isRowAccessActive(user, timestamp)) {
         return null;
       }
 
       const token = createOpaqueToken();
-      const timestamp = now();
       const expiresAt = timestamp + ttlSeconds;
       transaction(database, () => {
         statements.deleteUnusableSessionsForUser.run(userId, timestamp);
@@ -244,13 +352,13 @@ export function createAuthDatabase(databasePath, options = {}) {
       const userId = requireTelegramId(telegramId);
       const actorId = requireTelegramId(actorTelegramId);
       const user = statements.getUser.get(userId);
+      const timestamp = now();
 
-      if (!user || user.status !== 'active') {
+      if (!isRowAccessActive(user, timestamp)) {
         return null;
       }
 
       const token = createOpaqueToken();
-      const timestamp = now();
       const expiresAt = timestamp + ttlSeconds;
 
       transaction(database, () => {
@@ -277,13 +385,13 @@ export function createAuthDatabase(databasePath, options = {}) {
     prepareMagicLinkDelivery(telegramId, ttlSeconds = 600) {
       const userId = requireTelegramId(telegramId);
       const user = statements.getUser.get(userId);
+      const timestamp = now();
 
-      if (!user || user.status !== 'active') {
+      if (!isRowAccessActive(user, timestamp)) {
         return null;
       }
 
       const token = createOpaqueToken();
-      const timestamp = now();
       const expiresAt = timestamp + ttlSeconds;
       statements.insertMagicLink.run(
         hashOpaqueToken(token),
@@ -316,7 +424,7 @@ export function createAuthDatabase(databasePath, options = {}) {
           link.used_at !== null ||
           link.revoked_at !== null ||
           link.expires_at <= timestamp ||
-          link.user_status !== 'active'
+          !isRowAccessActive(link, timestamp)
         ) {
           return null;
         }
@@ -370,7 +478,7 @@ export function createAuthDatabase(databasePath, options = {}) {
         link.used_at === null &&
         link.revoked_at === null &&
         link.expires_at > timestamp &&
-        link.user_status === 'active'
+        isRowAccessActive(link, timestamp)
       );
     },
 
@@ -391,7 +499,7 @@ export function createAuthDatabase(databasePath, options = {}) {
           link.used_at !== null ||
           link.revoked_at !== null ||
           link.expires_at <= timestamp ||
-          link.user_status !== 'active'
+          !isRowAccessActive(link, timestamp)
         ) {
           return null;
         }
@@ -429,28 +537,95 @@ export function createAuthDatabase(databasePath, options = {}) {
       });
     },
 
+    getSessionAccess(token, sessionOptions = {}) {
+      return resolveSessionAccess(statements, now, token, sessionOptions);
+    },
+
     getSessionUser(token, sessionOptions = {}) {
-      if (!isOpaqueToken(token)) {
-        return null;
-      }
-
-      const timestamp = now();
-      const row = statements.getSessionUser.get(hashOpaqueToken(token), timestamp);
-
-      if (!row) {
-        return null;
-      }
-
-      if (sessionOptions.touch !== false) {
-        statements.touchSession.run(timestamp, row.session_hash, timestamp - 60);
-      }
-      return mapUser(row);
+      const access = resolveSessionAccess(statements, now, token, sessionOptions);
+      return access.state === 'active' ? access.user : null;
     },
 
     revokeSession(token) {
       if (isOpaqueToken(token)) {
         statements.revokeSession.run(now(), hashOpaqueToken(token));
       }
+    },
+
+    expireSubscriptions() {
+      const timestamp = now();
+      return transaction(database, () => {
+        const sessions = statements.revokeExpiredSubscriptionSessions.run(timestamp, timestamp).changes;
+        const links = statements.revokeExpiredSubscriptionMagicLinks.run(timestamp, timestamp).changes;
+        const invites = statements.revokeExpiredSubscriptionInvites.run(timestamp).changes;
+        statements.demoteExpiredSubscriptionBrowserMessages.run(timestamp, 'browser_link', timestamp);
+        return sessions + links + invites;
+      });
+    },
+
+    claimDueSubscriptionNotifications(warningSeconds = 3 * 86_400, limit = 50) {
+      const timestamp = now();
+      const safeWarning = Math.max(60, Math.trunc(Number(warningSeconds)) || 3 * 86_400);
+      const safeLimit = Math.min(Math.max(Math.trunc(Number(limit)) || 50, 1), 100);
+      const candidates = [
+        ...statements.listExpiringAccessUsers.all(timestamp, timestamp + safeWarning, safeLimit)
+          .map((row) => ({ ...row, notification_kind: 'warning' })),
+        ...statements.listExpiredAccessUsers.all(timestamp, safeLimit)
+          .map((row) => ({ ...row, notification_kind: 'expired' })),
+      ];
+      const claimed = [];
+
+      transaction(database, () => {
+        for (const candidate of candidates.slice(0, safeLimit)) {
+          const existing = statements.getSubscriptionNotification.get(
+            candidate.telegram_id,
+            candidate.access_expires_at,
+            candidate.notification_kind,
+          );
+
+          if (
+            (existing && existing.delivered_at !== null) ||
+            (existing?.attempts ?? 0) >= 8 ||
+            (existing?.next_attempt_at ?? 0) > timestamp
+          ) {
+            continue;
+          }
+
+          const attempts = (existing?.attempts ?? 0) + 1;
+          const retrySeconds = Math.min(3_600, 60 * (2 ** Math.min(attempts - 1, 6)));
+          statements.reserveSubscriptionNotification.run(
+            candidate.telegram_id,
+            candidate.access_expires_at,
+            candidate.notification_kind,
+            attempts,
+            timestamp + retrySeconds,
+            timestamp,
+          );
+          claimed.push({
+            telegramId: candidate.telegram_id,
+            accessExpiresAt: candidate.access_expires_at,
+            kind: candidate.notification_kind,
+            attempts,
+          });
+        }
+      });
+
+      return claimed;
+    },
+
+    markSubscriptionNotificationDelivered(telegramId, accessExpiresAt, kind) {
+      const userId = requireTelegramId(telegramId);
+      const expiresAt = normalizeStoredExpiry(accessExpiresAt);
+      const notificationKind = requireSubscriptionNotificationKind(kind);
+      const timestamp = now();
+      statements.completeSubscriptionNotification.run(
+        userId,
+        expiresAt,
+        notificationKind,
+        timestamp,
+        timestamp,
+        timestamp,
+      );
     },
 
     trackBotMessage(telegramId, chatId, messageId, kind, isCurrent = false) {
@@ -480,6 +655,12 @@ export function createAuthDatabase(databasePath, options = {}) {
         );
         return mapBotMessage(previousMessage);
       });
+    },
+
+    queueCurrentBotMessageForCleanup(telegramId, kind) {
+      const userId = requireTelegramId(telegramId);
+      const normalizedKind = requireBotMessageKind(kind);
+      return statements.demoteCurrentBotMessage.run(now(), userId, normalizedKind).changes > 0;
     },
 
     listBotMessagesForCleanup(telegramId) {
@@ -543,7 +724,8 @@ function migrate(database) {
       created_by TEXT NOT NULL,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
-      last_seen_at INTEGER
+      last_seen_at INTEGER,
+      access_expires_at INTEGER
     ) STRICT;
 
     CREATE TABLE IF NOT EXISTS invites (
@@ -608,6 +790,17 @@ function migrate(database) {
       PRIMARY KEY (chat_id, message_id)
     ) STRICT;
 
+    CREATE TABLE IF NOT EXISTS subscription_notifications (
+      telegram_id TEXT NOT NULL REFERENCES users(telegram_id),
+      access_expires_at INTEGER NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('warning', 'expired')),
+      attempts INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at INTEGER NOT NULL,
+      delivered_at INTEGER,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (telegram_id, access_expires_at, kind)
+    ) STRICT;
+
     CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(telegram_id);
     CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS invites_target_idx ON invites(target_telegram_id, status);
@@ -616,7 +809,15 @@ function migrate(database) {
       ON bot_messages(telegram_id, kind) WHERE is_current = 1;
     CREATE INDEX IF NOT EXISTS bot_messages_cleanup_idx
       ON bot_messages(telegram_id, is_current, created_at);
+    CREATE INDEX IF NOT EXISTS subscription_notifications_retry_idx
+      ON subscription_notifications(delivered_at, next_attempt_at);
   `);
+
+  const userColumns = database.prepare('PRAGMA table_info(users)').all();
+
+  if (!userColumns.some((column) => column.name === 'access_expires_at')) {
+    database.exec('ALTER TABLE users ADD COLUMN access_expires_at INTEGER;');
+  }
 
   const magicLinkColumns = database.prepare('PRAGMA table_info(magic_links)').all();
 
@@ -634,10 +835,11 @@ function prepareStatements(database) {
       UPDATE users SET role = 'user', updated_at = ? WHERE role = 'admin' AND telegram_id <> ?
     `),
     ensureAdmin: database.prepare(`
-      INSERT INTO users (telegram_id, role, status, created_by, created_at, updated_at)
-      VALUES (?, 'admin', 'active', 'system', ?, ?)
+      INSERT INTO users (telegram_id, role, status, created_by, created_at, updated_at, access_expires_at)
+      VALUES (?, 'admin', 'active', 'system', ?, ?, NULL)
       ON CONFLICT(telegram_id) DO UPDATE SET
-        role = 'admin', status = 'active', updated_at = excluded.updated_at
+        role = 'admin', status = 'active', access_expires_at = NULL,
+        updated_at = excluded.updated_at
     `),
     getUser: database.prepare('SELECT * FROM users WHERE telegram_id = ?'),
     touchUser: database.prepare(`
@@ -645,14 +847,20 @@ function prepareStatements(database) {
       WHERE telegram_id = ?
     `),
     grantUser: database.prepare(`
-      INSERT INTO users (telegram_id, role, status, created_by, created_at, updated_at)
-      VALUES (?, 'user', 'active', ?, ?, ?)
-      ON CONFLICT(telegram_id) DO UPDATE SET status = 'active', updated_at = excluded.updated_at
+      INSERT INTO users
+        (telegram_id, role, status, created_by, created_at, updated_at, access_expires_at)
+      VALUES (?, 'user', 'active', ?, ?, ?, ?)
+      ON CONFLICT(telegram_id) DO UPDATE SET
+        status = 'active', access_expires_at = excluded.access_expires_at,
+        updated_at = excluded.updated_at
     `),
     activateUser: database.prepare(`
       UPDATE users SET status = 'active', updated_at = ? WHERE telegram_id = ?
     `),
     setStatus: database.prepare('UPDATE users SET status = ?, updated_at = ? WHERE telegram_id = ?'),
+    setAccessExpiry: database.prepare(`
+      UPDATE users SET access_expires_at = ?, updated_at = ? WHERE telegram_id = ?
+    `),
     listUsers: database.prepare(`
       SELECT * FROM users ORDER BY role = 'admin' DESC, created_at DESC LIMIT ?
     `),
@@ -684,11 +892,11 @@ function prepareStatements(database) {
       INSERT INTO sessions (id_hash, telegram_id, expires_at, created_at, last_seen_at)
       VALUES (?, ?, ?, ?, ?)
     `),
-    getSessionUser: database.prepare(`
-      SELECT users.*, sessions.id_hash AS session_hash
+    getSessionAccess: database.prepare(`
+      SELECT users.*, sessions.id_hash AS session_hash,
+        sessions.revoked_at AS session_revoked_at
       FROM sessions JOIN users ON users.telegram_id = sessions.telegram_id
-      WHERE sessions.id_hash = ? AND sessions.expires_at > ? AND sessions.revoked_at IS NULL
-        AND users.status = 'active'
+      WHERE sessions.id_hash = ? AND sessions.expires_at > ?
     `),
     touchSession: database.prepare(`
       UPDATE sessions SET last_seen_at = ? WHERE id_hash = ? AND last_seen_at < ?
@@ -718,7 +926,8 @@ function prepareStatements(database) {
       SELECT magic_links.id, magic_links.telegram_id, magic_links.expires_at,
         magic_links.delivered_at, magic_links.used_at, magic_links.revoked_at, users.role,
         users.status AS user_status, users.status, users.username,
-        users.first_name, users.last_name, users.created_at, users.last_seen_at
+        users.first_name, users.last_name, users.created_at, users.last_seen_at,
+        users.access_expires_at
       FROM magic_links JOIN users ON users.telegram_id = magic_links.telegram_id
       WHERE magic_links.token_hash = ?
     `),
@@ -743,6 +952,73 @@ function prepareStatements(database) {
     revokeMagicLinksForUser: database.prepare(`
       UPDATE magic_links SET revoked_at = ?
       WHERE telegram_id = ? AND revoked_at IS NULL
+    `),
+    revokeExpiredSubscriptionSessions: database.prepare(`
+      UPDATE sessions SET revoked_at = ?
+      WHERE revoked_at IS NULL AND telegram_id IN (
+        SELECT telegram_id FROM users
+        WHERE role = 'user' AND status = 'active'
+          AND access_expires_at IS NOT NULL AND access_expires_at <= ?
+      )
+    `),
+    revokeExpiredSubscriptionMagicLinks: database.prepare(`
+      UPDATE magic_links SET revoked_at = ?
+      WHERE revoked_at IS NULL AND telegram_id IN (
+        SELECT telegram_id FROM users
+        WHERE role = 'user' AND status = 'active'
+          AND access_expires_at IS NOT NULL AND access_expires_at <= ?
+      )
+    `),
+    revokeExpiredSubscriptionInvites: database.prepare(`
+      UPDATE invites SET status = 'revoked'
+      WHERE status = 'pending' AND target_telegram_id IN (
+        SELECT telegram_id FROM users
+        WHERE role = 'user' AND status = 'active'
+          AND access_expires_at IS NOT NULL AND access_expires_at <= ?
+      )
+    `),
+    demoteExpiredSubscriptionBrowserMessages: database.prepare(`
+      UPDATE bot_messages SET is_current = 0, updated_at = ?
+      WHERE is_current = 1 AND kind = ? AND telegram_id IN (
+        SELECT telegram_id FROM users
+        WHERE role = 'user' AND status = 'active'
+          AND access_expires_at IS NOT NULL AND access_expires_at <= ?
+      )
+    `),
+    listExpiringAccessUsers: database.prepare(`
+      SELECT * FROM users
+      WHERE role = 'user' AND status = 'active'
+        AND access_expires_at > ? AND access_expires_at <= ?
+      ORDER BY access_expires_at, telegram_id
+      LIMIT ?
+    `),
+    listExpiredAccessUsers: database.prepare(`
+      SELECT * FROM users
+      WHERE role = 'user' AND status = 'active'
+        AND access_expires_at IS NOT NULL AND access_expires_at <= ?
+      ORDER BY access_expires_at, telegram_id
+      LIMIT ?
+    `),
+    getSubscriptionNotification: database.prepare(`
+      SELECT * FROM subscription_notifications
+      WHERE telegram_id = ? AND access_expires_at = ? AND kind = ?
+    `),
+    reserveSubscriptionNotification: database.prepare(`
+      INSERT INTO subscription_notifications
+        (telegram_id, access_expires_at, kind, attempts, next_attempt_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(telegram_id, access_expires_at, kind) DO UPDATE SET
+        attempts = excluded.attempts,
+        next_attempt_at = excluded.next_attempt_at
+      WHERE delivered_at IS NULL
+    `),
+    completeSubscriptionNotification: database.prepare(`
+      INSERT INTO subscription_notifications
+        (telegram_id, access_expires_at, kind, attempts, next_attempt_at, delivered_at, created_at)
+      VALUES (?, ?, ?, 1, ?, ?, ?)
+      ON CONFLICT(telegram_id, access_expires_at, kind) DO UPDATE SET
+        delivered_at = excluded.delivered_at,
+        next_attempt_at = excluded.next_attempt_at
     `),
     insertAudit: database.prepare(`
       INSERT INTO audit_log (actor_telegram_id, action, target_telegram_id, metadata_json, created_at)
@@ -783,6 +1059,11 @@ function prepareStatements(database) {
       INSERT INTO bot_messages
         (telegram_id, chat_id, message_id, kind, is_current, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(chat_id, message_id) DO UPDATE SET
+        telegram_id = excluded.telegram_id,
+        kind = excluded.kind,
+        is_current = excluded.is_current,
+        updated_at = excluded.updated_at
     `),
     listBotMessagesForCleanup: database.prepare(`
       SELECT * FROM bot_messages
@@ -797,6 +1078,10 @@ function prepareStatements(database) {
     `),
     deleteOldBotStates: database.prepare('DELETE FROM bot_states WHERE updated_at <= ?'),
     deleteOldAuditEntries: database.prepare('DELETE FROM audit_log WHERE created_at <= ?'),
+    deleteOldSubscriptionNotifications: database.prepare(`
+      DELETE FROM subscription_notifications
+      WHERE delivered_at IS NOT NULL AND delivered_at <= ?
+    `),
   };
 }
 
@@ -810,6 +1095,37 @@ function cleanupExpiredData(statements, timestamp) {
   statements.deleteOldBotStates.run(retentionCutoff);
   statements.deleteOldProcessedUpdates.run(retentionCutoff);
   statements.deleteOldAuditEntries.run(timestamp - 180 * 86_400);
+  statements.deleteOldSubscriptionNotifications.run(timestamp - 180 * 86_400);
+}
+
+function resolveSessionAccess(statements, now, token, sessionOptions) {
+  if (!isOpaqueToken(token)) {
+    return { state: 'invalid', user: null };
+  }
+
+  const timestamp = now();
+  const row = statements.getSessionAccess.get(hashOpaqueToken(token), timestamp);
+
+  if (!row) {
+    return { state: 'invalid', user: null };
+  }
+
+  const user = mapUser(row);
+  const accessState = getUserAccessState(user, timestamp);
+
+  if (accessState === 'expired') {
+    statements.revokeSession.run(timestamp, row.session_hash);
+    return { state: 'expired', user };
+  }
+
+  if (accessState !== 'active' || row.session_revoked_at !== null) {
+    return { state: 'invalid', user: null };
+  }
+
+  if (sessionOptions.touch !== false) {
+    statements.touchSession.run(timestamp, row.session_hash, timestamp - 60);
+  }
+  return { state: 'active', user };
 }
 
 function mapUser(row) {
@@ -826,6 +1142,7 @@ function mapUser(row) {
     lastName: row.last_name,
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
+    accessExpiresAt: row.access_expires_at ?? null,
   };
 }
 
@@ -894,6 +1211,70 @@ function requireMessageId(value) {
 
 function nullable(value) {
   return typeof value === 'string' && value ? value : null;
+}
+
+function getUserAccessState(user, timestamp) {
+  if (!user) {
+    return 'missing';
+  }
+  if (user.status === 'blocked') {
+    return 'blocked';
+  }
+  if (user.status !== 'active') {
+    return 'revoked';
+  }
+  if (user.role !== 'admin' && user.accessExpiresAt !== null && user.accessExpiresAt <= timestamp) {
+    return 'expired';
+  }
+  return 'active';
+}
+
+function isRowAccessActive(row, timestamp) {
+  if (!row) {
+    return false;
+  }
+  const status = row.status ?? row.user_status;
+  return status === 'active' && isRowSubscriptionCurrent(row, timestamp);
+}
+
+function isRowSubscriptionCurrent(row, timestamp) {
+  return row.role === 'admin' || row.access_expires_at === null || row.access_expires_at > timestamp;
+}
+
+function normalizeAccessExpiry(value, timestamp) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const expiresAt = normalizeStoredExpiry(value);
+
+  if (expiresAt <= timestamp) {
+    throw new Error('Subscription expiry must be in the future');
+  }
+  return expiresAt;
+}
+
+function normalizeStoredExpiry(value) {
+  const expiresAt = Number(value);
+
+  if (!Number.isSafeInteger(expiresAt) || expiresAt <= 0) {
+    throw new Error('Invalid subscription expiry');
+  }
+  return expiresAt;
+}
+
+function revokeUserCredentials(statements, telegramId, timestamp) {
+  statements.revokeSessions.run(timestamp, telegramId);
+  statements.revokeInvitesForUser.run(timestamp, telegramId);
+  statements.revokeMagicLinksForUser.run(timestamp, telegramId);
+}
+
+const SUBSCRIPTION_NOTIFICATION_KINDS = new Set(['warning', 'expired']);
+
+function requireSubscriptionNotificationKind(value) {
+  if (!SUBSCRIPTION_NOTIFICATION_KINDS.has(value)) {
+    throw new Error('Unsupported subscription notification kind');
+  }
+  return value;
 }
 
 function normalizeUpdateId(value) {

@@ -21,6 +21,12 @@ test('normalizes server URLs and builds an explicit origin allowlist', () => {
   assert.equal(config.sessionCookieName, '__Host-miniapp_session');
   assert.equal(config.sessionCookieSameSite, 'None');
   assert.equal(config.trustProxyHeaders, false);
+  assert.equal(config.feedbackRateLimitMax, 4);
+  assert.equal(config.feedbackRateLimitWindowSeconds, 600);
+  assert.equal(config.telegramEgressMode, 'direct');
+  assert.equal(config.telegramProxyUrl, '');
+  assert.equal(config.subscriptionWarningSeconds, 259_200);
+  assert.equal(config.subscriptionSweepIntervalSeconds, 300);
 });
 
 test('rejects unsafe server configuration values', () => {
@@ -76,6 +82,18 @@ test('rejects unsafe server configuration values', () => {
   assert.throws(
     () => readServerConfig({ PUBLIC_CHANNEL_ID: 'not-a-chat' }),
     /PUBLIC_CHANNEL_ID/,
+  );
+  assert.throws(
+    () => readServerConfig({ TELEGRAM_EGRESS_MODE: 'http-proxy' }),
+    /TELEGRAM_PROXY_URL/,
+  );
+  assert.throws(
+    () => readServerConfig({ TELEGRAM_EGRESS_MODE: 'global' }),
+    /TELEGRAM_EGRESS_MODE/,
+  );
+  assert.throws(
+    () => readServerConfig({ SUBSCRIPTION_SWEEP_INTERVAL_SECONDS: '0' }),
+    /SUBSCRIPTION_SWEEP_INTERVAL_SECONDS/,
   );
 });
 

@@ -1,5 +1,6 @@
 import { getRequiredEnv, loadDotEnv } from './env.mjs';
 import { createTelegramApi } from './telegram-api.mjs';
+import { createTelegramTransportFromEnv } from './telegram-transport.mjs';
 
 loadDotEnv();
 
@@ -22,7 +23,8 @@ if (webhookSecret) {
   payload.secret_token = webhookSecret;
 }
 
-const api = createTelegramApi(botToken);
+const telegramTransport = createTelegramTransportFromEnv();
+const api = createTelegramApi(botToken, { fetchImpl: telegramTransport.fetch });
 const result = await api.request('setWebhook', payload);
 const menuButton = await api.setChatMenuButton({
   type: 'web_app',
@@ -34,6 +36,7 @@ console.log(`Webhook configured: ${webhookUrl}`);
 console.log(JSON.stringify(result, null, 2));
 console.log(`Telegram Web App menu configured: ${miniAppUrl}`);
 console.log(JSON.stringify(menuButton, null, 2));
+await telegramTransport.close();
 
 function normalizeMiniAppUrl(value) {
   const parsed = new URL(value);

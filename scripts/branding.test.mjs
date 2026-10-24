@@ -26,6 +26,23 @@ test('auth screens use the public school logo without legacy branding', async ()
   assert.match(confirmationScreen, /Высшая школа собак/);
 });
 
+test('player descriptions render a highlighted lead and local emoji assets', async () => {
+  const [appSource, mainSource, stylesSource, emojiSource] = await Promise.all([
+    readFile(new URL('../src/app.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/main.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
+    readFile(new URL('../src/lib/emoji.ts', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(appSource, /lesson-description__paragraph--lead/);
+  assert.match(stylesSource, /\.lesson-description__paragraph--lead\s*\{/);
+  assert.match(stylesSource, /\.app-emoji\s*\{/);
+  assert.match(emojiSource, /@twemoji\/svg\/1f436\.svg\?url/);
+  assert.doesNotMatch(emojiSource, /@twemoji\/parser/);
+  assert.doesNotMatch(emojiSource, /https?:\/\//);
+  assert.match(mainSource, /image\.decoding = 'async'/);
+});
+
 function sourceSection(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
   const end = source.indexOf(endMarker, start);

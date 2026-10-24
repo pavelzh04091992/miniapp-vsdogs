@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+
+# The authorized_keys forced command passes SSH_ORIGINAL_COMMAND as one argument.
+# sudo does not preserve that environment variable by default.
+case "${1:-}" in
+  check)
+    /usr/bin/logger -t miniapp-reboot "validated the restricted production reboot key"
+    exit 0
+    ;;
+  '') ;;
+  *) exit 64 ;;
+esac
+
+/usr/bin/logger -t miniapp-reboot "production requested a proxy reboot"
+/usr/bin/systemd-run \
+  --quiet \
+  --collect \
+  --unit=miniapp-proxy-reboot \
+  --on-active=5s \
+  /usr/bin/systemctl reboot

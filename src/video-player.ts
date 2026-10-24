@@ -48,19 +48,12 @@ export function setupLessonVideoPlayer(): (() => void) | null {
   let triedMp4Fallback = false;
   let attemptedMediaRecovery = false;
   let usedCssFullscreen = false;
+  let hlsStarted = false;
+  let isPrimingFirstHlsSegment = false;
   const previousBodyOverflow = document.body.style.overflow;
 
   const posterUrl = `/media/${safeVideoId}/poster.webp`;
-  const posterImage = new Image();
-
-  posterImage.addEventListener(
-    'load',
-    () => {
-      video.poster = posterUrl;
-    },
-    listenerOptions,
-  );
-  posterImage.src = posterUrl;
+  video.poster = posterUrl;
   const restrictedVideo = video as WebkitVideoElement;
   video.controls = false;
   video.playsInline = true;
@@ -99,7 +92,7 @@ export function setupLessonVideoPlayer(): (() => void) | null {
     hls?.destroy();
     hls = null;
     qualityControl?.setAttribute('hidden', '');
-    video.preload = 'auto';
+    video.preload = 'metadata';
     video.src = mp4Url;
     video.load();
   };
@@ -137,6 +130,7 @@ export function setupLessonVideoPlayer(): (() => void) | null {
 
     if (video.canPlayType(HLS_MIME_TYPE)) {
       playbackMode = 'hls-native';
+      video.preload = 'auto';
       video.src = hlsUrl;
       video.load();
       return;
@@ -156,15 +150,29 @@ export function setupLessonVideoPlayer(): (() => void) | null {
 
       playbackMode = 'hls-js';
       hls = new HlsPlayer({
-        backBufferLength: 30,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
+        autoStartLoad: false,
+        capLevelToPlayerSize: true,
+        capLevelOnFPSDrop: true,
+        backBufferLength: 15,
+        maxBufferLength: 15,
+        maxMaxBufferLength: 30,
+        maxBufferSize: 30 * 1024 * 1024,
         lowLatencyMode: false,
       });
 
       hls.on(HlsPlayer.Events.MANIFEST_PARSED, () => {
         populateQualityOptions();
         setLoading(false);
+        isPrimingFirstHlsSegment = true;
+        hls?.startLoad(0);
+      });
+      hls.on(HlsPlayer.Events.FRAG_BUFFERED, (_event, data) => {
+        if (!isPrimingFirstHlsSegment || hlsStarted || data.frag.type !== 'main') {
+          return;
+        }
+
+        isPrimingFirstHlsSegment = false;
+        hls?.stopLoad();
       });
       hls.on(HlsPlayer.Events.ERROR, (_event, data) => {
         if (!data.fatal) {
@@ -238,6 +246,13 @@ export function setupLessonVideoPlayer(): (() => void) | null {
     if (video.paused || video.ended) {
       if (video.ended) {
         video.currentTime = 0;
+      }
+
+      if (playbackMode === 'hls-js' && hls && !hlsStarted) {
+        hlsStarted = true;
+        isPrimingFirstHlsSegment = false;
+        hls.startLoad(video.currentTime || -1);
+        setLoading(true);
       }
 
       try {

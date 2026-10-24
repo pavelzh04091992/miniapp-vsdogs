@@ -27,7 +27,6 @@ const declaration = (name) =>
 const activeCards = new Map();
 let activeLessonCount = 0;
 
-// adultSmallSituations is legacy and deliberately excluded from local-video wiring.
 for (const variableName of ['puppySituations', 'adultLargeSituations']) {
   const situations = declaration(variableName)?.initializer;
   if (!situations || !ts.isArrayLiteralExpression(situations)) {
@@ -93,6 +92,5 @@ if (unaccountedMedia.length) {
 
 console.log(
   `Video catalog OK: ${activeLessonCount} active cards, ${assignedTargets.size} mapped cards, ` +
-    `${complexMediaIds.length} complex cards, ${intentionallyUnassigned.size} videos without cards; ` +
-    'adult-small legacy untouched',
+    `${complexMediaIds.length} complex cards, ${intentionallyUnassigned.size} videos without cards`,
 );

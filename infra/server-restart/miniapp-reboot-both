@@ -1,0 +1,43 @@
+#!/bin/sh
+set -eu
+
+request_path=/opt/miniapp/persistent/data/restart-servers.request
+proxy_host=131.143.125.81
+proxy_user=miniapp-reboot
+proxy_key=/opt/miniapp/secrets/server-reboot_ed25519
+proxy_known_hosts=/opt/miniapp/secrets/server-reboot_known_hosts
+
+if [ ! -f "$request_path" ]; then
+  exit 0
+fi
+
+# Verify the forced-command key and host before consuming the one-shot request.
+/usr/bin/ssh \
+  -i "$proxy_key" \
+  -o BatchMode=yes \
+  -o IdentitiesOnly=yes \
+  -o StrictHostKeyChecking=yes \
+  -o UserKnownHostsFile="$proxy_known_hosts" \
+  -o ConnectTimeout=10 \
+  "$proxy_user@$proxy_host" check
+
+rm -f -- "$request_path"
+logger -t miniapp-reboot "accepted an authenticated request to restart proxy and production"
+
+# The forced command on the proxy only schedules its reboot and exits cleanly.
+/usr/bin/ssh \
+  -i "$proxy_key" \
+  -o BatchMode=yes \
+  -o IdentitiesOnly=yes \
+  -o StrictHostKeyChecking=yes \
+  -o UserKnownHostsFile="$proxy_known_hosts" \
+  -o ConnectTimeout=10 \
+  "$proxy_user@$proxy_host"
+
+logger -t miniapp-reboot "proxy reboot scheduled; scheduling production reboot"
+/usr/bin/systemd-run \
+  --quiet \
+  --collect \
+  --unit=miniapp-self-reboot \
+  --on-active=15s \
+  /usr/bin/systemctl reboot

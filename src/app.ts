@@ -1,6 +1,25 @@
 import { SituationSlug, SituationVideo } from './lib/videos';
+import { renderEmojiText } from './lib/emoji';
+import { formatLessonFeedbackCopy } from './lib/feedback-copy';
 import localVideoCatalog from './local-video-catalog.json';
+import lessonFeedbackPrompts from './lesson-feedback-prompts.json';
 import videoDescriptions from './video-descriptions.json';
+
+type VideoDescriptionId = keyof typeof videoDescriptions;
+
+const descriptionsWithDocumentTitle = new Set<VideoDescriptionId>(['56', '57', '58', '59']);
+
+function getVideoDescription(descriptionId: VideoDescriptionId): string {
+  const sourceDescription = videoDescriptions[descriptionId];
+  const description = descriptionsWithDocumentTitle.has(descriptionId)
+    ? sourceDescription.replace(/^[^\n]+\n/u, '')
+    : sourceDescription;
+  const feedbackPrompt = lessonFeedbackPrompts[
+    descriptionId as keyof typeof lessonFeedbackPrompts
+  ];
+
+  return feedbackPrompt ? `${description}\n💬 ${feedbackPrompt}` : description;
+}
 
 export type PuppySituationSlug =
   | 'ideal-walk'
@@ -81,59 +100,19 @@ export type AdultLargeTopicSlug =
   | 'adult-large-jump-over-leg'
   | 'adult-large-bow';
 
-export type AdultSmallSituationSlug =
-  | 'adult-small-ideal-walk'
-  | 'adult-small-calm-home'
-  | 'adult-small-aggression-conflicts'
-  | 'adult-small-fears-anxiety'
-  | 'adult-small-care-without-fight'
-  | 'adult-small-fitness';
-
-export type AdultSmallTopicSlug =
-  | 'adult-small-leash'
-  | 'adult-small-food-pickup'
-  | 'adult-small-muzzle'
-  | 'adult-small-recall'
-  | 'adult-small-ignore-triggers'
-  | 'adult-small-games-contact'
-  | 'adult-small-dog-to-everyone'
-  | 'adult-small-barking'
-  | 'adult-small-loneliness'
-  | 'adult-small-jumping-on-guests'
-  | 'adult-small-begging'
-  | 'adult-small-feeding'
-  | 'adult-small-toilet'
-  | 'adult-small-overaroused-play'
-  | 'adult-small-resource-guarding'
-  | 'adult-small-barks-at-people'
-  | 'adult-small-neutering'
-  | 'adult-small-scooters-bikes'
-  | 'adult-small-place-space'
-  | 'adult-small-follows-tail'
-  | 'adult-small-sounds'
-  | 'adult-small-cars'
-  | 'adult-small-new-places'
-  | 'adult-small-claws'
-  | 'adult-small-paws'
-  | 'adult-small-grooming'
-  | 'adult-small-go-around'
-  | 'adult-small-wipe-muzzle';
-
 export type AppRoute =
   | 'home'
+  | 'fitness'
   | 'complex'
   | 'complex-levels:timed'
   | 'complex-levels:self-check'
   | 'puppies'
   | 'adult-large'
-  | 'adult-small'
   | `lesson-video:${string}`
   | `puppy-situation:${PuppySituationSlug}`
   | `puppy-topic:${PuppyTopicSlug}`
   | `adult-large-situation:${AdultLargeSituationSlug}`
-  | `adult-large-topic:${AdultLargeTopicSlug}`
-  | `adult-small-situation:${AdultSmallSituationSlug}`
-  | `adult-small-topic:${AdultSmallTopicSlug}`;
+  | `adult-large-topic:${AdultLargeTopicSlug}`;
 
 export type PuppyFilter = 'all' | 'home' | 'walk' | 'behavior' | 'commands';
 
@@ -165,7 +144,6 @@ interface PuppyTopic {
   description: string;
   meta: string;
   imagePath: string;
-  cardClass: string;
   lessons: PuppyLessonItem[];
   videoSourceSlug?: SituationSlug;
 }
@@ -176,7 +154,6 @@ interface PuppySituation {
   description: string;
   meta: string;
   imagePath: string;
-  cardClass: string;
   category: Exclude<PuppyFilter, 'all'>;
   topics: PuppyTopic[];
 }
@@ -187,7 +164,6 @@ interface AdultLargeTopic {
   description: string;
   meta: string;
   imagePath: string;
-  cardClass: string;
   lessons: PuppyLessonItem[];
 }
 
@@ -197,553 +173,10 @@ interface AdultLargeSituation {
   description: string;
   meta: string;
   imagePath: string;
-  cardClass: string;
   topics: AdultLargeTopic[];
 }
 
-interface AdultSmallTopic {
-  slug: AdultSmallTopicSlug;
-  title: string;
-  description: string;
-  meta: string;
-  imagePath: string;
-  cardClass: string;
-  lessons: PuppyLessonItem[];
-}
 
-interface AdultSmallSituation {
-  slug: AdultSmallSituationSlug;
-  title: string;
-  description: string;
-  meta: string;
-  imagePath: string;
-  cardClass: string;
-  topics: AdultSmallTopic[];
-}
-
-const legacyPuppySituations: PuppySituation[] = [
-  {
-    slug: 'ideal-walk',
-    title: 'Идеальная прогулка',
-    description: 'Базовые навыки прогулки, контакт и спокойная работа с раздражителями',
-    meta: '4 раздела',
-    imagePath: '/assets/icons/leash.webp',
-    cardClass: 'situation-card--blue',
-    category: 'walk',
-    topics: [
-      {
-        slug: 'walk-leash',
-        title: 'Поводок',
-        description: 'Поводок, амуниция, команда рядом и контроль движения',
-        meta: '4 видео',
-        imagePath: '/assets/icons/leash.webp',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Ошейник или шлейка?',
-            description: 'Разбираем, как выбрать амуницию под щенка и прогулочный сценарий',
-          },
-          {
-            title: 'Техника владения поводком и экстренный разворот',
-            description: 'Почему щенок тянет и как спокойно перехватывать внимание на улице',
-          },
-          {
-            title: 'Обычный поводок или рулетка и команда рядом',
-            description: 'Когда рулетка мешает обучению и как начать аккуратную работу рядом',
-          },
-          {
-            title: 'Дорога и стоп',
-            description: 'Учимся безопасно останавливаться и проходить сложные участки маршрута',
-          },
-        ],
-      },
-      {
-        slug: 'walk-food-pickup',
-        title: 'Подбор еды',
-        description: 'Профилактика подбора и экологичный импульс-контроль',
-        meta: '2 видео',
-        imagePath: '/assets/useful-warning.svg',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Фокус на кусок, пинцетик и импульс-контроль',
-            description: 'Один блок упражнений для переключения внимания на прогулке',
-          },
-          {
-            title: 'Намордник и природные инстинкты',
-            description: 'Почему важно закрывать базовые потребности, а не только запрещать',
-          },
-        ],
-      },
-      {
-        slug: 'walk-recall',
-        title: 'Подзыв',
-        description: 'Сильный отклик на кличку и движение к человеку без давления',
-        meta: '2 видео',
-        imagePath: '/assets/images/programs/puppy.webp',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Ко мне и кличка',
-            description: 'Строим понятный маркер возврата и закрепляем его в быту',
-          },
-          {
-            title: 'Контакт',
-            description: 'Отворотики, йо-йо и подкрепление за взгляд на улице',
-          },
-        ],
-      },
-      {
-        slug: 'walk-ignore-triggers',
-        title: 'Игнорирование раздражителей',
-        description: 'Контакт, игры и навыки прохождения сложных стимулов',
-        meta: '4 видео',
-        imagePath: '/assets/useful-home.svg',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: '1-2-3',
-            description: 'Ритмичное упражнение, которое помогает вернуть собаку в контакт',
-          },
-          {
-            title: 'Импульс-контроль',
-            description: 'Спокойная выдержка и управление возбуждением на прогулке',
-          },
-          {
-            title: 'Игры для контакта на прогулке',
-            description: 'Подбор коротких активностей, которые делают человека интереснее улицы',
-          },
-          {
-            title: 'Моя собака ко всем лезет',
-            description: 'Работаем с кошками, птицами, велосипедами и случайными прохожими',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'calm-home',
-    title: 'Спокойный дом',
-    description: 'Домашний режим, уверенность, правила и бытовые сценарии без хаоса',
-    meta: '5 разделов',
-    imagePath: '/assets/icons/home.webp',
-    cardClass: 'situation-card--rose',
-    category: 'home',
-    topics: [
-      {
-        slug: 'home-barking',
-        title: 'Лай',
-        description: 'Спокойная работа с возбуждением, звуками и закреплённым лаем',
-        meta: '2 видео',
-        imagePath: '/assets/useful-warning.svg',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Команда тише',
-            description: 'Закладываем понятный бытовой сигнал без наказаний',
-          },
-          {
-            title: 'Приучаем к звукам',
-            description: 'Работаем с бытовыми шумами и помогаем щенку не перегружаться',
-          },
-        ],
-      },
-      {
-        slug: 'home-loneliness',
-        title: 'Одиночество',
-        description: 'Уверенность в себе, безопасное пространство и мягкое увеличение дистанции',
-        meta: '3 видео',
-        imagePath: '/assets/images/situations/puppy-whines-night.webp',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Повышаем уверенность в себе',
-            description: 'Учим щенка проживать паузы без постоянного контроля человека',
-          },
-          {
-            title: 'Правильная организация пространства',
-            description: 'Собираем дома зону, в которой щенок умеет успокаиваться',
-          },
-          {
-            title: 'Постепенно остаёмся одному',
-            description: 'Пошагово увеличиваем время отсутствия без резких скачков',
-          },
-        ],
-      },
-      {
-        slug: 'home-jumping-on-guests',
-        title: 'Прыжки на гостей',
-        description: 'Правильный приход, ожидание и сценарии встречи без перевозбуждения',
-        meta: '1 видео',
-        imagePath: '/assets/images/programs/teen_dog.webp',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Правильный приход и выход',
-            description: 'Собираем сценарий сидеть и ждать при встрече гостей',
-          },
-        ],
-      },
-      {
-        slug: 'home-begging',
-        title: 'Попрошайничество',
-        description: 'Место, насыщение и полезные бытовые активности вместо попрошайничества',
-        meta: '3 видео',
-        imagePath: '/assets/useful-home.svg',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Место',
-            description: 'Формируем удобную точку отдыха во время еды и бытовой суеты',
-          },
-          {
-            title: 'Долгоиграющие лакомства и умные девайсы',
-            description: 'Конг, лизательные и нюхательные коврики как часть ежедневного ритуала',
-          },
-          {
-            title: 'Питание',
-            description: 'Как режим и рацион влияют на бытовое поведение щенка',
-          },
-        ],
-      },
-      {
-        slug: 'home-toilet',
-        title: 'Туалет',
-        description: 'Пелёнка, улица, режим и работа с запахом без наказаний',
-        meta: '3 видео',
-        imagePath: '/assets/images/situations/puppy-toilet-home.webp',
-        cardClass: 'topic-card--rose',
-        videoSourceSlug: 'puppy-toilet-home',
-        lessons: [
-          {
-            title: 'Приучение к пелёнке и средства от запаха',
-            description: 'Разбираем рабочую схему дома и средства, которые реально помогают',
-          },
-          {
-            title: 'Приучение к улице и режим',
-            description: 'Как выстроить ритм прогулок, чтобы щенку было проще попасть в успех',
-          },
-          {
-            title: 'Метки дома',
-            description: 'Когда это норма, когда повод проверить контекст и как реагировать спокойно',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'aggression-conflicts',
-    title: 'Агрессия и конфликты',
-    description: 'Сложное поведение, охрана ресурсов и экологичная профилактика эскалации',
-    meta: '5 разделов',
-    imagePath: '/assets/icons/alarm.webp',
-    cardClass: 'situation-card--blue',
-    category: 'behavior',
-    topics: [
-      {
-        slug: 'conflicts-biting-hands',
-        title: 'Грызёт руки и ноги',
-        description: 'Правильная игра, самоконтроль и снижение перегруза',
-        meta: '1 видео',
-        imagePath: '/assets/images/situations/puppy-bites.webp',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Спокойная и правильная игра',
-            description: 'Как не усиливать кусание и чем заменить хаотичное возбуждение',
-          },
-        ],
-      },
-      {
-        slug: 'conflicts-vandal',
-        title: 'Мой щенок вандалит',
-        description: 'Разносит квартиру, портит вещи и не умеет сам успокаиваться',
-        meta: '1 видео',
-        imagePath: '/assets/images/situations/puppy-chews-things.webp',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Щенок вандалит дома',
-            description: 'Смотрим на причины разрушительного поведения и собираем бытовую профилактику',
-          },
-        ],
-      },
-      {
-        slug: 'conflicts-resource-guarding',
-        title: 'Охраняет чашку, вещи, игрушки',
-        description: 'Профилактика ресурсной охраны и безопасная работа рядом с ценными объектами',
-        meta: '1 видео',
-        imagePath: '/assets/images/programs/adult_dog.webp',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Охрана ресурсов',
-            description: 'Как не усиливать напряжение вокруг еды, игрушек и предметов',
-          },
-        ],
-      },
-      {
-        slug: 'conflicts-barks-at-people',
-        title: 'Лает на людей или собак',
-        description: 'Дистанция, безопасность и управляемый контакт без давления',
-        meta: '1 видео',
-        imagePath: '/assets/useful-warning.svg',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Лай на людей и собак',
-            description: 'Разбираем причины и первые шаги к более устойчивому поведению',
-          },
-        ],
-      },
-      {
-        slug: 'conflicts-neutering',
-        title: 'Кастрировать или стерилизовать',
-        description: 'Контекст, возраст и поведенческие ожидания от решения',
-        meta: '1 видео',
-        imagePath: '/assets/useful-heart.svg',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Кастрация и стерилизация',
-            description: 'Что реально меняет операция и какие вопросы стоит обсудить заранее',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'fears-anxiety',
-    title: 'Страхи и тревожность',
-    description: 'Постепенное привыкание, безопасность и снижение тревоги в новых сценариях',
-    meta: '9 разделов',
-    imagePath: '/assets/icons/sad_puppy.webp',
-    cardClass: 'situation-card--rose',
-    category: 'behavior',
-    topics: [
-      {
-        slug: 'fears-sounds',
-        title: 'Звуки',
-        description: 'КО на звуки и постепенное привыкание без перегруза',
-        meta: '1 видео',
-        imagePath: '/assets/useful-warning.svg',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Контробусловливание на звуки',
-            description: 'Помогаем щенку безопасно переживать неожиданные и резкие шумы',
-          },
-        ],
-      },
-      {
-        slug: 'fears-cars',
-        title: 'Машины',
-        description: 'Постепенное привыкание к машине и полезные девайсы в дороге',
-        meta: '1 видео',
-        imagePath: '/assets/images/programs/teen_dog.webp',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Привыкаем к машине',
-            description: 'Пошагово снижаем тревогу и собираем комфортный сценарий поездки',
-          },
-        ],
-      },
-      {
-        slug: 'fears-new-places',
-        title: 'Новые места',
-        description: 'Лестницы, лифты и базовая техника безопасности в незнакомой среде',
-        meta: '1 видео',
-        imagePath: '/assets/useful-home.svg',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Страх новых мест',
-            description: 'Как вводить лестницы, лифты и новые локации в комфортном темпе',
-          },
-        ],
-      },
-      {
-        slug: 'fears-place-command',
-        title: 'Команда место',
-        description: 'Организация пространства и понятная точка отдыха',
-        meta: '1 видео',
-        imagePath: '/assets/useful-home.svg',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Место и организация пространства',
-            description: 'Собираем бытовой якорь, который помогает щенку успокаиваться',
-          },
-        ],
-      },
-      {
-        slug: 'fears-follows-tail',
-        title: 'Ходит хвостиком',
-        description: 'Как снизить тревожность и научить спокойно оставаться в другой комнате',
-        meta: '1 видео',
-        imagePath: '/assets/images/situations/puppy-whines-night.webp',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Минимизируем тревожность',
-            description: 'Упражнения с оставлением в комнатах и работа с зависанием на человеке',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'care-without-fight',
-    title: 'Уход без борьбы',
-    description: 'Гигиена, лапы и груминг через согласие и предсказуемые ритуалы',
-    meta: '3 раздела',
-    imagePath: '/assets/icons/puppy_hand.webp',
-    cardClass: 'situation-card--blue',
-    category: 'home',
-    topics: [
-      {
-        slug: 'care-claws',
-        title: 'Когти',
-        description: 'Анатомия когтя и мягкое приучение к стрижке',
-        meta: '1 видео',
-        imagePath: '/assets/useful-warning.svg',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Стрижка когтей',
-            description: 'Разбираем анатомию когтя и безопасную механику процедуры',
-          },
-        ],
-      },
-      {
-        slug: 'care-paws',
-        title: 'Лапы',
-        description: 'Пять свобод, ванная и право отказаться',
-        meta: '1 видео',
-        imagePath: '/assets/useful-home.svg',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Работа с лапами',
-            description: 'Готовим пространство ванной и учим щенка доверять процессу',
-          },
-        ],
-      },
-      {
-        slug: 'care-grooming',
-        title: 'Груминг',
-        description: 'Как часто мыть и какие средства использовать',
-        meta: '1 видео',
-        imagePath: '/assets/useful-heart.svg',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Груминг без борьбы',
-            description: 'Собираем базовый домашний уход и ритм процедур',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    slug: 'fitness',
-    title: 'Фитнес',
-    description: 'Небольшие упражнения на контроль тела, координацию и совместную работу',
-    meta: '6 разделов',
-    imagePath: '/assets/icons/fitness.webp',
-    cardClass: 'situation-card--rose',
-    category: 'commands',
-    topics: [
-      {
-        slug: 'fitness-bow',
-        title: 'Поклон',
-        description: 'Простое упражнение на контроль корпуса и концентрацию',
-        meta: '1 видео',
-        imagePath: '/assets/images/programs/puppy.webp',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Поклон',
-            description: 'Шаг за шагом собираем красивое и безопасное положение',
-          },
-        ],
-      },
-      {
-        slug: 'fitness-crawl',
-        title: 'Ползи',
-        description: 'Работаем с низкой позой и вниманием к движению',
-        meta: '1 видео',
-        imagePath: '/assets/images/programs/puppy-hero.webp',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Ползи',
-            description: 'Учимся двигаться низко и мягко без избыточного возбуждения',
-          },
-        ],
-      },
-      {
-        slug: 'fitness-bunny',
-        title: 'Зайка',
-        description: 'Контроль баланса и аккуратное удержание позиции',
-        meta: '1 видео',
-        imagePath: '/assets/useful-heart.svg',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Зайка',
-            description: 'Разбираем технику и ограничения, чтобы упражнение было безопасным',
-          },
-        ],
-      },
-      {
-        slug: 'fitness-house',
-        title: 'Домик',
-        description: 'Координация, наведение и внимательная работа с позой',
-        meta: '1 видео',
-        imagePath: '/assets/useful-home.svg',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Домик',
-            description: 'Собираем упражнение через понятные короткие шаги',
-          },
-        ],
-      },
-      {
-        slug: 'fitness-paw',
-        title: 'Дай лапу',
-        description: 'Небольшой трюк для контакта и контроля импульса',
-        meta: '1 видео',
-        imagePath: '/assets/images/programs/adult_dog.webp',
-        cardClass: 'topic-card--blue',
-        lessons: [
-          {
-            title: 'Дай лапу',
-            description: 'Формируем упражнение без навязчивого махания лапами',
-          },
-        ],
-      },
-      {
-        slug: 'fitness-back',
-        title: 'Назад',
-        description: 'Осознанное движение назад и работа с телом',
-        meta: '1 видео',
-        imagePath: '/assets/useful-leash.svg',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Назад',
-            description: 'Учимся двигаться задним ходом через узкий коридор и наведение',
-          },
-        ],
-      },
-    ],
-  },
-];
-
-void legacyPuppySituations;
 
 const puppySituations: PuppySituation[] = [
   {
@@ -752,7 +185,6 @@ const puppySituations: PuppySituation[] = [
     description: 'Поводок, подзыв, контакт и спокойная прогулка без перегруза',
     meta: '4 раздела',
     imagePath: '/assets/icons/leash.webp',
-    cardClass: 'situation-card--blue',
     category: 'walk',
     topics: [
       {
@@ -761,12 +193,11 @@ const puppySituations: PuppySituation[] = [
         description: 'Амуниция, движение рядом и безопасные остановки на улице',
         meta: '5 видео',
         imagePath: '/assets/icons/povodok.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Ошейник или шлейка?',
             description: 'Разбираем, какая амуниция подойдёт щенку в разных прогулочных сценариях',
-            coverPath: '/assets/covers/ideal_prog.jpg',
+            coverPath: '/assets/covers/ideal_prog.webp',
             video: {
               id: 'puppy-leash-collar-harness',
             },
@@ -774,7 +205,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Как отучить тянуть поводок?',
             description: 'Собираем базу для спокойного движения рядом без рывков и борьбы',
-            coverPath: '/assets/covers/tech_vlad.jpg',
+            coverPath: '/assets/covers/tech_vlad.webp',
             video: {
               id: 'puppy-leash-stop-pulling',
             },
@@ -782,7 +213,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Поводок или рулетка?',
             description: 'Разбираем преимущества обычного поводка и подходящую длину для прогулки',
-            coverPath: '/assets/covers/povod_rulet.jpg',
+            coverPath: '/assets/covers/povod_rulet.webp',
             video: {
               id: 'puppy-leash-or-retractable-part-1',
             },
@@ -794,7 +225,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: '«Стоп» перед дорогой',
             description: 'Учим щенка останавливаться перед дорогой и не вылетать вперёд',
-            coverPath: '/assets/covers/stop_dor.jpg',
+            coverPath: '/assets/covers/stop_dor.webp',
             video: {
               id: 'puppy-leash-stop-road',
             },
@@ -807,7 +238,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Профилактика подбора с земли и понятная работа через самоконтроль',
         meta: '2 видео',
         imagePath: '/assets/icons/podbor_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Как отучить подбирать с земли?',
@@ -825,7 +255,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Возврат к человеку, кличка и устойчивый контакт на прогулке',
         meta: '2 видео',
         imagePath: '/assets/icons/puppy-podziv.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Команда «Ко мне!» и «кличка»',
@@ -843,12 +272,11 @@ const puppySituations: PuppySituation[] = [
         description: 'Упражнения против отвлечений, выдержка и экологичный контакт на улице',
         meta: '4 видео',
         imagePath: '/assets/icons/razdrazh_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Упражнение против отвлечений (1-2-3)',
             description: 'Используем ритмичное упражнение 1-2-3, чтобы вернуть щенка в контакт',
-            coverPath: '/assets/covers/1-2-3.jpg',
+            coverPath: '/assets/covers/1-2-3.webp',
             video: {
               id: 'puppy-ignore-123',
             },
@@ -860,7 +288,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Топ интересных игр на прогулке, или как наладить контакт',
             description: 'Подбираем короткие игры, которые делают человека интереснее улицы',
-            coverPath: '/assets/covers/igri.jpg',
+            coverPath: '/assets/covers/igri.webp',
             video: {
               id: 'puppy-ignore-walk-games',
             },
@@ -879,7 +307,6 @@ const puppySituations: PuppySituation[] = [
     description: 'Домашние сценарии, уверенность, правила и спокойный режим без хаоса',
     meta: '5 разделов',
     imagePath: '/assets/icons/home.webp',
-    cardClass: 'situation-card--rose',
     category: 'home',
     topics: [
       {
@@ -888,7 +315,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Снижаем перегруз от бытовых звуков и учим щенка быстрее успокаиваться',
         meta: '2 видео',
         imagePath: '/assets/icons/lai_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Команда «тише»',
@@ -906,7 +332,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Уверенность в себе, безопасное пространство и постепенное увеличение дистанции',
         meta: '3 видео',
         imagePath: '/assets/icons/lonely_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Убираем страх и повышаем уверенность в себе',
@@ -928,7 +353,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Спокойный приход домой, контроль возбуждения и более понятный сценарий встречи',
         meta: '2 видео',
         imagePath: '/assets/icons/jump_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Правильный приход/выход из дома',
@@ -937,7 +361,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Прыжки на гостей',
             description: 'Показываем, как заменить прыжки на более удобный и управляемый сценарий встречи',
-            coverPath: '/assets/covers/gosti.jpg',
+            coverPath: '/assets/covers/gosti.webp',
             video: {
               id: 'puppy-home-jumping-guests',
             },
@@ -950,12 +374,11 @@ const puppySituations: PuppySituation[] = [
         description: 'Место, ритуалы дома и полезные занятия вместо выпрашивания еды',
         meta: '3 видео',
         imagePath: '/assets/icons/please_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Команда «место»',
             description: 'Формируем удобную точку отдыха на время еды и бытовой суеты',
-            coverPath: '/assets/covers/mesto.jpg',
+            coverPath: '/assets/covers/mesto.webp',
             video: {
               id: 'puppy-home-begging-place',
             },
@@ -963,7 +386,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Топ долгоиграющих лакомств и умных девайсов',
             description: 'Подбираем конг, лизательные и нюхательные коврики под повседневный ритм',
-            coverPath: '/assets/covers/pogriz.jpg',
+            coverPath: '/assets/covers/pogriz.webp',
             video: {
               id: 'puppy-home-begging-enrichment',
             },
@@ -971,7 +394,7 @@ const puppySituations: PuppySituation[] = [
           {
             title: 'Питание',
             description: 'Смотрим, как режим и рацион влияют на бытовое поведение щенка',
-            coverPath: '/assets/covers/korm.jpg',
+            coverPath: '/assets/covers/korm.webp',
             video: {
               id: 'puppy-home-begging-feeding',
             },
@@ -984,7 +407,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Пелёнка, улица, режим и спокойная работа с запахом без наказаний',
         meta: '3 видео',
         imagePath: '/assets/icons/toilet_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Приучение к пелёнке и средства от запаха',
@@ -1008,7 +430,6 @@ const puppySituations: PuppySituation[] = [
     description: 'Работа с агрессией, конфликтами и защитой ресурсов',
     meta: '5 разделов',
     imagePath: '/assets/icons/agress_puppy.webp',
-    cardClass: 'situation-card--blue',
     category: 'behavior',
     topics: [
       {
@@ -1017,7 +438,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Правильная игра, снижение перегруза и более безопасный контакт со щенком',
         meta: '1 видео',
         imagePath: '/assets/icons/kus_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Грызёт руки и ноги: спокойная и правильная игра',
@@ -1031,7 +451,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Разносит квартиру, портит вещи и не умеет сам успокаиваться',
         meta: '1 видео',
         imagePath: '/assets/icons/vandal_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Мой щенок вандалит и разносит квартиру',
@@ -1045,7 +464,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Безопасная работа рядом с ценными объектами и профилактика ресурсной охраны',
         meta: '1 видео',
         imagePath: '/assets/icons/ohrana_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Охраняет чашку, вещи и игрушки',
@@ -1059,7 +477,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Разбираем причины поведения и первые шаги к более устойчивой реакции',
         meta: '1 видео',
         imagePath: '/assets/icons/lai_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Лает на людей или собак',
@@ -1073,7 +490,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Контекст, возраст и реальные ожидания от такого решения',
         meta: '1 видео',
         imagePath: '/assets/icons/voprox_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Кастрировать или стерилизовать?',
@@ -1089,7 +505,6 @@ const puppySituations: PuppySituation[] = [
     description: 'Помогаем щенку справляться со страхами и тревогой',
     meta: '5 разделов',
     imagePath: '/assets/icons/sad_puppy.webp',
-    cardClass: 'situation-card--rose',
     category: 'behavior',
     topics: [
       {
@@ -1098,7 +513,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Салюты, пылесос, фен и другие звуки, которые могут перегружать щенка',
         meta: '1 видео',
         imagePath: '/assets/icons/earphones_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Боязнь звуков (собака боится салютов, пылесосов, лая других собак и звука фена)',
@@ -1112,12 +526,11 @@ const puppySituations: PuppySituation[] = [
         description: 'Постепенное привыкание к поездкам и более комфортный сценарий дороги',
         meta: '1 видео',
         imagePath: '/assets/icons/car_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Приучаем постепенно к машине',
             description: 'Пошагово снижаем тревогу и делаем поездки более предсказуемыми',
-            coverPath: '/assets/covers/maschin.jpg',
+            coverPath: '/assets/covers/maschin.webp',
             video: {
               id: 'puppy-fears-car',
             },
@@ -1130,7 +543,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Новые места, незнакомые поверхности и базовая техника безопасности',
         meta: '1 видео',
         imagePath: '/assets/icons/stair_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Страх лестницы и лифта',
@@ -1144,12 +556,11 @@ const puppySituations: PuppySituation[] = [
         description: 'Якорь спокойствия и понятная точка отдыха в домашнем пространстве',
         meta: '1 видео',
         imagePath: '/assets/icons/lay_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Команда «место»',
             description: 'Формируем понятное место, куда щенок может вернуться и расслабиться',
-            coverPath: '/assets/covers/mesto.jpg',
+            coverPath: '/assets/covers/mesto.webp',
             video: {
               id: 'puppy-fears-place',
             },
@@ -1162,7 +573,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Домашняя среда, в которой щенку проще успокаиваться и чувствовать себя безопасно',
         meta: '1 видео',
         imagePath: '/assets/icons/order_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Щенок дома',
@@ -1176,7 +586,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Сильная привязка к человеку и трудности с тем, чтобы остаться отдельно',
         meta: '1 видео',
         imagePath: '/assets/icons/tail_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Ходит хвостиком + Как минимизировать тревожность?',
@@ -1192,7 +601,6 @@ const puppySituations: PuppySituation[] = [
     description: 'Гигиена, лапы и груминг через согласие, ритуалы и предсказуемость',
     meta: '3 раздела',
     imagePath: '/assets/icons/puppy_hand.webp',
-    cardClass: 'situation-card--blue',
     category: 'home',
     topics: [
       {
@@ -1201,7 +609,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Анатомия когтя и мягкое приучение к стрижке без лишнего напряжения',
         meta: '1 видео',
         imagePath: '/assets/icons/nails_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Когти: анатомия когтя и стрижка',
@@ -1215,12 +622,11 @@ const puppySituations: PuppySituation[] = [
         description: 'Пять свобод, право отказаться и спокойная организация ванной зоны',
         meta: '1 видео',
         imagePath: '/assets/icons/lapa__puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Лапы',
             description: 'Готовим пространство ванной и учим щенка больше доверять процессу ухода',
-            coverPath: '/assets/covers/lapi-shen.jpg',
+            coverPath: '/assets/covers/lapi-shen.webp',
             video: {
               id: 'puppy-care-paws',
             },
@@ -1233,7 +639,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Как часто мыть, что использовать и как сделать уход понятнее для щенка',
         meta: '1 видео',
         imagePath: '/assets/icons/hair_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Груминг: как часто мыть и что использовать',
@@ -1249,7 +654,6 @@ const puppySituations: PuppySituation[] = [
     description: 'Упражнения на координацию, контроль тела и контакт',
     meta: '6 разделов',
     imagePath: '/assets/icons/fitness.webp',
-    cardClass: 'situation-card--rose',
     category: 'commands',
     topics: [
       {
@@ -1258,25 +662,10 @@ const puppySituations: PuppySituation[] = [
         description: 'Простое упражнение на контроль корпуса и концентрацию',
         meta: '1 видео',
         imagePath: '/assets/icons/poklon__puppy.webp.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Поклон',
             description: 'Шаг за шагом собираем красивое и безопасное положение',
-          },
-        ],
-      },
-      {
-        slug: 'fitness-crawl',
-        title: 'Ползи',
-        description: 'Низкая позиция, координация и более внимательная работа с телом',
-        meta: '1 видео',
-        imagePath: '/assets/icons/polzi_puppy.webp.webp',
-        cardClass: 'topic-card--rose',
-        lessons: [
-          {
-            title: 'Ползи',
-            description: 'Учимся двигаться низко и мягко без лишнего перевозбуждения',
           },
         ],
       },
@@ -1286,7 +675,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Баланс, аккуратное удержание позиции и контроль центра тела',
         meta: '1 видео',
         imagePath: '/assets/icons/bunny_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Зайка',
@@ -1300,7 +688,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Координация, наведение и внимательная работа с позой',
         meta: '1 видео',
         imagePath: '/assets/icons/home_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Домик',
@@ -1314,7 +701,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Небольшой трюк для контакта и более аккуратной работы с импульсом',
         meta: '1 видео',
         imagePath: '/assets/icons/lapa__puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: '«Дай лапу»',
@@ -1328,7 +714,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Осознанное движение назад и более точная работа с телом',
         meta: '1 видео',
         imagePath: '/assets/icons/back_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: '«Назад»',
@@ -1342,7 +727,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Полезный бытовой навык через спокойную работу с мишенью',
         meta: '1 видео',
         imagePath: '/assets/icons/tap_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Вытри морду (тач на тряпочку)',
@@ -1359,7 +743,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Повороты вокруг своей оси для координации и контакта',
         meta: '1 видео',
         imagePath: '/assets/icons/krutvert_puppy.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           {
             title: 'Круть-верть',
@@ -1376,7 +759,6 @@ const puppySituations: PuppySituation[] = [
         description: 'Перенос веса и направленные движения для контроля тела',
         meta: '1 видео',
         imagePath: '/assets/icons/levopravo_puppy.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           {
             title: 'Влево-вправо',
@@ -1384,6 +766,19 @@ const puppySituations: PuppySituation[] = [
             video: {
               id: 'map-puppy-fitness-left-right',
             },
+          },
+        ],
+      },
+      {
+        slug: 'fitness-crawl',
+        title: 'Ползи',
+        description: 'Низкая позиция, координация и более внимательная работа с телом',
+        meta: '1 видео',
+        imagePath: '/assets/icons/polzi_puppy.webp.webp',
+        lessons: [
+          {
+            title: 'Ползи',
+            description: 'Учимся двигаться низко и мягко без лишнего перевозбуждения',
           },
         ],
       },
@@ -1415,7 +810,6 @@ const adultLargeSituations: AdultLargeSituation[] = [
     description: 'Поводок, подзыв, контакт и спокойная работа с раздражителями на улице',
     meta: '4 раздела',
     imagePath: '/assets/icons/leash.webp',
-    cardClass: 'situation-card--blue',
     topics: [
       {
         slug: 'adult-large-leash',
@@ -1423,16 +817,15 @@ const adultLargeSituations: AdultLargeSituation[] = [
         description: 'Поводок, команда «рядом», остановки и усложнение в обычной жизни',
         meta: '5 видео',
         imagePath: '/assets/icons/leash.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           { title: 'Как отучить тянуть поводок?', description: 'Разбираем причины натяжения поводка и собираем спокойную механику прогулки' },
-          { title: 'Ошейник или шлейка?', description: 'Как подобрать амуницию под сценарии прогулки и особенности собаки', coverPath: '/assets/covers/ideal_prog.jpg' },
-          { title: 'Поводок или рулетка?', description: 'Сравниваем варианты амуниции и выбираем подходящий формат прогулки', coverPath: '/assets/covers/povod_rulet.jpg' },
+          { title: 'Ошейник или шлейка?', description: 'Как подобрать амуницию под сценарии прогулки и особенности собаки', coverPath: '/assets/covers/ideal_prog.webp' },
+          { title: 'Поводок или рулетка?', description: 'Сравниваем варианты амуниции и выбираем подходящий формат прогулки', coverPath: '/assets/covers/povod_rulet.webp' },
           { title: 'Команда «рядом»', description: 'Собираем базовый навык движения рядом с человеком' },
           {
             title: '«Дорога» и «стоп»',
             description: 'Учимся останавливаться и безопасно проходить сложные участки маршрута',
-            coverPath: '/assets/covers/stop_dor.jpg',
+            coverPath: '/assets/covers/stop_dor.webp',
             video: {
               id: 'adult-large-leash-road-stop',
             },
@@ -1445,7 +838,6 @@ const adultLargeSituations: AdultLargeSituation[] = [
         description: 'Фокус, выдержка и импульс-контроль при еде на улице',
         meta: '2 видео',
         imagePath: '/assets/icons/big_podbor_edi.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
           { title: 'Импульс-контроль + Выдержка', description: 'Учимся спокойно переживать близость еды и формируем паузу перед действием' },
           { title: 'Намордник без драмы', description: 'Пошагово формируем комфортное отношение к наморднику без давления' },
@@ -1457,7 +849,6 @@ const adultLargeSituations: AdultLargeSituation[] = [
         description: 'Контакт, команда «ко мне» и работа на фоне раздражителей',
         meta: '2 видео',
         imagePath: '/assets/icons/big_podziv.webp',
-        cardClass: 'topic-card--blue',
         lessons: [
           { title: 'Контакт', description: 'Возвращаем внимание собаки к человеку на прогулке' },
           { title: 'Ко мне', description: 'Формируем понятный и надёжный сигнал возвращения' },
@@ -1469,11 +860,10 @@ const adultLargeSituations: AdultLargeSituation[] = [
         description: 'Протоколы внимания и самоконтроля на фоне сильных стимулов',
         meta: '4 видео',
         imagePath: '/assets/icons/big_ignor.webp',
-        cardClass: 'topic-card--rose',
         lessons: [
-          { title: 'Упражнение против отвлечений (1-2-3)', description: 'Возвращаем собаку в понятный ритм при сильных отвлечениях', coverPath: '/assets/covers/1-2-3.jpg' },
+          { title: 'Упражнение против отвлечений (1-2-3)', description: 'Возвращаем собаку в понятный ритм при сильных отвлечениях', coverPath: '/assets/covers/1-2-3.webp' },
           { title: 'Выдержка: не срываемся на всё подряд', description: 'Развиваем импульс-контроль на фоне раздражителей' },
-          { title: 'Топ интересных игр на прогулке, или как наладить контакт', description: 'Подбираем игры, которые усиливают ценность человека на улице', coverPath: '/assets/covers/igri.jpg' },
+          { title: 'Топ интересных игр на прогулке, или как наладить контакт', description: 'Подбираем игры, которые усиливают ценность человека на улице', coverPath: '/assets/covers/igri.webp' },
           { title: 'Моя собака ко всем лезет', description: 'Работаем с сильным интересом к людям, животным и движущимся объектам' },
         ],
       },
@@ -1485,33 +875,32 @@ const adultLargeSituations: AdultLargeSituation[] = [
     description: 'Домашний режим, тишина, одиночество и бытовые правила',
     meta: '5 разделов',
     imagePath: '/assets/icons/home.webp',
-    cardClass: 'situation-card--rose',
     topics: [
-      { slug: 'adult-large-barking', title: 'Лай', description: 'Команда «тише» и спокойное привыкание к звукам', meta: '2 видео', imagePath: '/assets/icons/big_lai.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-barking', title: 'Лай', description: 'Команда «тише» и спокойное привыкание к звукам', meta: '2 видео', imagePath: '/assets/icons/big_lai.webp', lessons: [
         { title: 'Команда «тише»', description: 'Формируем бытовой сигнал без давления и наказаний' },
         { title: 'Приучаем к звукам: домофон и хлопки', description: 'Постепенно снижаем реакцию на домофон, хлопки и другие бытовые шумы' },
       ]},
-      { slug: 'adult-large-loneliness', title: 'Одиночество', description: 'Уверенность, пространство и постепенное обучение оставаться одному', meta: '3 видео', imagePath: '/assets/icons/big_kreslo.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-loneliness', title: 'Одиночество', description: 'Уверенность, пространство и постепенное обучение оставаться одному', meta: '3 видео', imagePath: '/assets/icons/big_kreslo.webp', lessons: [
         { title: 'Убираем страх и повышаем уверенность в себе', description: 'Собираем бытовые сценарии, где собака справляется без постоянной помощи' },
         { title: 'Правильная организация пространства', description: 'Подготавливаем дома среду, в которой собаке проще расслабляться' },
         { title: 'Учим постепенно оставаться одному', description: 'Пошагово увеличиваем дистанцию и время без резких скачков' },
       ]},
-      { slug: 'adult-large-jumping-on-guests', title: 'Прыжки на гостей', description: 'Спокойная встреча гостей и понятный сценарий прихода домой', meta: '2 видео', imagePath: '/assets/icons/big_prig.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-jumping-on-guests', title: 'Прыжки на гостей', description: 'Спокойная встреча гостей и понятный сценарий прихода домой', meta: '2 видео', imagePath: '/assets/icons/big_prig.webp', lessons: [
         { title: 'Правильный приход/выход из дома', description: 'Формируем предсказуемый сценарий входа и выхода без лишнего возбуждения' },
         {
           title: 'Прыжки на гостей',
           description: 'Заменяем прыжки на более спокойный и управляемый сценарий встречи',
-          coverPath: '/assets/covers/gosti.jpg',
+          coverPath: '/assets/covers/gosti.webp',
           video: {
             id: 'adult-large-jumping-guests',
           },
         },
       ]},
-      { slug: 'adult-large-begging', title: 'Попрошайничество', description: 'Команда «место», полезные занятия и питание', meta: '3 видео', imagePath: '/assets/icons/big_please.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-begging', title: 'Попрошайничество', description: 'Команда «место», полезные занятия и питание', meta: '3 видео', imagePath: '/assets/icons/big_please.webp', lessons: [
         {
           title: 'Команда «место»',
           description: 'Формируем удобную бытовую точку отдыха во время еды',
-          coverPath: '/assets/covers/mesto.jpg',
+          coverPath: '/assets/covers/mesto.webp',
           video: {
             id: 'adult-large-begging-place',
           },
@@ -1519,14 +908,14 @@ const adultLargeSituations: AdultLargeSituation[] = [
         {
           title: 'Топ долгоиграющих лакомств и умных девайсов',
           description: 'Подбираем конг, лизательные и нюхательные коврики',
-          coverPath: '/assets/covers/pogriz.jpg',
+          coverPath: '/assets/covers/pogriz.webp',
           video: {
             id: 'adult-large-begging-enrichment',
           },
         },
-        { title: 'Питание', description: 'Разбираем режим, логику выдачи еды и бытовые рамки', coverPath: '/assets/covers/korm.jpg' },
+        { title: 'Питание', description: 'Разбираем режим, логику выдачи еды и бытовые рамки', coverPath: '/assets/covers/korm.webp' },
       ]},
-      { slug: 'adult-large-toilet', title: 'Туалет', description: 'Улица, режим и метки дома у взрослой собаки', meta: '2 видео', imagePath: '/assets/icons/big_toilet.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-toilet', title: 'Туалет', description: 'Улица, режим и метки дома у взрослой собаки', meta: '2 видео', imagePath: '/assets/icons/big_toilet.webp', lessons: [
         { title: 'Приучение к улице + режим', description: 'Перестраиваем туалетный сценарий на улицу и выстраиваем понятный ритм прогулок' },
         { title: 'Метки дома', description: 'Разбираем причины меток и первые шаги по изменению ситуации' },
       ]},
@@ -1538,21 +927,20 @@ const adultLargeSituations: AdultLargeSituation[] = [
     description: 'Сложное поведение, реакция на объекты и охрана ресурсов',
     meta: '5 разделов',
     imagePath: '/assets/icons/big_agress.webp',
-    cardClass: 'situation-card--blue',
     topics: [
-      { slug: 'adult-large-overaroused-play', title: 'Перевозбуждается при игре', description: 'Работа с чрезмерным возбуждением во время совместной игры', meta: '1 видео', imagePath: '/assets/icons/big_vozbud.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-overaroused-play', title: 'Перевозбуждается при игре', description: 'Работа с чрезмерным возбуждением во время совместной игры', meta: '1 видео', imagePath: '/assets/icons/big_vozbud.webp', lessons: [
         { title: 'Перевозбуждается при игре', description: 'Учимся вовремя замечать перегруз и возвращать собаке спокойное состояние' },
       ]},
-      { slug: 'adult-large-resource-guarding', title: 'Охраняет вещи', description: 'Безопасная работа с охраной ценных ресурсов', meta: '1 видео', imagePath: '/assets/icons/big_ohran.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-resource-guarding', title: 'Охраняет вещи', description: 'Безопасная работа с охраной ценных ресурсов', meta: '1 видео', imagePath: '/assets/icons/big_ohran.webp', lessons: [
         { title: 'Охраняет вещи', description: 'Снижаем напряжение вокруг еды, вещей и игрушек' },
       ]},
-      { slug: 'adult-large-barks-at-people', title: 'Лает на людей или собак', description: 'Причины поведения и работа с реакцией', meta: '1 видео', imagePath: '/assets/icons/big_bark.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-barks-at-people', title: 'Лает на людей или собак', description: 'Причины поведения и работа с реакцией', meta: '1 видео', imagePath: '/assets/icons/big_bark.webp', lessons: [
         { title: 'Лает на людей или собак', description: 'Определяем причины реакции и собираем безопасный протокол работы' },
       ]},
-      { slug: 'adult-large-neutering', title: 'Кастрировать/стерилизовать или нет?', description: 'Реальные ожидания и ограничения такого решения', meta: '1 видео', imagePath: '/assets/icons/voprox_puppy.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-neutering', title: 'Кастрировать/стерилизовать или нет?', description: 'Реальные ожидания и ограничения такого решения', meta: '1 видео', imagePath: '/assets/icons/voprox_puppy.webp', lessons: [
         { title: 'Кастрировать/стерилизовать или нет?', description: 'Разбираем ожидания, ограничения и вопросы к специалистам' },
       ]},
-      { slug: 'adult-large-scooters-bikes', title: 'Бросается на самокаты и велосипеды', description: 'Работа со страхом, напряжением и погоней за движущимися объектами', meta: '1 видео', imagePath: '/assets/icons/big_velo.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-scooters-bikes', title: 'Бросается на самокаты и велосипеды', description: 'Работа со страхом, напряжением и погоней за движущимися объектами', meta: '1 видео', imagePath: '/assets/icons/big_velo.webp', lessons: [
         { title: 'Бросается на самокаты и велосипеды', description: 'Учимся отличать мотивацию и выбирать корректную стратегию работы' },
       ]},
     ],
@@ -1563,28 +951,27 @@ const adultLargeSituations: AdultLargeSituation[] = [
     description: 'Пространство, хвостик, звуки, машины и новые места',
     meta: '5 разделов',
     imagePath: '/assets/icons/big_fear.webp',
-    cardClass: 'situation-card--rose',
     topics: [
-      { slug: 'adult-large-place-space', title: 'Команда «место»', description: 'Понятная и спокойная точка отдыха для собаки', meta: '1 видео', imagePath: '/assets/icons/big_sidit.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-place-space', title: 'Команда «место»', description: 'Понятная и спокойная точка отдыха для собаки', meta: '1 видео', imagePath: '/assets/icons/big_sidit.webp', lessons: [
         {
           title: 'Команда «место»',
           description: 'Делаем точку отдыха понятной и полезной для собаки',
-          coverPath: '/assets/covers/mesto.jpg',
+          coverPath: '/assets/covers/mesto.webp',
           video: {
             id: 'adult-large-fears-place',
           },
         },
       ]},
-      { slug: 'adult-large-follows-tail', title: 'Ходит хвостиком + Как минимизировать тревожность?', description: 'Снижаем тревожность и учим собаку оставаться отдельно', meta: '1 видео', imagePath: '/assets/icons/big_hvost.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-follows-tail', title: 'Ходит хвостиком + Как минимизировать тревожность?', description: 'Снижаем тревожность и учим собаку оставаться отдельно', meta: '1 видео', imagePath: '/assets/icons/big_hvost.webp', lessons: [
         { title: 'Ходит хвостиком + Как минимизировать тревожность?', description: 'Постепенно учим собаку выдерживать разлуку в пределах дома' },
       ]},
-      { slug: 'adult-large-sounds', title: 'Боязнь звуков', description: 'Работа с неожиданными и неприятными шумами', meta: '1 видео', imagePath: '/assets/icons/big_headphones.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-sounds', title: 'Боязнь звуков', description: 'Работа с неожиданными и неприятными шумами', meta: '1 видео', imagePath: '/assets/icons/big_headphones.webp', lessons: [
         { title: 'Боязнь звуков', description: 'Пошагово меняем эмоциональную реакцию на шумы' },
       ]},
-      { slug: 'adult-large-cars', title: 'Приучаем постепенно к машине', description: 'Постепенное знакомство с машиной и поездками', meta: '1 видео', imagePath: '/assets/icons/big_car.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-cars', title: 'Приучаем постепенно к машине', description: 'Постепенное знакомство с машиной и поездками', meta: '1 видео', imagePath: '/assets/icons/big_car.webp', lessons: [
         { title: 'Приучаем постепенно к машине', description: 'Двигаемся от знакомства к коротким безопасным поездкам' },
       ]},
-      { slug: 'adult-large-new-places', title: 'Страх лестницы и лифта', description: 'Постепенное знакомство с лестницей и лифтом', meta: '1 видео', imagePath: '/assets/icons/big_lift.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-new-places', title: 'Страх лестницы и лифта', description: 'Постепенное знакомство с лестницей и лифтом', meta: '1 видео', imagePath: '/assets/icons/big_lift.webp', lessons: [
         { title: 'Страх лестницы и лифта', description: 'Знакомим собаку с лестницей и лифтом в комфортном темпе' },
       ]},
     ],
@@ -1595,22 +982,21 @@ const adultLargeSituations: AdultLargeSituation[] = [
     description: 'Когти, лапы и груминг через предсказуемость и согласие',
     meta: '3 раздела',
     imagePath: '/assets/icons/big_bath.webp',
-    cardClass: 'situation-card--blue',
     topics: [
-      { slug: 'adult-large-claws', title: 'Когти', description: 'Спокойный и предсказуемый уход за когтями', meta: '1 видео', imagePath: '/assets/icons/big_kogot.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-claws', title: 'Когти', description: 'Спокойный и предсказуемый уход за когтями', meta: '1 видео', imagePath: '/assets/icons/big_kogot.webp', lessons: [
         { title: 'Когти', description: 'Собираем аккуратную процедуру ухода шаг за шагом' },
       ]},
-      { slug: 'adult-large-paws', title: 'Лапы', description: 'Спокойный уход за лапами без борьбы', meta: '1 видео', imagePath: '/assets/icons/big_lapi.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-paws', title: 'Лапы', description: 'Спокойный уход за лапами без борьбы', meta: '1 видео', imagePath: '/assets/icons/big_lapi.webp', lessons: [
         {
           title: 'Лапы',
           description: 'Собираем понятный и комфортный сценарий ухода за лапами',
-          coverPath: '/assets/covers/lapi-bolsh.jpg',
+          coverPath: '/assets/covers/lapi-bolsh.webp',
           video: {
             id: 'adult-large-care-paws',
           },
         },
       ]},
-      { slug: 'adult-large-grooming', title: 'Груминг', description: 'Понятный и спокойный сценарий домашнего ухода', meta: '1 видео', imagePath: '/assets/icons/big_grum.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-grooming', title: 'Груминг', description: 'Понятный и спокойный сценарий домашнего ухода', meta: '1 видео', imagePath: '/assets/icons/big_grum.webp', lessons: [
         { title: 'Груминг', description: 'Выстраиваем комфортный бытовой ритм ухода' },
       ]},
     ],
@@ -1621,21 +1007,20 @@ const adultLargeSituations: AdultLargeSituation[] = [
     description: 'Небольшие упражнения на координацию, контроль тела и контакт',
     meta: '5 разделов',
     imagePath: '/assets/icons/big_fitness.webp',
-    cardClass: 'situation-card--rose',
     topics: [
-      { slug: 'adult-large-eight', title: 'Восемь', description: 'Контроль движения вокруг ног человека', meta: '1 видео', imagePath: '/assets/icons/big_vosem.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-eight', title: 'Восемь', description: 'Контроль движения вокруг ног человека', meta: '1 видео', imagePath: '/assets/icons/big_vosem.webp', lessons: [
         { title: 'Восемь', description: 'Собираем плавное движение по траектории вокруг ног без спешки' },
       ]},
-      { slug: 'adult-large-go-around', title: 'Обойди', description: 'Координация движения вокруг человека или предмета', meta: '1 видео', imagePath: '/assets/icons/big_oboidi.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-go-around', title: 'Обойди', description: 'Координация движения вокруг человека или предмета', meta: '1 видео', imagePath: '/assets/icons/big_oboidi.webp', lessons: [
         { title: 'Обойди', description: 'Собираем понятное движение вокруг человека или предмета' },
       ]},
-      { slug: 'adult-large-wipe-muzzle', title: 'Вытри морду', description: 'Полезный бытовой навык через работу с мишенью', meta: '1 видео', imagePath: '/assets/icons/big_lapananose.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-wipe-muzzle', title: 'Вытри морду', description: 'Полезный бытовой навык через работу с мишенью', meta: '1 видео', imagePath: '/assets/icons/big_lapananose.webp', lessons: [
         { title: 'Вытри морду', description: 'Формируем аккуратное касание мордой подготовленной поверхности' },
       ]},
-      { slug: 'adult-large-jump-over-leg', title: 'Прыг', description: 'Аккуратный прыжок с контролем импульса и траектории', meta: '1 видео', imagePath: '/assets/icons/big_jump.webp', cardClass: 'topic-card--rose', lessons: [
+      { slug: 'adult-large-jump-over-leg', title: 'Прыг', description: 'Аккуратный прыжок с контролем импульса и траектории', meta: '1 видео', imagePath: '/assets/icons/big_jump.webp', lessons: [
         { title: 'Прыг', description: 'Учимся безопасному прыжку через понятную и короткую механику' },
       ]},
-      { slug: 'adult-large-bow', title: 'Поклон', description: 'Упражнение на координацию, контроль корпуса и концентрацию', meta: '1 видео', imagePath: '/assets/icons/big_poklon.webp', cardClass: 'topic-card--blue', lessons: [
+      { slug: 'adult-large-bow', title: 'Поклон', description: 'Упражнение на координацию, контроль корпуса и концентрацию', meta: '1 видео', imagePath: '/assets/icons/big_poklon.webp', lessons: [
         { title: 'Поклон', description: 'Собираем красивое и понятное упражнение через короткие шаги' },
       ]},
     ],
@@ -1936,133 +1321,133 @@ type PlannedLessonCover = readonly [
 ];
 
 const plannedLessonCovers = [
-  ['conflicts-vandal', 'Мой щенок вандалит и разносит квартиру', '/assets/covers/puppy-vandal.jpg'],
-  ['walk-food-pickup', 'Намордник без драмы', '/assets/covers/muzzle.jpg'],
-  ['walk-recall', 'Команда «Ко мне!» и «кличка»', '/assets/covers/puppy-recall-come.jpg'],
-  ['walk-recall', 'Собака слушает вас, а не улицу', '/assets/covers/puppy-recall-contact.jpg'],
-  ['walk-ignore-triggers', 'Выдержка: не срываемся на всё подряд', '/assets/covers/puppy-ignore-impulse.jpg'],
-  ['home-barking', 'Команда «тише»', '/assets/covers/quiet.jpg'],
-  ['home-barking', 'Приучаем к звукам дома', '/assets/covers/puppy-fears-sounds.jpg'],
-  ['home-loneliness', 'Убираем страх и повышаем уверенность в себе', '/assets/covers/puppy-confidence.jpg'],
-  ['home-loneliness', 'Учим постепенно оставаться одному', '/assets/covers/puppy-alone.jpg'],
-  ['home-jumping-on-guests', 'Правильный приход/выход из дома', '/assets/covers/puppy-arrival.jpg'],
+  ['conflicts-vandal', 'Мой щенок вандалит и разносит квартиру', '/assets/covers/puppy-vandal.webp'],
+  ['walk-food-pickup', 'Намордник без драмы', '/assets/covers/muzzle.webp'],
+  ['walk-recall', 'Команда «Ко мне!» и «кличка»', '/assets/covers/puppy-recall-come.webp'],
+  ['walk-recall', 'Собака слушает вас, а не улицу', '/assets/covers/puppy-recall-contact.webp'],
+  ['walk-ignore-triggers', 'Выдержка: не срываемся на всё подряд', '/assets/covers/puppy-ignore-impulse.webp'],
+  ['home-barking', 'Команда «тише»', '/assets/covers/quiet.webp'],
+  ['home-barking', 'Приучаем к звукам дома', '/assets/covers/puppy-fears-sounds.webp'],
+  ['home-loneliness', 'Убираем страх и повышаем уверенность в себе', '/assets/covers/puppy-confidence.webp'],
+  ['home-loneliness', 'Учим постепенно оставаться одному', '/assets/covers/puppy-alone.webp'],
+  ['home-jumping-on-guests', 'Правильный приход/выход из дома', '/assets/covers/puppy-arrival.webp'],
   [
     'home-toilet',
     'Приучение к пелёнке и средства от запаха',
-    '/assets/covers/puppy-toilet-pad.jpg',
+    '/assets/covers/puppy-toilet-pad.webp',
   ],
-  ['home-toilet', 'Приучение к улице и режим', '/assets/covers/toilet-outside.jpg'],
-  ['home-toilet', 'Метки дома', '/assets/covers/toilet-marking.jpg'],
+  ['home-toilet', 'Приучение к улице и режим', '/assets/covers/toilet-outside.webp'],
+  ['home-toilet', 'Метки дома', '/assets/covers/toilet-marking.webp'],
   [
     'conflicts-biting-hands',
     'Грызёт руки и ноги: спокойная и правильная игра',
-    '/assets/covers/puppy-biting.jpg',
+    '/assets/covers/puppy-biting.webp',
   ],
   [
     'conflicts-resource-guarding',
     'Охраняет чашку, вещи и игрушки',
-    '/assets/covers/puppy-resource-guarding.jpg',
+    '/assets/covers/puppy-resource-guarding.webp',
   ],
-  ['conflicts-barks-at-people', 'Лает на людей или собак', '/assets/covers/barking-triggers.jpg'],
-  ['conflicts-neutering', 'Кастрировать или стерилизовать?', '/assets/covers/neutering.jpg'],
+  ['conflicts-barks-at-people', 'Лает на людей или собак', '/assets/covers/barking-triggers.webp'],
+  ['conflicts-neutering', 'Кастрировать или стерилизовать?', '/assets/covers/neutering.webp'],
   [
     'fears-sounds',
     'Боязнь звуков (собака боится салютов, пылесосов, лая других собак и звука фена)',
-    '/assets/covers/puppy-fears-sounds.jpg',
+    '/assets/covers/puppy-fears-sounds.webp',
   ],
-  ['fears-new-places', 'Страх лестницы и лифта', '/assets/covers/puppy-stairs-lift.jpg'],
-  ['fears-space-organization', 'Щенок дома', '/assets/covers/puppy-home.jpg'],
+  ['fears-new-places', 'Страх лестницы и лифта', '/assets/covers/puppy-stairs-lift.webp'],
+  ['fears-space-organization', 'Щенок дома', '/assets/covers/puppy-home.webp'],
   [
     'fears-follows-tail',
     'Ходит хвостиком + Как минимизировать тревожность?',
-    '/assets/covers/adult-anxiety.jpg',
+    '/assets/covers/adult-anxiety.webp',
   ],
-  ['care-claws', 'Когти: анатомия когтя и стрижка', '/assets/covers/kogti.jpg'],
-  ['fitness-bow', 'Поклон', '/assets/covers/bow.jpg'],
-  ['fitness-bunny', 'Зайка', '/assets/covers/puppy-bunny.jpg'],
-  ['fitness-house', 'Домик', '/assets/covers/puppy-house.jpg'],
-  ['fitness-paw', '«Дай лапу»', '/assets/covers/puppy-give-paw.jpg'],
-  ['fitness-wipe-muzzle', 'Вытри морду (тач на тряпочку)', '/assets/covers/wipe-muzzle.jpg'],
-  ['fitness-spin', 'Круть-верть', '/assets/covers/puppy-spin.jpg'],
-  ['fitness-left-right', 'Влево-вправо', '/assets/covers/puppy-left-right.jpg'],
-  ['adult-large-leash', 'Как отучить тянуть поводок?', '/assets/covers/adult-leash-technique.jpg'],
-  ['adult-large-food-pickup', 'Импульс-контроль + Выдержка', '/assets/covers/adult-food-impulse.jpg'],
-  ['adult-large-food-pickup', 'Намордник без драмы', '/assets/covers/muzzle.jpg'],
-  ['adult-large-recall', 'Контакт', '/assets/covers/adult-recall-contact.jpg'],
-  ['adult-large-recall', 'Ко мне', '/assets/covers/adult-recall-come.jpg'],
+  ['care-claws', 'Когти: анатомия когтя и стрижка', '/assets/covers/kogti.webp'],
+  ['fitness-bow', 'Поклон', '/assets/covers/bow.webp'],
+  ['fitness-bunny', 'Зайка', '/assets/covers/puppy-bunny.webp'],
+  ['fitness-house', 'Домик', '/assets/covers/puppy-house.webp'],
+  ['fitness-paw', '«Дай лапу»', '/assets/covers/puppy-give-paw.webp'],
+  ['fitness-wipe-muzzle', 'Вытри морду (тач на тряпочку)', '/assets/covers/wipe-muzzle.webp'],
+  ['fitness-spin', 'Круть-верть', '/assets/covers/puppy-spin.webp'],
+  ['fitness-left-right', 'Влево-вправо', '/assets/covers/puppy-left-right.webp'],
+  ['adult-large-leash', 'Как отучить тянуть поводок?', '/assets/covers/adult-leash-technique.webp'],
+  ['adult-large-food-pickup', 'Импульс-контроль + Выдержка', '/assets/covers/adult-food-impulse.webp'],
+  ['adult-large-food-pickup', 'Намордник без драмы', '/assets/covers/muzzle.webp'],
+  ['adult-large-recall', 'Контакт', '/assets/covers/adult-recall-contact.webp'],
+  ['adult-large-recall', 'Ко мне', '/assets/covers/adult-recall-come.webp'],
   [
     'adult-large-ignore-triggers',
     'Топ интересных игр на прогулке, или как наладить контакт',
-    '/assets/covers/adult-walk-games.jpg',
+    '/assets/covers/adult-walk-games.webp',
   ],
   [
     'adult-large-ignore-triggers',
     'Выдержка: не срываемся на всё подряд',
-    '/assets/covers/adult-food-impulse.jpg',
+    '/assets/covers/adult-food-impulse.webp',
   ],
-  ['adult-large-barking', 'Команда «тише»', '/assets/covers/quiet.jpg'],
+  ['adult-large-barking', 'Команда «тише»', '/assets/covers/quiet.webp'],
   [
     'adult-large-barking',
     'Приучаем к звукам: домофон и хлопки',
-    '/assets/covers/adult-home-sounds.jpg',
+    '/assets/covers/adult-home-sounds.webp',
   ],
   [
     'adult-large-loneliness',
     'Убираем страх и повышаем уверенность в себе',
-    '/assets/covers/adult-confidence.jpg',
+    '/assets/covers/adult-confidence.webp',
   ],
-  ['adult-large-loneliness', 'Учим постепенно оставаться одному', '/assets/covers/adult-alone.jpg'],
+  ['adult-large-loneliness', 'Учим постепенно оставаться одному', '/assets/covers/adult-alone.webp'],
   [
     'adult-large-loneliness',
     'Правильная организация пространства',
-    '/assets/covers/adult-space.jpg',
+    '/assets/covers/adult-space.webp',
   ],
   [
     'adult-large-jumping-on-guests',
     'Правильный приход/выход из дома',
-    '/assets/covers/adult-arrival.jpg',
+    '/assets/covers/adult-arrival.webp',
   ],
-  ['adult-large-begging', 'Питание', '/assets/covers/adult-feeding.jpg'],
-  ['adult-large-toilet', 'Приучение к улице + режим', '/assets/covers/toilet-outside.jpg'],
-  ['adult-large-toilet', 'Метки дома', '/assets/covers/toilet-marking.jpg'],
+  ['adult-large-begging', 'Питание', '/assets/covers/adult-feeding.webp'],
+  ['adult-large-toilet', 'Приучение к улице + режим', '/assets/covers/toilet-outside.webp'],
+  ['adult-large-toilet', 'Метки дома', '/assets/covers/toilet-marking.webp'],
   [
     'adult-large-overaroused-play',
     'Перевозбуждается при игре',
-    '/assets/covers/adult-overaroused.jpg',
+    '/assets/covers/adult-overaroused.webp',
   ],
   [
     'adult-large-resource-guarding',
     'Охраняет вещи',
-    '/assets/covers/adult-resource-guarding.jpg',
+    '/assets/covers/adult-resource-guarding.webp',
   ],
   [
     'adult-large-barks-at-people',
     'Лает на людей или собак',
-    '/assets/covers/barking-triggers.jpg',
+    '/assets/covers/barking-triggers.webp',
   ],
   [
     'adult-large-neutering',
     'Кастрировать/стерилизовать или нет?',
-    '/assets/covers/neutering.jpg',
+    '/assets/covers/neutering.webp',
   ],
   [
     'adult-large-scooters-bikes',
     'Бросается на самокаты и велосипеды',
-    '/assets/covers/adult-scooters.jpg',
+    '/assets/covers/adult-scooters.webp',
   ],
   [
     'adult-large-follows-tail',
     'Ходит хвостиком + Как минимизировать тревожность?',
-    '/assets/covers/adult-anxiety.jpg',
+    '/assets/covers/adult-anxiety.webp',
   ],
-  ['adult-large-sounds', 'Боязнь звуков', '/assets/covers/adult-fears-sounds.jpg'],
-  ['adult-large-cars', 'Приучаем постепенно к машине', '/assets/covers/maschin.jpg'],
-  ['adult-large-new-places', 'Страх лестницы и лифта', '/assets/covers/adult-stairs-lift.jpg'],
-  ['adult-large-claws', 'Когти', '/assets/covers/kogti-bolsh.jpg'],
-  ['adult-large-eight', 'Восемь', '/assets/covers/adult-eight.jpg'],
-  ['adult-large-go-around', 'Обойди', '/assets/covers/adult-go-around.jpg'],
-  ['adult-large-wipe-muzzle', 'Вытри морду', '/assets/covers/wipe-muzzle.jpg'],
-  ['adult-large-bow', 'Поклон', '/assets/covers/bow.jpg'],
+  ['adult-large-sounds', 'Боязнь звуков', '/assets/covers/adult-fears-sounds.webp'],
+  ['adult-large-cars', 'Приучаем постепенно к машине', '/assets/covers/maschin.webp'],
+  ['adult-large-new-places', 'Страх лестницы и лифта', '/assets/covers/adult-stairs-lift.webp'],
+  ['adult-large-claws', 'Когти', '/assets/covers/kogti-bolsh.webp'],
+  ['adult-large-eight', 'Восемь', '/assets/covers/adult-eight.webp'],
+  ['adult-large-go-around', 'Обойди', '/assets/covers/adult-go-around.webp'],
+  ['adult-large-wipe-muzzle', 'Вытри морду', '/assets/covers/wipe-muzzle.webp'],
+  ['adult-large-bow', 'Поклон', '/assets/covers/bow.webp'],
 ] as const satisfies readonly PlannedLessonCover[];
 
 function applyPlannedLessonVideos(): void {
@@ -2116,212 +1501,6 @@ const adultLargeTopicsBySlug = new Map<
   AdultLargeTopic & { parentSlug: AdultLargeSituationSlug; parentTitle: string }
 >(adultLargeTopics.map((topic) => [topic.slug, topic]));
 
-const adultSmallSituations: AdultSmallSituation[] = [
-  {
-    slug: 'adult-small-ideal-walk',
-    title: 'Идеальная прогулка',
-    description: 'Поводок, подбор, подзыв и спокойный контакт в прогулочной среде',
-    meta: '7 разделов',
-    imagePath: '/assets/icons/leash.webp',
-    cardClass: 'situation-card--blue',
-    topics: [
-      { slug: 'adult-small-leash', title: 'Поводок', description: 'Амуниция, рядом, остановки и управляемое движение на прогулке', meta: '7 видео', imagePath: '/assets/icons/leash.webp', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Ошейник или шлейка?', description: 'Выбираем амуницию под формат прогулок и особенности маленькой собаки' },
-        { title: 'Техника владения поводком', description: 'Собираем спокойную механику рук и длины поводка' },
-        { title: 'Экстренный разворот', description: 'Быстро и мягко уводим собаку из сложной ситуации' },
-        { title: 'Почему собака тянет?', description: 'Разбираем причины натяжения и как на них влиять' },
-        { title: 'Обычный поводок или рулетка?', description: 'Сравниваем варианты и их влияние на обучение' },
-        { title: 'Команда «рядом»', description: 'Формируем понятный навык движения рядом с человеком' },
-        { title: 'Команда «дорога» / «стоп»', description: 'Учимся безопасным остановкам и прохождению сложных точек маршрута' },
-      ]},
-      { slug: 'adult-small-food-pickup', title: 'Подбор еды', description: 'Контроль импульса, выдержка и запрет брать еду без сигнала', meta: '6 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Импульс-контроль', description: 'Снижаем срыв к еде и формируем управляемую паузу' },
-        { title: 'Выдержка', description: 'Учим спокойно ждать рядом с сильным стимулом' },
-        { title: 'Фокус на кусок', description: 'Переводим внимание с подбора на задачу с человеком' },
-        { title: 'Брать еду у незнакомых запрещено', description: 'Формируем понятное правило и безопасный бытовой сценарий' },
-        { title: 'Хождение между сосисок', description: 'Тренируем самоконтроль рядом с доступной едой' },
-        { title: 'Без взгляда и контроля хозяина', description: 'Усложняем навык, убирая лишние подсказки' },
-      ]},
-      { slug: 'adult-small-muzzle', title: 'Намордник', description: 'Приучение к наморднику и работа с природными инстинктами', meta: '2 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Приучение к наморднику', description: 'Пошагово формируем спокойное отношение к наморднику' },
-        { title: 'Почему важно закрывать природные инстинкты?', description: 'Разбираем, почему одной коррекции недостаточно' },
-      ]},
-      { slug: 'adult-small-recall', title: 'Подзыв', description: 'Контакт, кличка и надёжное возвращение к человеку', meta: '3 видео', imagePath: '/assets/images/programs/puppy.webp', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Контакт', description: 'Усиливаем ценность человека и стабильность внимания на улице' },
-        { title: 'Команда «ко мне»', description: 'Формируем рабочий и понятный сигнал возвращения' },
-        { title: 'Кличка', description: 'Делаем имя маркером внимания, а не фоном' },
-      ]},
-      { slug: 'adult-small-ignore-triggers', title: 'Игнорирование раздражителей', description: 'Управляемое внимание и спокойствие рядом с триггерами', meta: '2 видео', imagePath: '/assets/useful-heart.svg', cardClass: 'topic-card--rose', lessons: [
-        { title: '1-2-3', description: 'Задаём ритм, который помогает вернуться в контакт' },
-        { title: 'Импульс-контроль', description: 'Учим выдерживать встречу с раздражителем без срыва' },
-      ]},
-      { slug: 'adult-small-games-contact', title: 'Игры и контакт на прогулке', description: 'Игры для контакта, нюха и вовлечённости в человека', meta: '5 видео', imagePath: '/assets/images/programs/teen_dog.webp', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Топ интересных игр на прогулке', description: 'Подбираем короткие активности для улицы' },
-        { title: 'Как наладить контакт', description: 'Строим прогулочный сценарий, где человек становится интереснее среды' },
-        { title: 'Нюхательные игры', description: 'Добавляем спокойную поисковую нагрузку' },
-        { title: 'Прячем в траве', description: 'Учимся использовать среду как часть игры и поиска' },
-        { title: 'Прячем по всему периметру дерева', description: 'Усложняем задачи на поиск и внимание' },
-      ]},
-      { slug: 'adult-small-dog-to-everyone', title: 'Собака ко всем лезет', description: 'Работаем с сильным интересом к движущимся объектам и животным', meta: '3 видео', imagePath: '/assets/images/programs/adult_dog.webp', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Велосипеды', description: 'Снижаем фиксацию на быстрых объектах и сохраняем контакт' },
-        { title: 'Кошки', description: 'Работаем с переключением и безопасной дистанцией' },
-        { title: 'Птички', description: 'Учимся спокойно переживать быстрые и хаотичные движения' },
-      ]},
-    ],
-  },
-  {
-    slug: 'adult-small-calm-home',
-    title: 'Спокойный дом',
-    description: 'Тишина, одиночество, бытовые правила и туалетные сценарии дома',
-    meta: '6 разделов',
-    imagePath: '/assets/icons/home.webp',
-    cardClass: 'situation-card--rose',
-    topics: [
-      { slug: 'adult-small-barking', title: 'Лай', description: 'Команда «тише» и работа со звуками', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Команда «тише»', description: 'Формируем спокойный бытовой сигнал' },
-        { title: 'Приучаем к звукам', description: 'Постепенно уменьшаем напряжение от шумов' },
-      ]},
-      { slug: 'adult-small-loneliness', title: 'Одиночество', description: 'Уверенность, сложные активности, пространство и постепенное оставление', meta: '4 видео', imagePath: '/assets/images/situations/puppy-whines-night.webp', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Повышаем уверенность в себе', description: 'Собираем опыт, в котором собака справляется сама' },
-        { title: 'Страшные и сложные штуки', description: 'Аккуратно вводим пещеры, игры с водой и другие новые задачи' },
-        { title: 'Правильная организация пространства', description: 'Подготавливаем среду для спокойствия и отдыха' },
-        { title: 'Учим постепенно оставаться одному', description: 'Пошагово увеличиваем время без человека' },
-      ]},
-      { slug: 'adult-small-jumping-on-guests', title: 'Прыжки на гостей', description: 'Спокойная встреча, ожидание и безопасность в лифте', meta: '3 видео', imagePath: '/assets/images/programs/teen_dog.webp', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Сидеть при приходе', description: 'Формируем понятный ритуал встречи без прыжков' },
-        { title: 'Ждать при входе и выходе', description: 'Добавляем паузу в возбуждающих бытовых моментах' },
-        { title: 'Техника безопасности в лифте', description: 'Собираем спокойный и безопасный сценарий поездки' },
-      ]},
-      { slug: 'adult-small-begging', title: 'Попрошайничество', description: 'Место и бытовые девайсы вместо выпрашивания', meta: '4 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Команда «место»', description: 'Создаём понятную точку отдыха во время еды людей' },
-        { title: 'Конг', description: 'Используем долгоиграющее лакомство как часть ритуала' },
-        { title: 'Лизательные коврики', description: 'Добавляем спокойную занятость вместо контроля стола' },
-        { title: 'Нюхательные коврики', description: 'Снижаем напряжение через поиск и нюхание' },
-      ]},
-      { slug: 'adult-small-feeding', title: 'Питание', description: 'Базовые правила питания для стабильного быта', meta: '1 видео', imagePath: '/assets/useful-heart.svg', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Базовые правила питания', description: 'Выстраиваем режим, рамки и понятные ожидания' },
-      ]},
-      { slug: 'adult-small-toilet', title: 'Туалет', description: 'Пелёнка, улица, запах и режим у маленькой собаки', meta: '5 видео', imagePath: '/assets/images/situations/puppy-toilet-home.webp', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Приучение к пелёнке', description: 'Собираем рабочую домашнюю схему без хаоса' },
-        { title: 'Средства, которые реально убирают запах', description: 'Подбираем бытовые средства, чтобы не поддерживать повторение' },
-        { title: 'Приучение к улице', description: 'Переносим туалетный навык на улицу постепенно' },
-        { title: 'Режим', description: 'Подстраиваем ритм прогулок и быта под успешный туалетный сценарий' },
-        { title: 'Метки дома', description: 'Разбираем причины и первые шаги по изменению ситуации' },
-      ]},
-    ],
-  },
-  {
-    slug: 'adult-small-aggression-conflicts',
-    title: 'Агрессия и конфликты',
-    description: 'Перевозбуждение, охрана ресурсов, реакция на людей и транспорт',
-    meta: '5 разделов',
-    imagePath: '/assets/icons/alarm.webp',
-    cardClass: 'situation-card--blue',
-    topics: [
-      { slug: 'adult-small-overaroused-play', title: 'Перевозбуждается при игре', description: 'Кусает руки и теряет контроль в игре', meta: '1 видео', imagePath: '/assets/images/situations/puppy-bites.webp', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Кусает руки', description: 'Учимся вовремя останавливать разгон и менять механику игры' },
-      ]},
-      { slug: 'adult-small-resource-guarding', title: 'Охрана ресурсов', description: 'Чашка, вещи и игрушки как причины напряжения', meta: '3 видео', imagePath: '/assets/images/programs/adult_dog.webp', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Охраняет чашку', description: 'Снижаем напряжение рядом с едой' },
-        { title: 'Охраняет вещи', description: 'Разбираем работу с бытовыми предметами' },
-        { title: 'Охраняет игрушки', description: 'Строим безопасное взаимодействие с ценными объектами' },
-      ]},
-      { slug: 'adult-small-barks-at-people', title: 'Лает на людей или собак', description: 'Причины поведения и коррекция реакции', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Причины поведения', description: 'Определяем, что лежит под реакцией' },
-        { title: 'Работа с реакцией', description: 'Собираем первые шаги к более спокойному поведению' },
-      ]},
-      { slug: 'adult-small-neutering', title: 'Кастрация / стерилизация', description: 'Что ожидать от решения и что оно не решает само по себе', meta: '1 видео', imagePath: '/assets/useful-heart.svg', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Кастрировать / стерилизовать или нет?', description: 'Разбираем ожидания и контекст решения' },
-      ]},
-      { slug: 'adult-small-scooters-bikes', title: 'Бросается на самокаты и велосипеды', description: 'Страх, возбуждение или желание догнать как основа реакции', meta: '2 видео', imagePath: '/assets/images/programs/teen_dog.webp', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Разбор причин поведения', description: 'Учимся отличать мотивацию под реакцией' },
-        { title: 'Работа со страхом / возбуждением / желанием догнать', description: 'Подбираем стратегию под конкретный сценарий' },
-      ]},
-    ],
-  },
-  {
-    slug: 'adult-small-fears-anxiety',
-    title: 'Страхи и тревожность',
-    description: 'Место, хвостик, звуки, машина и новые пространства',
-    meta: '5 разделов',
-    imagePath: '/assets/icons/sad_puppy.webp',
-    cardClass: 'situation-card--rose',
-    topics: [
-      { slug: 'adult-small-place-space', title: 'Команда «место» и организация пространства', description: 'Точка отдыха и понятная организация домашней среды', meta: '2 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Команда «место»', description: 'Формируем точку отдыха как понятную бытовую опору' },
-        { title: 'Организация пространства', description: 'Собираем спокойную и предсказуемую среду дома' },
-      ]},
-      { slug: 'adult-small-follows-tail', title: 'Ходит хвостиком', description: 'Как снизить тревожность и учить собаку оставаться отдельно', meta: '2 видео', imagePath: '/assets/images/situations/puppy-whines-night.webp', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Как минимизировать тревожность?', description: 'Добавляем бытовые опоры и снижаем зависание на человеке' },
-        { title: 'Упражнения с оставлением собаки в комнатах', description: 'Постепенно учим выдерживать разлуку в пределах дома' },
-      ]},
-      { slug: 'adult-small-sounds', title: 'Звуки', description: 'Контробусловливание на звуки без перегруза', meta: '1 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Контробусловливание на звуки', description: 'Меняем эмоциональную реакцию на шум шаг за шагом' },
-      ]},
-      { slug: 'adult-small-cars', title: 'Машины', description: 'Постепенное приучение к машине и девайсы для поездок', meta: '2 видео', imagePath: '/assets/images/programs/teen_dog.webp', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Приучаем постепенно к машине', description: 'Двигаемся от знакомства к спокойным коротким поездкам' },
-        { title: 'Девайсы для поездок', description: 'Подбираем бытовые решения, которые делают поездку стабильнее' },
-      ]},
-      { slug: 'adult-small-new-places', title: 'Новые места', description: 'Лестницы, лифт и безопасное освоение новых точек', meta: '3 видео', imagePath: '/assets/useful-heart.svg', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Страх лестницы', description: 'Постепенно знакомим собаку с подъёмом и спуском' },
-        { title: 'Страх лифта', description: 'Снижаем напряжение вокруг лифта и маленького пространства' },
-        { title: 'Техника безопасности', description: 'Собираем бытовые правила для безопасного прохождения сложных мест' },
-      ]},
-    ],
-  },
-  {
-    slug: 'adult-small-care-without-fight',
-    title: 'Уход без борьбы',
-    description: 'Когти, лапы и груминг через предсказуемость и согласие',
-    meta: '3 раздела',
-    imagePath: '/assets/icons/puppy_hand.webp',
-    cardClass: 'situation-card--blue',
-    topics: [
-      { slug: 'adult-small-claws', title: 'Когти', description: 'Анатомия когтя и базовая стрижка когтей', meta: '2 видео', imagePath: '/assets/useful-warning.svg', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Анатомия когтя', description: 'Понимаем безопасную длину и зону риска' },
-        { title: 'Стрижка когтей', description: 'Собираем спокойную процедуру шаг за шагом' },
-      ]},
-      { slug: 'adult-small-paws', title: 'Лапы', description: 'Пять свобод, право отказаться и организация ванной', meta: '3 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--blue', lessons: [
-        { title: '5 свобод', description: 'Разбираем основу комфортных манипуляций' },
-        { title: 'Возможность отказаться', description: 'Строим взаимодействие без жёсткой фиксации' },
-        { title: 'Организация пространства ванной', description: 'Подготавливаем среду, в которой проще сотрудничать' },
-      ]},
-      { slug: 'adult-small-grooming', title: 'Груминг', description: 'Частота мытья и подходящие средства', meta: '2 видео', imagePath: '/assets/useful-heart.svg', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Как часто мыть?', description: 'Подбираем разумный ритм ухода' },
-        { title: 'Что использовать?', description: 'Собираем минимальный понятный набор средств' },
-      ]},
-    ],
-  },
-  {
-    slug: 'adult-small-fitness',
-    title: 'Фитнес для взрослых',
-    description: 'Небольшие трюки на координацию, контакт и бытовую включённость',
-    meta: '2 раздела',
-    imagePath: '/assets/icons/fitness.webp',
-    cardClass: 'situation-card--rose',
-    topics: [
-      { slug: 'adult-small-go-around', title: 'Обойди', description: 'Движение вокруг объекта или человека по понятной траектории', meta: '1 видео', imagePath: '/assets/useful-leash.svg', cardClass: 'topic-card--blue', lessons: [
-        { title: 'Обойди', description: 'Собираем чистую и аккуратную траекторию вокруг объекта' },
-      ]},
-      { slug: 'adult-small-wipe-muzzle', title: 'Вытри морду, тач на тряпочку', description: 'Полезный трюк на контакт и бытовое взаимодействие', meta: '1 видео', imagePath: '/assets/useful-home.svg', cardClass: 'topic-card--rose', lessons: [
-        { title: 'Тач на тряпочку', description: 'Формируем спокойное касание предмета по сигналу' },
-        { title: 'Вытри морду', description: 'Переносим трюк в полезный бытовой сценарий' },
-      ]},
-    ],
-  },
-];
-
-const adultSmallSituationsBySlug = new Map<AdultSmallSituationSlug, AdultSmallSituation>(
-  adultSmallSituations.map((situation) => [situation.slug, situation]),
-);
-
-const adultSmallTopics = adultSmallSituations.flatMap((situation) =>
-  situation.topics.map((topic) => ({
-    ...topic,
-    parentSlug: situation.slug,
-    parentTitle: situation.title,
-  })),
-);
 
 type LocalVideoTopicSlug = PuppyTopicSlug | AdultLargeTopicSlug;
 
@@ -2334,7 +1513,7 @@ const localLessonMediaAssignments = localVideoCatalog.cardMedia as Array<{
 const lessonDescriptionAssignments: Array<{
   topicSlug: LocalVideoTopicSlug;
   lessonTitle: string;
-  descriptionId: keyof typeof videoDescriptions;
+  descriptionId: VideoDescriptionId;
 }> = [
   { topicSlug: 'walk-leash', lessonTitle: 'Ошейник или шлейка?', descriptionId: '21' },
   { topicSlug: 'walk-leash', lessonTitle: 'Как отучить тянуть поводок?', descriptionId: '01' },
@@ -2352,10 +1531,12 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'home-barking', lessonTitle: 'Приучаем к звукам дома', descriptionId: '37' },
   { topicSlug: 'home-loneliness', lessonTitle: 'Убираем страх и повышаем уверенность в себе', descriptionId: '15' },
   { topicSlug: 'home-loneliness', lessonTitle: 'Правильная организация пространства', descriptionId: '02' },
+  { topicSlug: 'home-loneliness', lessonTitle: 'Учим постепенно оставаться одному', descriptionId: '57' },
   { topicSlug: 'home-jumping-on-guests', lessonTitle: 'Правильный приход/выход из дома', descriptionId: '38' },
   { topicSlug: 'home-jumping-on-guests', lessonTitle: 'Прыжки на гостей', descriptionId: '39' },
   { topicSlug: 'home-begging', lessonTitle: 'Команда «место»', descriptionId: '19' },
   { topicSlug: 'home-begging', lessonTitle: 'Топ долгоиграющих лакомств и умных девайсов', descriptionId: '42' },
+  { topicSlug: 'home-begging', lessonTitle: 'Питание', descriptionId: '56' },
   { topicSlug: 'home-toilet', lessonTitle: 'Приучение к пелёнке и средства от запаха', descriptionId: '34' },
   { topicSlug: 'home-toilet', lessonTitle: 'Приучение к улице и режим', descriptionId: '35' },
   { topicSlug: 'home-toilet', lessonTitle: 'Метки дома', descriptionId: '35' },
@@ -2372,6 +1553,10 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'care-claws', lessonTitle: 'Когти: анатомия когтя и стрижка', descriptionId: '43' },
   { topicSlug: 'care-paws', lessonTitle: 'Лапы', descriptionId: '44' },
   { topicSlug: 'fitness-bow', lessonTitle: 'Поклон', descriptionId: '40' },
+  { topicSlug: 'fitness-bunny', lessonTitle: 'Зайка', descriptionId: '58' },
+  { topicSlug: 'fitness-house', lessonTitle: 'Домик', descriptionId: '59' },
+  { topicSlug: 'fitness-paw', lessonTitle: '«Дай лапу»', descriptionId: '54' },
+  { topicSlug: 'fitness-spin', lessonTitle: 'Круть-верть', descriptionId: '55' },
   { topicSlug: 'adult-large-leash', lessonTitle: 'Как отучить тянуть поводок?', descriptionId: '22' },
   { topicSlug: 'adult-large-leash', lessonTitle: 'Ошейник или шлейка?', descriptionId: '21' },
   { topicSlug: 'adult-large-leash', lessonTitle: 'Поводок или рулетка?', descriptionId: '23' },
@@ -2454,17 +1639,13 @@ function applyLessonDescriptions(): void {
       throw new Error(`Lesson description target not found: ${topicSlug} / ${lessonTitle}`);
     }
 
-    lesson.longDescription = videoDescriptions[descriptionId];
+    lesson.longDescription = getVideoDescription(descriptionId);
   });
 }
 
 applyLocalLessonVideos();
 applyLessonDescriptions();
 
-const adultSmallTopicsBySlug = new Map<
-  AdultSmallTopicSlug,
-  AdultSmallTopic & { parentSlug: AdultSmallSituationSlug; parentTitle: string }
->(adultSmallTopics.map((topic) => [topic.slug, topic]));
 
 interface LessonVideoEntry {
   id: string;
@@ -2504,16 +1685,13 @@ adultLargeTopics.forEach((topic) => {
   topic.lessons.forEach((lesson) => registerLessonVideo(lesson, `adult-large-topic:${topic.slug}`));
 });
 
-adultSmallTopics.forEach((topic) => {
-  topic.lessons.forEach((lesson) => registerLessonVideo(lesson, `adult-small-topic:${topic.slug}`));
-});
 
 const complexLevelVideos = [
   {
     id: 'complex-timed-beginner',
     mediaId: 'complex-timed-beginner',
     title: 'Комплекс: Начальный — На время',
-    description: videoDescriptions['49'],
+    description: getVideoDescription('49'),
     sourceType: 'mp4',
     backRoute: 'complex-levels:timed',
   },
@@ -2521,7 +1699,7 @@ const complexLevelVideos = [
     id: 'complex-timed-intermediate',
     mediaId: 'complex-timed-intermediate',
     title: 'Комплекс: Средний — На время',
-    description: videoDescriptions['51'],
+    description: getVideoDescription('51'),
     sourceType: 'mp4',
     backRoute: 'complex-levels:timed',
   },
@@ -2529,7 +1707,7 @@ const complexLevelVideos = [
     id: 'complex-timed-advanced',
     mediaId: 'complex-timed-advanced',
     title: 'Комплекс: Сложный — На время',
-    description: videoDescriptions['53'],
+    description: getVideoDescription('53'),
     sourceType: 'mp4',
     backRoute: 'complex-levels:timed',
   },
@@ -2537,7 +1715,7 @@ const complexLevelVideos = [
     id: 'complex-self-check-beginner',
     mediaId: 'complex-self-check-beginner',
     title: 'Комплекс: Начальный — Проверь себя',
-    description: videoDescriptions['48'],
+    description: getVideoDescription('48'),
     sourceType: 'mp4',
     backRoute: 'complex-levels:self-check',
   },
@@ -2545,7 +1723,7 @@ const complexLevelVideos = [
     id: 'complex-self-check-intermediate',
     mediaId: 'complex-self-check-intermediate',
     title: 'Комплекс: Средний — Проверь себя',
-    description: videoDescriptions['50'],
+    description: getVideoDescription('50'),
     sourceType: 'mp4',
     backRoute: 'complex-levels:self-check',
   },
@@ -2553,7 +1731,7 @@ const complexLevelVideos = [
     id: 'complex-self-check-advanced',
     mediaId: 'complex-self-check-advanced',
     title: 'Комплекс: Сложный — Проверь себя',
-    description: videoDescriptions['52'],
+    description: getVideoDescription('52'),
     sourceType: 'mp4',
     backRoute: 'complex-levels:self-check',
   },
@@ -2590,6 +1768,10 @@ export function createAppMarkup(
     return createComplexMarkup();
   }
 
+  if (route === 'fitness') {
+    return createSituationTopicsMarkup('fitness', 'home', true);
+  }
+
   if (route === 'complex-levels:timed') {
     return createComplexLevelsMarkup('timed');
   }
@@ -2598,9 +1780,6 @@ export function createAppMarkup(
     return createComplexLevelsMarkup('self-check');
   }
 
-  if (route === 'adult-small') {
-    return createAdultSmallMarkup();
-  }
 
   if (route === 'adult-large') {
     return createAdultLargeMarkup();
@@ -2626,21 +1805,6 @@ export function createAppMarkup(
     }
   }
 
-  if (route.startsWith('adult-small-situation:')) {
-    const slug = getAdultSmallSituationSlugFromRoute(route);
-
-    if (slug) {
-      return createAdultSmallSituationTopicsMarkup(slug);
-    }
-  }
-
-  if (route.startsWith('adult-small-topic:')) {
-    const slug = getAdultSmallTopicSlugFromRoute(route);
-
-    if (slug) {
-      return createAdultSmallTopicLessonsMarkup(slug);
-    }
-  }
 
   if (route.startsWith('puppy-situation:')) {
     const slug = getSituationSlugFromRoute(route);
@@ -2661,14 +1825,21 @@ export function createAppMarkup(
   return createHomeMarkup();
 }
 
-export function getInitialAppAssetPaths(): string[] {
-  return [
+export function getAllAppAssetPaths(): string[] {
+  const paths = [
     '/assets/logo-dog.svg',
     '/assets/hero-dog.webp',
     '/assets/nav-home.svg',
     '/assets/nav-lessons.svg',
     '/assets/nav-chat.svg',
+    '/assets/feedback/feedback-main.svg',
+    '/assets/feedback/feedback-sent.svg',
     '/assets/icons/ask_kinolog.webp',
+    '/assets/icons/paperclip.svg',
+    '/assets/icons/clock.svg',
+    '/assets/icons/message.svg',
+    '/assets/icons/lightbulb.svg',
+    '/assets/icons/arrow-right.svg',
     '/assets/icons/gantel.webp',
     '/assets/icons/seasons.webp',
     '/assets/icons/course.webp',
@@ -2677,6 +1848,7 @@ export function getInitialAppAssetPaths(): string[] {
     '/assets/images/programs/adult_dog.webp',
     '/assets/images/programs/shelter_dog.webp',
     '/assets/images/programs/puppy-hero.webp',
+    '/assets/images/programs/fitness-hero.webp',
     '/assets/icons/comp_lil_time.webp',
     '/assets/icons/comp_middle_time.webp',
     '/assets/icons/comp_big_time.webp',
@@ -2684,17 +1856,8 @@ export function getInitialAppAssetPaths(): string[] {
     '/assets/icons/comp_middle_check.webp',
     '/assets/icons/comp_big_check.webp',
   ].map(resolveCardImagePath);
-}
 
-export function getAllAppAssetPaths(): string[] {
-  const paths = getInitialAppAssetPaths();
-  const situations = [
-    ...puppySituations,
-    ...adultLargeSituations,
-    ...adultSmallSituations,
-  ];
-
-  situations.forEach((situation) => {
+  [...puppySituations, ...adultLargeSituations].forEach((situation) => {
     paths.push(resolveCardImagePath(situation.imagePath));
 
     situation.topics.forEach((topic) => {
@@ -2710,6 +1873,7 @@ export function getAllAppAssetPaths(): string[] {
 
   return [...new Set(paths)];
 }
+
 export function getSituationSlugFromRoute(route: AppRoute): PuppySituationSlug | null {
   if (!route.startsWith('puppy-situation:')) {
     return null;
@@ -2742,22 +1906,6 @@ export function getAdultLargeTopicSlugFromRoute(route: AppRoute): AdultLargeTopi
   return route.replace('adult-large-topic:', '') as AdultLargeTopicSlug;
 }
 
-export function getAdultSmallSituationSlugFromRoute(route: AppRoute): AdultSmallSituationSlug | null {
-  if (!route.startsWith('adult-small-situation:')) {
-    return null;
-  }
-
-  return route.replace('adult-small-situation:', '') as AdultSmallSituationSlug;
-}
-
-export function getAdultSmallTopicSlugFromRoute(route: AppRoute): AdultSmallTopicSlug | null {
-  if (!route.startsWith('adult-small-topic:')) {
-    return null;
-  }
-
-  return route.replace('adult-small-topic:', '') as AdultSmallTopicSlug;
-}
-
 export function getVideoSourceSlugForRoute(route: AppRoute): SituationSlug | null {
   const topicSlug = getTopicSlugFromRoute(route);
 
@@ -2774,10 +1922,10 @@ function createHomeMarkup(): string {
       <header class="home-header">
         <div class="content-frame content-frame--header">
           <button
-            class="brand-mark js-feedback"
+            class="brand-mark"
             type="button"
-            aria-label="Высшая школа собак"
-            data-feedback="Логотип школы собак"
+            aria-label="На главную"
+            data-route="home"
           >
             <img src="/assets/logo-dog.svg" alt="" />
           </button>
@@ -2824,10 +1972,15 @@ function createHomeMarkup(): string {
             </div>
 
             <div class="useful-grid" role="list" aria-label="Полезные материалы">
-              ${createUsefulCard('Спросить у кинолога', '/assets/icons/ask_kinolog.webp', 'useful-card--ask')}
-              ${createUsefulCard('Фитнес', '/assets/icons/gantel.webp', 'useful-card--fitness')}
+              ${createUsefulCard('Спросить у кинолога', '/assets/icons/ask_kinolog.webp', 'useful-card--ask', undefined, 'home')}
               ${createUsefulCard('Сезонные темы', '/assets/icons/seasons.webp', 'useful-card--seasonal')}
               ${createUsefulCard('Комплекс', '/assets/icons/course.webp', 'useful-card--course', 'complex')}
+              ${createUsefulCard(
+                'Фитнес',
+                '/assets/icons/gantel.webp',
+                'useful-card--fitness',
+                'fitness',
+              )}
             </div>
           </section>
 
@@ -2884,7 +2037,9 @@ function createSubpageHeaderMarkup(title: string, backRoute: AppRoute): string {
     <header class="subpage-header">
       <div class="content-frame">
         <div class="subpage-header__inner subpage-header__inner--branded">
-          <img class="subpage-header__logo" src="/assets/logo-dog.svg" alt="" aria-hidden="true" />
+          <button class="subpage-header__logo-button" type="button" data-route="home" aria-label="На главную">
+            <img class="subpage-header__logo" src="/assets/logo-dog.svg" alt="" aria-hidden="true" />
+          </button>
           <h1 class="subpage-title">${escapeHtml(title)}</h1>
           <button class="back-button" type="button" data-route="${escapeHtml(backRoute)}" aria-label="Назад">
             <span class="back-button__icon" aria-hidden="true"></span>
@@ -2935,7 +2090,7 @@ function createPuppiesMarkup(activeFilter: PuppyFilter): string {
             </div>
 
             <div class="situation-list">
-              ${visibleSituations.map((situation) => createSituationCard(situation)).join('')}
+              ${visibleSituations.map((situation, index) => createSituationCard(situation, index, 'blue')).join('')}
             </div>
           </section>
         </div>
@@ -2974,7 +2129,7 @@ function createAdultLargeMarkup(): string {
             </div>
 
             <div class="situation-list">
-              ${adultLargeSituations.map((situation) => createAdultLargeSituationCard(situation)).join('')}
+              ${adultLargeSituations.map((situation, index) => createAdultLargeSituationCard(situation, index, 'rose')).join('')}
             </div>
           </section>
         </div>
@@ -3003,7 +2158,7 @@ function createAdultLargeSituationTopicsMarkup(slug: AdultLargeSituationSlug): s
               <h2>Подразделы</h2>
             </div>
             <div class="topic-list">
-              ${situation.topics.map((topic) => createAdultLargeTopicCard(topic)).join('')}
+              ${situation.topics.map((topic, index) => createAdultLargeTopicCard(topic, index, 'rose')).join('')}
             </div>
           </section>
         </div>
@@ -3021,9 +2176,11 @@ function createAdultLargeTopicLessonsMarkup(slug: AdultLargeTopicSlug): string {
     return createAdultLargeMarkup();
   }
 
+  const backRoute: AppRoute = `adult-large-situation:${topic.parentSlug}`;
+
   return `
     <div class="app-shell">
-      ${createSubpageHeaderMarkup(topic.title, `adult-large-situation:${topic.parentSlug}`)}
+      ${createSubpageHeaderMarkup(topic.title, backRoute)}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -3043,124 +2200,94 @@ function createAdultLargeTopicLessonsMarkup(slug: AdultLargeTopicSlug): string {
   `;
 }
 
-function createAdultSmallMarkup(): string {
-  return `
-    <div class="app-shell">
-      ${createSubpageHeaderMarkup('Маленькие собаки', 'home')}
-
-      <main class="screen-content">
-        <div class="content-frame">
-          <section class="puppy-hero" aria-labelledby="adult-small-hero-title">
-            <div class="puppy-hero__content">
-              <h2 id="adult-small-hero-title">Программа<br />для маленьких собак</h2>
-              <p class="puppy-hero__description">
-                Контакт, спокойный дом и управляемая прогулка в удобном бытовом ритме
-              </p>
-            </div>
-
-            <div class="puppy-hero__media" aria-hidden="true">
-              <span class="puppy-hero__decor puppy-hero__decor--top"></span>
-              <span class="puppy-hero__decor puppy-hero__decor--bottom"></span>
-              <img class="puppy-hero__image" src="/assets/images/programs/teen_dog.webp" alt="" />
-            </div>
-          </section>
-
-          <section class="section-block section-block--tight" aria-labelledby="adult-small-title">
-            <div class="section-heading section-heading--solo">
-              <h2 id="adult-small-title">Разделы</h2>
-            </div>
-
-            <div class="situation-list">
-              ${adultSmallSituations.map((situation) => createAdultSmallSituationCard(situation)).join('')}
-            </div>
-          </section>
-        </div>
-      </main>
-
-      ${createBottomNav('lessons')}
-    </div>
-  `;
-}
-
-function createAdultSmallSituationTopicsMarkup(slug: AdultSmallSituationSlug): string {
-  const situation = adultSmallSituationsBySlug.get(slug);
-
-  if (!situation) {
-    return createAdultSmallMarkup();
-  }
-
-  return `
-    <div class="app-shell">
-      ${createSubpageHeaderMarkup(situation.title, 'adult-small')}
-
-      <main class="screen-content">
-        <div class="content-frame">
-          <section class="section-block section-block--detail-first">
-            <div class="section-heading section-heading--solo">
-              <h2>Подразделы</h2>
-            </div>
-            <div class="topic-list">
-              ${situation.topics.map((topic) => createAdultSmallTopicCard(topic)).join('')}
-            </div>
-          </section>
-        </div>
-      </main>
-
-      ${createBottomNav('lessons')}
-    </div>
-  `;
-}
-
-function createAdultSmallTopicLessonsMarkup(slug: AdultSmallTopicSlug): string {
-  const topic = adultSmallTopicsBySlug.get(slug);
-
-  if (!topic) {
-    return createAdultSmallMarkup();
-  }
-
-  return `
-    <div class="app-shell">
-      ${createSubpageHeaderMarkup(topic.title, `adult-small-situation:${topic.parentSlug}`)}
-
-      <main class="screen-content">
-        <div class="content-frame">
-          <section class="section-block section-block--detail-first">
-            <div class="section-heading section-heading--solo">
-              <h2>Материалы</h2>
-            </div>
-            <div class="lesson-list">
-              ${topic.lessons.map((lesson) => createLessonCard(lesson)).join('')}
-            </div>
-          </section>
-        </div>
-      </main>
-
-      ${createBottomNav('lessons')}
-    </div>
-  `;
-}
-
-function createSituationTopicsMarkup(slug: PuppySituationSlug): string {
+function createSituationTopicsMarkup(
+  slug: PuppySituationSlug,
+  backRoute: AppRoute = 'puppies',
+  includeAdultFitness = false,
+): string {
   const situation = puppySituationsBySlug.get(slug);
 
   if (!situation) {
     return createPuppiesMarkup('all');
   }
 
-  return `
-    <div class="app-shell">
-      ${createSubpageHeaderMarkup(situation.title, 'puppies')}
+  const heroMarkup =
+    situation.slug === 'fitness'
+      ? `
+          <section class="puppy-hero puppy-hero--fitness" aria-labelledby="fitness-hero-title">
+            <div class="puppy-hero__content">
+              <h2 id="fitness-hero-title">Фитнес<br />для собак</h2>
+              <p class="puppy-hero__description">
+                Упражнения на координацию, контроль тела и контакт
+              </p>
+            </div>
 
-      <main class="screen-content">
-        <div class="content-frame">
+            <div class="puppy-hero__media" aria-hidden="true">
+              <span class="puppy-hero__decor puppy-hero__decor--top"></span>
+              <span class="puppy-hero__decor puppy-hero__decor--bottom"></span>
+              <img
+                class="puppy-hero__image puppy-hero__image--fitness"
+                src="/assets/images/programs/fitness-hero.webp"
+                width="1254"
+                height="1254"
+                decoding="async"
+                fetchpriority="high"
+                alt=""
+              />
+            </div>
+          </section>
+        `
+      : '';
+
+  const topicSectionsMarkup =
+    situation.slug === 'fitness'
+      ? `
+          <section class="section-block section-block--detail-first" aria-labelledby="puppy-fitness-topics-title">
+            <div class="section-heading section-heading--solo">
+              <h2 id="puppy-fitness-topics-title">${includeAdultFitness ? 'Для щенков' : 'Подразделы'}</h2>
+            </div>
+            <div class="topic-list">
+              ${situation.topics.map((topic, index) => createTopicCard(topic, index, 'blue')).join('')}
+            </div>
+          </section>
+
+          ${includeAdultFitness
+            ? `
+                <section class="section-block" aria-labelledby="adult-fitness-topics-title">
+                  <div class="section-heading section-heading--solo">
+                    <h2 id="adult-fitness-topics-title">Для взрослых собак</h2>
+                  </div>
+                  <div class="topic-list">
+                    ${
+                      adultLargeSituationsBySlug
+                        .get('adult-large-fitness')
+                        ?.topics.map((topic, index) => createAdultLargeTopicCard(topic, index, 'blue'))
+                        .join('') ?? ''
+                    }
+                  </div>
+                </section>
+              `
+            : ''}
+        `
+      : `
           <section class="section-block section-block--detail-first">
             <div class="section-heading section-heading--solo">
               <h2>Разделы</h2>
             </div>
             <div class="topic-list">
-              ${situation.topics.map((topic) => createTopicCard(topic)).join('')}
+              ${situation.topics.map((topic, index) => createTopicCard(topic, index, 'blue')).join('')}
             </div>
           </section>
+        `;
+
+  return `
+    <div class="app-shell">
+      ${createSubpageHeaderMarkup(situation.title, backRoute)}
+
+      <main class="screen-content">
+        <div class="content-frame">
+          ${heroMarkup}
+          ${topicSectionsMarkup}
         </div>
       </main>
 
@@ -3176,6 +2303,8 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
     return createPuppiesMarkup('all');
   }
 
+  const backRoute: AppRoute = `puppy-situation:${topic.parentSlug}`;
+
   const extraFeedSection =
     topic.videoSourceSlug
       ? `
@@ -3190,7 +2319,7 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
 
   return `
     <div class="app-shell">
-      ${createSubpageHeaderMarkup(topic.title, `puppy-situation:${topic.parentSlug}`)}
+      ${createSubpageHeaderMarkup(topic.title, backRoute)}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -3215,7 +2344,7 @@ function createLessonPlayerMarkup(video: LessonVideoEntry): string {
   const escapedTitle = escapeHtml(video.title);
   const titleMarkup = createPlayerTitleMarkup(video.title);
   const descriptionMarkup = video.description
-    ? createLessonDescriptionMarkup(video.description)
+    ? createLessonDescriptionMarkup(video.description, video.id, video.title)
     : '';
   const escapedVideoId = escapeHtml(video.mediaId ?? video.id);
   const escapedSourceType = escapeHtml(video.sourceType ?? 'hls');
@@ -3375,13 +2504,61 @@ interface LessonDescriptionSection {
   lines: string[];
 }
 
-function createLessonDescriptionMarkup(description: string): string {
-  const sections = parseLessonDescriptionSections(description);
+function createLessonDescriptionMarkup(description: string, lessonId: string, lessonTitle: string): string {
+  const { body, feedbackPrompt } = extractLessonFeedbackPrompt(description);
+  const sections = parseLessonDescriptionSections(body);
   const content = sections
     .map((section) => createLessonDescriptionSectionMarkup(section))
     .join('');
+  const feedbackMarkup = feedbackPrompt
+    ? createLessonFeedbackMarkup(feedbackPrompt, lessonId, lessonTitle)
+    : '';
 
-  return `<article class="lesson-player-card__description lesson-description">${content}</article>`;
+  return `<article class="lesson-player-card__description lesson-description">${content}${feedbackMarkup}</article>`;
+}
+
+function extractLessonFeedbackPrompt(description: string): { body: string; feedbackPrompt: string | null } {
+  const lines = description.replaceAll('\r', '').split('\n');
+  let lastContentIndex = lines.length - 1;
+
+  while (lastContentIndex >= 0 && !lines[lastContentIndex].trim()) {
+    lastContentIndex -= 1;
+  }
+
+  const lastLine = lines[lastContentIndex]?.trim() ?? '';
+
+  if (!lastLine.startsWith('💬') && !lastLine.endsWith('💬')) {
+    return { body: description, feedbackPrompt: null };
+  }
+
+  const feedbackPrompt = lastLine.replace(/^(?:💬\s*)|(?:\s*💬)$/gu, '').trim();
+  lines.splice(lastContentIndex, 1);
+  return { body: lines.join('\n').trim(), feedbackPrompt };
+}
+
+function createLessonFeedbackMarkup(prompt: string, lessonId: string, lessonTitle: string): string {
+  const copy = formatLessonFeedbackCopy(prompt);
+
+  return `
+    <aside class="lesson-feedback-cta">
+      <p class="lesson-feedback-cta__text">
+        <strong class="lesson-feedback-cta__question">${renderEmojiText(copy.question)}</strong>
+        <span class="lesson-feedback-cta__guidance">${renderEmojiText(copy.guidance)}</span>
+      </p>
+      <button
+        class="lesson-feedback-cta__button"
+        type="button"
+        data-feedback-open
+        data-feedback-entry="player"
+        data-feedback-lesson-id="${escapeHtml(lessonId)}"
+        data-feedback-lesson-title="${escapeHtml(lessonTitle)}"
+      >
+        <span class="lesson-feedback-cta__message-icon" aria-hidden="true"></span>
+        <span>Спросить у кинолога</span>
+        <span class="lesson-feedback-cta__arrow" aria-hidden="true"></span>
+      </button>
+    </aside>
+  `;
 }
 
 function parseLessonDescriptionSections(description: string): LessonDescriptionSection[] {
@@ -3414,7 +2591,7 @@ function isLessonDescriptionHeading(line: string): boolean {
   const normalizedLine = line.replace(/:$/, '');
 
   if (
-    /^(?:Как (?:учим|играем|работаем|кормим|приучаем|организуем|выполняем)|Частые ошибки|Особенности 🐾|Важные особенности 🐾|Что важно (?:понять|помнить 🐾)|Что можно использовать|Как устроен коготь 🐾|Зачем .+ 🐾)$/.test(normalizedLine)
+    /^(?:Как (?:учим|играем|работаем|кормим|приучаем|организуем|выполняем)|Подготовка|Результат|Частые ошибки|Особенности 🐾|Важные особенности 🐾|Что важно (?:понять|помнить 🐾)|Что можно использовать|Как устроен коготь 🐾|Зачем .+ 🐾)$/.test(normalizedLine)
   ) {
     return true;
   }
@@ -3463,12 +2640,15 @@ function createLessonDescriptionSectionMarkup(section: LessonDescriptionSection)
   return `
     <section class="${sectionClass}">
       ${titleMarkup}
-      ${createLessonDescriptionBlocksMarkup(section.lines)}
+      ${createLessonDescriptionBlocksMarkup(section.lines, !section.title)}
     </section>
   `;
 }
 
-function createLessonDescriptionBlocksMarkup(lines: string[]): string {
+function createLessonDescriptionBlocksMarkup(
+  lines: string[],
+  emphasizeFirstParagraph = false,
+): string {
   const blocks: LessonDescriptionBlock[] = [];
   let paragraphLines: string[] = [];
   let stepItems: Array<{ number: string; title: string; details: string[] }> = [];
@@ -3567,12 +2747,23 @@ function createLessonDescriptionBlocksMarkup(lines: string[]): string {
 
   flushAll();
 
-  return blocks.map((block) => createLessonDescriptionBlockMarkup(block)).join('');
+  return blocks
+    .map((block, index) => createLessonDescriptionBlockMarkup(
+      block,
+      emphasizeFirstParagraph && index === 0 && block.type === 'paragraph',
+    ))
+    .join('');
 }
 
-function createLessonDescriptionBlockMarkup(block: LessonDescriptionBlock): string {
+function createLessonDescriptionBlockMarkup(
+  block: LessonDescriptionBlock,
+  isLeadParagraph = false,
+): string {
   if (block.type === 'paragraph') {
-    return `<p class="lesson-description__paragraph">${escapeHtml(block.lines.join(' '))}</p>`;
+    const paragraphClass = isLeadParagraph
+      ? 'lesson-description__paragraph lesson-description__paragraph--lead'
+      : 'lesson-description__paragraph';
+    return `<p class="${paragraphClass}">${renderEmojiText(block.lines.join(' '))}</p>`;
   }
 
   if (block.type === 'steps') {
@@ -3584,8 +2775,8 @@ function createLessonDescriptionBlockMarkup(block: LessonDescriptionBlock): stri
               <li class="lesson-description__step">
                 <span class="lesson-description__step-number" aria-hidden="true">${escapeHtml(item.number)}</span>
                 <div class="lesson-description__step-content">
-                  <strong>${escapeHtml(item.title)}</strong>
-                  ${item.details.length > 0 ? `<p>${escapeHtml(item.details.join(' '))}</p>` : ''}
+                  <strong>${renderEmojiText(item.title)}</strong>
+                  ${item.details.length > 0 ? `<p>${renderEmojiText(item.details.join(' '))}</p>` : ''}
                 </div>
               </li>
             `,
@@ -3599,7 +2790,7 @@ function createLessonDescriptionBlockMarkup(block: LessonDescriptionBlock): stri
     return `
       <ul class="lesson-description__mistakes">
         ${block.items
-          .map((item) => `<li>${createLessonDescriptionIcon('mistake')}<span>${escapeHtml(item)}</span></li>`)
+          .map((item) => `<li>${createLessonDescriptionIcon('mistake')}<span>${renderEmojiText(item)}</span></li>`)
           .join('')}
       </ul>
     `;
@@ -3609,7 +2800,7 @@ function createLessonDescriptionBlockMarkup(block: LessonDescriptionBlock): stri
     return `
       <ul class="lesson-description__bullets">
         ${block.items
-          .map((item) => `<li>${createLessonDescriptionIcon('bullet')}<span>${escapeHtml(item)}</span></li>`)
+          .map((item) => `<li>${createLessonDescriptionIcon('bullet')}<span>${renderEmojiText(item)}</span></li>`)
           .join('')}
       </ul>
     `;
@@ -3619,7 +2810,7 @@ function createLessonDescriptionBlockMarkup(block: LessonDescriptionBlock): stri
     return `
       <aside class="lesson-description__callout">
         <span class="lesson-description__callout-icon">${createLessonDescriptionIcon('message')}</span>
-        <p>${escapeHtml(block.text)}</p>
+        <p>${renderEmojiText(block.text)}</p>
       </aside>
     `;
   }
@@ -3628,7 +2819,7 @@ function createLessonDescriptionBlockMarkup(block: LessonDescriptionBlock): stri
     return `
       <div class="lesson-description__flow">
         ${createLessonDescriptionIcon('flow')}
-        <p>${escapeHtml(block.text)}</p>
+        <p>${renderEmojiText(block.text)}</p>
       </div>
     `;
   }
@@ -3637,10 +2828,13 @@ function createLessonDescriptionBlockMarkup(block: LessonDescriptionBlock): stri
 }
 
 function createLessonDescriptionIcon(icon: LessonDescriptionIcon): string {
-  const iconPaths: Record<LessonDescriptionIcon, string> = {
+  if (icon === 'note') {
+    return '<span class="lesson-description__icon lesson-description__icon--note" aria-hidden="true"></span>';
+  }
+
+  const iconPaths: Record<Exclude<LessonDescriptionIcon, 'note'>, string> = {
     bullet: '<circle cx="12" cy="12" r="8.5"></circle><path d="m8.7 12.1 2.1 2.1 4.7-4.8"></path>',
     mistake: '<circle cx="12" cy="12" r="8.5"></circle><path d="m9 9 6 6M15 9l-6 6"></path>',
-    note: '<path d="M9.2 17.3h5.6M10 20h4"></path><path d="M8.3 14.4c-1.2-1-2-2.5-2-4.2a5.7 5.7 0 0 1 11.4 0c0 1.7-.8 3.2-2 4.2-.7.6-1 1.1-1 1.7H9.3c0-.6-.3-1.1-1-1.7Z"></path><path d="M12 2V1M4.9 3.1l-.7-.7M19.1 3.1l.7-.7M3 10H2M22 10h-1"></path>',
     message: '<path d="M5.5 17.2A8.2 8.2 0 1 1 9 20l-4.7 1 1.2-3.8Z"></path><path d="M8.5 11.8h7M8.5 8.8h4.5M8.5 14.8h4"></path>',
     flow: '<path d="M4 12h13"></path><path d="m13 7 5 5-5 5"></path><circle cx="4" cy="12" r="1.5"></circle>',
   };
@@ -3870,12 +3064,15 @@ function createUsefulCard(
   iconPath: string,
   modifierClass: string,
   route?: AppRoute,
+  feedbackEntryPoint?: 'home',
 ): string {
   const resolvedIconPath = resolveCardImagePath(iconPath);
-  const actionClass = route ? '' : ' js-feedback';
+  const actionClass = route || feedbackEntryPoint ? '' : ' js-feedback';
   const actionAttribute = route
     ? `data-route="${route}"`
-    : `data-feedback="Материал &quot;${escapeHtml(title)}&quot; пока в разработке"`;
+    : feedbackEntryPoint
+      ? `data-feedback-open data-feedback-entry="${feedbackEntryPoint}"`
+      : `data-feedback="Материал &quot;${escapeHtml(title)}&quot; пока в разработке"`;
   const iconMarkup =
     modifierClass === 'useful-card--gray'
       ? '<span class="useful-card__test-icon" aria-hidden="true"></span>'
@@ -3945,10 +3142,25 @@ function createFilterPill(label: string, value: PuppyFilter, activeFilter: Puppy
   `;
 }
 
-function createSituationCard(situation: PuppySituation): string {
+type AlternatingCardColor = 'blue' | 'rose';
+
+function getAlternatingCardClass(
+  cardType: 'situation' | 'topic',
+  index: number,
+  firstColor: AlternatingCardColor,
+): string {
+  const color = index % 2 === 0 ? firstColor : firstColor === 'blue' ? 'rose' : 'blue';
+  return `${cardType}-card--${color}`;
+}
+
+function createSituationCard(
+  situation: PuppySituation,
+  index: number,
+  firstColor: AlternatingCardColor,
+): string {
   return `
     <button
-      class="situation-card ${situation.cardClass}"
+      class="situation-card ${getAlternatingCardClass('situation', index, firstColor)}"
       type="button"
       data-route="puppy-situation:${situation.slug}"
     >
@@ -3969,10 +3181,14 @@ function createSituationCard(situation: PuppySituation): string {
   `;
 }
 
-function createAdultLargeSituationCard(situation: AdultLargeSituation): string {
+function createAdultLargeSituationCard(
+  situation: AdultLargeSituation,
+  index: number,
+  firstColor: AlternatingCardColor,
+): string {
   return `
     <button
-      class="situation-card ${situation.cardClass}"
+      class="situation-card ${getAlternatingCardClass('situation', index, firstColor)}"
       type="button"
       data-route="adult-large-situation:${situation.slug}"
     >
@@ -3993,37 +3209,17 @@ function createAdultLargeSituationCard(situation: AdultLargeSituation): string {
   `;
 }
 
-function createAdultSmallSituationCard(situation: AdultSmallSituation): string {
-  return `
-    <button
-      class="situation-card ${situation.cardClass}"
-      type="button"
-      data-route="adult-small-situation:${situation.slug}"
-    >
-      <span class="situation-card__media">
-        <img src="${situation.imagePath}" alt="" />
-      </span>
-
-      <span class="situation-card__body">
-        <span class="situation-card__title">${situation.title}</span>
-        <span class="situation-card__description">${situation.description}</span>
-        <span class="situation-card__meta">${situation.meta}</span>
-      </span>
-
-      <span class="situation-card__arrow" aria-hidden="true">
-        <span class="program-card__arrow-icon"></span>
-      </span>
-    </button>
-  `;
-}
-
-function createTopicCard(topic: PuppyTopic): string {
+function createTopicCard(
+  topic: PuppyTopic,
+  index: number,
+  firstColor: AlternatingCardColor,
+): string {
   const imagePath = resolveCardImagePath(topic.imagePath);
   const mediaClass = imagePath.startsWith('/assets/icons/') ? ' topic-card__media--transparent' : '';
 
   return `
     <button
-      class="topic-card ${topic.cardClass}"
+      class="topic-card ${getAlternatingCardClass('topic', index, firstColor)}"
       type="button"
       data-route="puppy-topic:${topic.slug}"
     >
@@ -4044,42 +3240,19 @@ function createTopicCard(topic: PuppyTopic): string {
   `;
 }
 
-function createAdultLargeTopicCard(topic: AdultLargeTopic): string {
+function createAdultLargeTopicCard(
+  topic: AdultLargeTopic,
+  index: number,
+  firstColor: AlternatingCardColor,
+): string {
   const imagePath = resolveCardImagePath(topic.imagePath);
   const mediaClass = imagePath.startsWith('/assets/icons/') ? ' topic-card__media--transparent' : '';
 
   return `
     <button
-      class="topic-card ${topic.cardClass}"
+      class="topic-card ${getAlternatingCardClass('topic', index, firstColor)}"
       type="button"
       data-route="adult-large-topic:${topic.slug}"
-    >
-      <span class="topic-card__media${mediaClass}">
-        <img src="${imagePath}" alt="" />
-      </span>
-
-      <span class="topic-card__body">
-        <span class="topic-card__title">${topic.title}</span>
-        <span class="topic-card__description">${topic.description}</span>
-        <span class="topic-card__meta">${topic.meta}</span>
-      </span>
-
-      <span class="topic-card__arrow" aria-hidden="true">
-        <span class="program-card__arrow-icon"></span>
-      </span>
-    </button>
-  `;
-}
-
-function createAdultSmallTopicCard(topic: AdultSmallTopic): string {
-  const imagePath = resolveCardImagePath(topic.imagePath);
-  const mediaClass = imagePath.startsWith('/assets/icons/') ? ' topic-card__media--transparent' : '';
-
-  return `
-    <button
-      class="topic-card ${topic.cardClass}"
-      type="button"
-      data-route="adult-small-topic:${topic.slug}"
     >
       <span class="topic-card__media${mediaClass}">
         <img src="${imagePath}" alt="" />
@@ -4110,7 +3283,8 @@ function createBottomNav(activeTab: 'home' | 'lessons' | 'chat'): string {
           'chat',
           activeTab === 'chat',
           undefined,
-          'Раздел "Чат с кинологом" пока в разработке',
+          undefined,
+          'chat-nav',
         )}
       </div>
     </nav>
@@ -4123,12 +3297,15 @@ function createNavTab(
   isActive = false,
   route?: AppRoute,
   feedback?: string,
+  feedbackEntryPoint?: 'chat-nav',
 ): string {
   const activeClass = isActive ? ' bottom-nav__tab--active' : '';
   const attrs = route
     ? `data-route="${route}"`
-    : `data-feedback="${escapeHtml(feedback ?? `Раздел "${label}" пока в разработке`)}"`;
-  const feedbackClass = route ? '' : ' js-feedback';
+    : feedbackEntryPoint
+      ? `data-feedback-open data-feedback-entry="${feedbackEntryPoint}"`
+      : `data-feedback="${escapeHtml(feedback ?? `Раздел "${label}" пока в разработке`)}"`;
+  const feedbackClass = route || feedbackEntryPoint ? '' : ' js-feedback';
 
   return `
     <button class="bottom-nav__tab${feedbackClass}${activeClass}" type="button" ${attrs}>

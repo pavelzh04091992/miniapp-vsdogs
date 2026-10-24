@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { TelegramApiError, createTelegramApi } from './telegram-api.mjs';
 
@@ -46,6 +49,35 @@ test('Telegram API wrapper never exposes the bot token in network errors', async
       !error.message.includes('top-secret-token') &&
       error.message.includes('network request failed'),
   );
+});
+
+test('Telegram API wrapper streams multipart media with reply metadata', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'telegram-api-test-'));
+  const path = join(directory, 'photo.jpg');
+  await writeFile(path, Buffer.from([0xff, 0xd8, 0xff, 0xdb]));
+  let request;
+  const api = createTelegramApi('secret-token', {
+    fetchImpl: async (url, options) => {
+      request = { url, options };
+      return fakeResponse(200, { ok: true, result: { message_id: 8 } });
+    },
+  });
+
+  try {
+    await api.sendPhotoFile('123', {
+      path,
+      originalName: 'dog.jpg',
+      mimeType: 'image/jpeg',
+    }, { reply_parameters: { message_id: 7 } });
+
+    assert.match(request.url, /\/sendPhoto$/);
+    assert.ok(request.options.body instanceof FormData);
+    assert.equal(request.options.body.get('chat_id'), '123');
+    assert.equal(request.options.body.get('reply_parameters'), '{"message_id":7}');
+    assert.equal(request.options.body.get('photo').name, 'dog.jpg');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 function fakeResponse(status, body) {

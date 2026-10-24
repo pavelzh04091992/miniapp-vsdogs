@@ -5,6 +5,7 @@ export interface AuthenticatedUser {
   username: string | null;
   firstName: string | null;
   lastName: string | null;
+  accessExpiresAt: number | null;
 }
 
 export type AppAccessResult =
@@ -12,6 +13,7 @@ export type AppAccessResult =
   | { status: 'denied'; botUrl: string | null }
   | { status: 'unauthenticated'; botUrl: string | null }
   | { status: 'invalid-link'; botUrl: string | null }
+  | { status: 'subscription-expired'; botUrl: string | null; accessExpiresAt: number }
   | { status: 'error' };
 
 interface ResolveAccessOptions {
@@ -46,6 +48,18 @@ export async function resolveAppAccess(options: ResolveAccessOptions = {}): Prom
       return user ? { status: 'authenticated', user } : { status: 'error' };
     }
 
+    if (sessionResponse.status === 403) {
+      const expired = await readExpiredAccess(sessionResponse);
+
+      if (expired) {
+        return {
+          status: 'subscription-expired',
+          botUrl: await loadBotUrl(fetchImpl, requestTimeoutMs),
+          accessExpiresAt: expired,
+        };
+      }
+    }
+
     if (sessionResponse.status !== 401) {
       return { status: 'error' };
     }
@@ -67,10 +81,12 @@ export async function resolveAppAccess(options: ResolveAccessOptions = {}): Prom
       }
 
       if (response.status === 403) {
-        return {
-          status: 'denied',
-          botUrl: await loadBotUrl(fetchImpl, requestTimeoutMs),
-        };
+        const expired = await readExpiredAccess(response);
+        const botUrl = await loadBotUrl(fetchImpl, requestTimeoutMs);
+
+        return expired
+          ? { status: 'subscription-expired', botUrl, accessExpiresAt: expired }
+          : { status: 'denied', botUrl };
       }
 
       return { status: 'error' };
@@ -96,12 +112,20 @@ async function readAuthenticatedUser(response: Response): Promise<AuthenticatedU
     user.status !== 'active' ||
     !isNullableString(user.username) ||
     !isNullableString(user.firstName) ||
-    !isNullableString(user.lastName)
+    !isNullableString(user.lastName) ||
+    !(user.accessExpiresAt === null || Number.isSafeInteger(user.accessExpiresAt))
   ) {
     return null;
   }
 
   return user as AuthenticatedUser;
+}
+
+async function readExpiredAccess(response: Response): Promise<number | null> {
+  const body = await response.json().catch(() => null);
+  return body?.error === 'subscription_expired' && Number.isSafeInteger(body.accessExpiresAt)
+    ? body.accessExpiresAt
+    : null;
 }
 
 async function loadBotUrl(fetchImpl: typeof fetch, timeoutMs: number): Promise<string | null> {

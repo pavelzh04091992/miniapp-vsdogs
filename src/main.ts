@@ -4,17 +4,27 @@ import {
   SituationVideosState,
   createAppMarkup,
   getAllAppAssetPaths,
-  getInitialAppAssetPaths,
   getVideoSourceSlugForRoute,
 } from './app';
 import { fetchSituationVideos } from './lib/videos';
-import { getTelegramWebApp, isTelegramMiniAppLaunch } from './lib/telegram';
+import {
+  getTelegramWebApp,
+  isTelegramMiniAppLaunch,
+  type TelegramWebApp,
+} from './lib/telegram';
 import {
   ComplexRevealOrigin,
   animateComplexRevealTransition,
   getComplexRevealOrigin,
 } from './complex-reveal';
 import { setupLessonVideoPlayer } from './video-player';
+import { setupFeedbackFlow } from './feedback';
+import {
+  canUseBrowserBack,
+  createFallbackHistoryState,
+  createForwardHistoryState,
+  normalizeInitialHistoryState,
+} from './lib/navigation-history';
 import './styles.css';
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
@@ -38,10 +48,9 @@ let routeSyncSequence = 0;
 let videoCatalogAbortController: AbortController | null = null;
 let renderSequence = 0;
 let playerTitleFitFrame: number | null = null;
-// Protected assets use `no-store`, so keep decoded Image instances alive for
-// the lifetime of this authenticated page instead of relying on disk cache.
 const preloadedImages = new Map<string, HTMLImageElement>();
 const assetPreloadPromises = new Map<string, Promise<void>>();
+const ASSET_PRELOAD_TIMEOUT_MS = 15_000;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 
@@ -52,7 +61,10 @@ if (webApp) {
   document.documentElement.dataset.launchContext = 'browser';
 }
 
+setupAppViewportHeight(webApp);
+initializeRouteHistory();
 export const appReady = startPrivateApp();
+setupFeedbackFlow(root, webApp);
 window.addEventListener('hashchange', () => {
   void syncRouteState();
 });
@@ -126,9 +138,13 @@ document.addEventListener('click', (event) => {
       pendingComplexTransitionOrigin = getComplexRevealOrigin(routeButton, event);
     }
 
-    pendingTransitionDirection = routeButton.classList.contains('back-button')
-      ? 'back'
-      : getRouteTransitionDirection(currentRoute, route);
+    if (routeButton.classList.contains('back-button')) {
+      pendingTransitionDirection = 'back';
+      navigateBack(route);
+      return;
+    }
+
+    pendingTransitionDirection = getRouteTransitionDirection(currentRoute, route);
     navigateTo(route);
     return;
   }
@@ -174,18 +190,46 @@ document.addEventListener('click', (event) => {
 });
 
 async function startPrivateApp(): Promise<void> {
-  await preloadAllAssets(getInitialAppAssetPaths());
+  void preloadAllAssets(getAllAppAssetPaths());
   await syncRouteState();
-  window.setTimeout(() => {
-    void preloadAllAssets(getAllAppAssetPaths(), 4);
-  }, 0);
+}
+
+function setupAppViewportHeight(webApp: TelegramWebApp | null): void {
+  let pendingFrame: number | null = null;
+
+  const applyHeight = (): void => {
+    pendingFrame = null;
+    const viewportHeights = [
+      window.innerHeight,
+      window.visualViewport?.height,
+      webApp?.viewportHeight,
+    ].filter((height): height is number => Number.isFinite(height) && (height ?? 0) > 0);
+    const visibleHeight = Math.min(...viewportHeights);
+
+    if (Number.isFinite(visibleHeight) && visibleHeight > 0) {
+      document.documentElement.style.setProperty('--app-viewport-height', `${Math.round(visibleHeight)}px`);
+    }
+  };
+
+  const scheduleHeightUpdate = (): void => {
+    if (pendingFrame !== null) {
+      window.cancelAnimationFrame(pendingFrame);
+    }
+
+    pendingFrame = window.requestAnimationFrame(applyHeight);
+  };
+
+  applyHeight();
+  window.addEventListener('resize', scheduleHeightUpdate, { passive: true });
+  window.addEventListener('orientationchange', scheduleHeightUpdate, { passive: true });
+  window.visualViewport?.addEventListener('resize', scheduleHeightUpdate, { passive: true });
+  window.visualViewport?.addEventListener('scroll', scheduleHeightUpdate, { passive: true });
+  webApp?.onEvent?.('viewportChanged', scheduleHeightUpdate);
 }
 async function render(): Promise<void> {
   const sequence = ++renderSequence;
   const route = getCurrentRoute();
-  const markup = createAppMarkup(route, activeFilter, videosState);
-
-  await preloadAllAssets(getMarkupAssetPaths(markup));
+  const markup = applyImageLoadingHints(createAppMarkup(route, activeFilter, videosState));
 
   if (sequence !== renderSequence || route !== getCurrentRoute()) {
     return;
@@ -297,6 +341,7 @@ function animateComplexRouteTransition(
   };
 
   if (isEnteringComplex) {
+    currentShell.classList.add('app-shell--complex-transition-underlay-exit');
     currentShell
       .querySelector('.bottom-nav')
       ?.classList.add('bottom-nav--complex-transition-exit');
@@ -375,7 +420,7 @@ function fitPlayerHeaderTitle(): void {
   title.style.removeProperty('font-size');
 
   const maximumFontSize = Number.parseFloat(window.getComputedStyle(title).fontSize);
-  const minimumFontSize = 12;
+  const minimumFontSize = 17;
   const lineHeightRatio = 1.14;
   const maxLines = 2;
   let fontSize = maximumFontSize;
@@ -446,9 +491,9 @@ function getRouteTransitionDirection(from: AppRoute | null, to: AppRoute): PageT
 
     if (
       route === 'complex' ||
+      route === 'fitness' ||
       route === 'puppies' ||
-      route === 'adult-large' ||
-      route === 'adult-small'
+      route === 'adult-large'
     ) {
       return 1;
     }
@@ -483,7 +528,10 @@ function getRouteTransitionDirection(from: AppRoute | null, to: AppRoute): PageT
 }
 
 function setupLiquidGlassCards(): void {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+    !window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  ) {
     return;
   }
 
@@ -518,6 +566,30 @@ function setupLiquidGlassCards(): void {
   });
 }
 
+function applyImageLoadingHints(markup: string): string {
+  const template = document.createElement('template');
+  template.innerHTML = markup.trim();
+  const images = Array.from(template.content.querySelectorAll<HTMLImageElement>('img[src]'));
+
+  images.forEach((image) => {
+    image.loading = 'lazy';
+    image.decoding = 'async';
+  });
+
+  template.content.querySelectorAll<HTMLImageElement>('header img').forEach((image) => {
+    image.loading = 'eager';
+  });
+
+  const firstContentImage = template.content.querySelector<HTMLImageElement>('.screen-content img[src]');
+
+  if (firstContentImage) {
+    firstContentImage.loading = 'eager';
+    firstContentImage.fetchPriority = 'high';
+  }
+
+  return template.innerHTML;
+}
+
 async function preloadAllAssets(paths: string[], concurrency = 6): Promise<void> {
   const uniquePaths = [...new Set(paths)];
   let nextIndex = 0;
@@ -546,21 +618,30 @@ async function preloadAsset(path: string): Promise<void> {
   preloadedImages.set(path, image);
 
   const preloadPromise = new Promise<void>((resolve) => {
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      preloadedImages.delete(path);
+      finish();
+    }, ASSET_PRELOAD_TIMEOUT_MS);
+
     const finish = (): void => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      window.clearTimeout(timeout);
       image.onload = null;
       image.onerror = null;
       resolve();
     };
 
     image.onload = () => {
-      const decode = typeof image.decode === 'function'
-        ? image.decode()
-        : Promise.resolve();
+      const decode = typeof image.decode === 'function' ? image.decode() : Promise.resolve();
       void decode.catch(() => undefined).then(finish);
     };
     image.onerror = () => {
       preloadedImages.delete(path);
-      assetPreloadPromises.delete(path);
       finish();
     };
     image.src = path;
@@ -568,28 +649,6 @@ async function preloadAsset(path: string): Promise<void> {
 
   assetPreloadPromises.set(path, preloadPromise);
   return preloadPromise;
-}
-
-function getMarkupAssetPaths(markup: string): string[] {
-  const template = document.createElement('template');
-  template.innerHTML = markup.trim();
-  const paths = Array.from(template.content.querySelectorAll<HTMLImageElement>('img[src]'))
-    .map((image) => image.getAttribute('src'))
-    .filter((path): path is string => path !== null && isCacheableImagePath(path));
-
-  template.content.querySelectorAll<HTMLElement>('[data-video-id]').forEach((player) => {
-    const videoId = player.dataset.videoId;
-
-    if (videoId) {
-      paths.push(`/media/${encodeURIComponent(videoId)}/poster.webp`);
-    }
-  });
-
-  return [...new Set(paths)];
-}
-
-function isCacheableImagePath(path: string): boolean {
-  return path.startsWith('/assets/') || path.startsWith('/media/');
 }
 
 function applyCategoryGlassVariation(card: HTMLElement): void {
@@ -623,13 +682,14 @@ function getCurrentRoute(): AppRoute {
     return 'complex';
   }
 
+  if (hash === 'fitness') {
+    return 'fitness';
+  }
+
   if (hash === 'complex-levels:timed' || hash === 'complex-levels:self-check') {
     return hash;
   }
 
-  if (hash === 'adult-small') {
-    return 'adult-small';
-  }
 
   if (hash === 'adult-large') {
     return 'adult-large';
@@ -647,13 +707,7 @@ function getCurrentRoute(): AppRoute {
     return hash as AppRoute;
   }
 
-  if (hash.startsWith('adult-small-situation:')) {
-    return hash as AppRoute;
-  }
 
-  if (hash.startsWith('adult-small-topic:')) {
-    return hash as AppRoute;
-  }
 
   if (hash.startsWith('puppy-situation:')) {
     return hash as AppRoute;
@@ -723,8 +777,47 @@ function navigateTo(route: AppRoute): void {
   }
 
   const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
-  window.history.pushState(null, '', nextUrl);
+  const nextState = createForwardHistoryState(getHistoryState(), getCurrentRoute(), route);
+  window.history.pushState(nextState, '', nextUrl);
   void syncRouteState();
+}
+
+function navigateBack(fallbackRoute: AppRoute): void {
+  const currentRoute = getCurrentRoute();
+  const historyState = getHistoryState();
+
+  if (canUseBrowserBack(historyState, currentRoute, fallbackRoute)) {
+    window.history.back();
+    return;
+  }
+
+  replaceRouteWithFallback(fallbackRoute);
+}
+
+function replaceRouteWithFallback(route: AppRoute): void {
+  const nextHash = route === 'home' ? '' : `#${route}`;
+  const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
+  const nextState = createFallbackHistoryState(getHistoryState(), route);
+
+  window.history.replaceState(nextState, '', nextUrl);
+  void syncRouteState();
+}
+
+function initializeRouteHistory(): void {
+  const currentRoute = getCurrentRoute();
+  const historyState = getHistoryState();
+  const normalizedState = normalizeInitialHistoryState(historyState, currentRoute);
+
+  if (normalizedState === historyState) {
+    return;
+  }
+
+  window.history.replaceState(normalizedState, '', window.location.href);
+}
+
+function getHistoryState(): Record<string, unknown> {
+  const state = window.history.state;
+  return state && typeof state === 'object' ? { ...state } : {};
 }
 
 function activateBackControl(backButton: HTMLButtonElement): void {

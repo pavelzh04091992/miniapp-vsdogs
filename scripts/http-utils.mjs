@@ -3,7 +3,7 @@ export const SECURITY_HEADERS = Object.freeze({
     "default-src 'self'",
     "script-src 'self' https://telegram.org",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
+    "img-src 'self' data: blob: https:",
     "media-src 'self' blob:",
     "connect-src 'self' https://telegram.org",
     "font-src 'self' data:",

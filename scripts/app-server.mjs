@@ -1,7 +1,11 @@
 import { timingSafeEqual } from 'node:crypto';
+import { writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { dirname, join } from 'node:path';
 import { createAuthDatabase } from './auth-database.mjs';
 import { loadDotEnv } from './env.mjs';
+import { cleanupOrphanedFeedbackFiles } from './feedback.mjs';
+import { createFeedbackHandler } from './feedback-handler.mjs';
 import {
   RequestError,
   getClientIdentifier,
@@ -18,7 +22,9 @@ import { createRateLimiter } from './rate-limit.mjs';
 import { isPublicBrandAssetPath } from './protected-routes.mjs';
 import { readServerConfig } from './server-config.mjs';
 import { createStaticServer } from './static-server.mjs';
+import { createTelegramApi } from './telegram-api.mjs';
 import { createTelegramBot } from './telegram-bot.mjs';
+import { createTelegramTransport } from './telegram-transport.mjs';
 import {
   TelegramAuthError,
   hashOpaqueToken,
@@ -44,6 +50,8 @@ const {
   botUsername,
   defaultSituationSlug,
   distPath,
+  feedbackRateLimitMax,
+  feedbackRateLimitWindowSeconds,
   inviteTtlSeconds,
   knownSlugs,
   magicLinkRateLimitMax,
@@ -59,11 +67,23 @@ const {
   sessionCookieName,
   sessionCookieSameSite,
   sessionTtlSeconds,
+  subscriptionSweepIntervalSeconds,
+  subscriptionWarningSeconds,
   telegramInitDataMaxAgeSeconds,
+  telegramEgressMode,
+  telegramProxyUrl,
   trustProxyHeaders,
   webhookPath,
   webhookSecret,
 } = config;
+const telegramTransport = createTelegramTransport({
+  mode: telegramEgressMode,
+  proxyUrl: telegramProxyUrl,
+});
+const telegramApi = createTelegramApi(botToken, {
+  fetchImpl: telegramTransport.fetch,
+  uploadTimeoutMs: 10 * 60 * 1000,
+});
 const magicConfirmationCookieName = secureSessionCookie
   ? '__Host-miniapp_magic'
   : 'miniapp_magic';
@@ -72,6 +92,9 @@ const serveStaticFile = createStaticServer(distPath);
 // Validate the writable catalog mount before the service starts accepting traffic.
 loadVideoCatalog();
 const authDatabase = createAuthDatabase(authDatabasePath);
+const serverRestartRequestPath = authDatabasePath === ':memory:'
+  ? null
+  : join(dirname(authDatabasePath), 'restart-servers.request');
 const databaseMaintenanceTimer = setInterval(() => {
   try {
     authDatabase.cleanup();
@@ -80,6 +103,15 @@ const databaseMaintenanceTimer = setInterval(() => {
   }
 }, 6 * 60 * 60 * 1000);
 databaseMaintenanceTimer.unref();
+const feedbackFileCleanupTimer = setInterval(() => {
+  void cleanupOrphanedFeedbackFiles().catch(() => {
+    console.error('[feedback] orphan cleanup failed');
+  });
+}, 30 * 60 * 1000);
+feedbackFileCleanupTimer.unref();
+void cleanupOrphanedFeedbackFiles(0).catch(() => {
+  console.error('[feedback] startup cleanup failed');
+});
 
 if (adminTelegramId) {
   authDatabase.ensureAdmin(adminTelegramId);
@@ -97,7 +129,17 @@ const telegramBot = createTelegramBot({
   botStateTtlSeconds,
   commandRateLimitMax: botCommandRateLimitMax,
   commandRateLimitWindowMs: rateLimitWindowSeconds * 1000,
+  api: telegramApi,
+  subscriptionWarningSeconds,
+  requestServerRestart: serverRestartRequestPath
+    ? queueServerRestart
+    : null,
 });
+const subscriptionTimer = setInterval(() => {
+  void processSubscriptionLifecycle();
+}, subscriptionSweepIntervalSeconds * 1000);
+subscriptionTimer.unref();
+void processSubscriptionLifecycle();
 
 const telegramAuthRateLimiter = createRateLimiter({
   limit: authRateLimitMax,
@@ -106,6 +148,32 @@ const telegramAuthRateLimiter = createRateLimiter({
 const magicLinkRateLimiter = createRateLimiter({
   limit: magicLinkRateLimitMax,
   windowMs: rateLimitWindowSeconds * 1000,
+});
+const feedbackRateLimiter = createRateLimiter({
+  limit: feedbackRateLimitMax,
+  windowMs: feedbackRateLimitWindowSeconds * 1000,
+});
+
+async function queueServerRestart({ requestedBy }) {
+  const request = `${JSON.stringify({ requestedAt: new Date().toISOString(), requestedBy })}\n`;
+
+  try {
+    await writeFile(serverRestartRequestPath, request, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+  } catch (error) {
+    if (error?.code === 'EEXIST') {
+      throw new Error('A server restart is already queued');
+    }
+
+    throw error;
+  }
+}
+
+const handleFeedback = createFeedbackHandler({
+  adminTelegramId,
+  allowedOrigins,
+  api: telegramApi,
+  getSessionUser,
+  rateLimiter: feedbackRateLimiter,
 });
 
 const server = createServer((request, response) => {
@@ -161,7 +229,10 @@ async function handleRequest(request, response) {
         return;
       }
 
-      await serveStaticFile(pathname, request.method, response, { allowPrivateAssets: true });
+      await serveStaticFile(pathname, request.method, response, {
+        allowPrivateAssets: true,
+        requestHeaders: request.headers,
+      });
       return;
     }
 
@@ -194,6 +265,11 @@ async function handleRequest(request, response) {
     return;
   }
 
+  if (pathname === '/api/feedback') {
+    await handleFeedback(request, response);
+    return;
+  }
+
   if (pathname === '/auth/magic') {
     handleMagicLink(request, response);
     return;
@@ -205,14 +281,14 @@ async function handleRequest(request, response) {
   }
 
   if (request.method === 'GET' || request.method === 'HEAD') {
-    await serveStaticFile(pathname, request.method, response);
+    await serveStaticFile(pathname, request.method, response, { requestHeaders: request.headers });
     return;
   }
 
   respondJson(response, 404, { ok: false, error: 'not_found' });
 }
 
-server.requestTimeout = 15_000;
+server.requestTimeout = 10 * 60_000;
 server.headersTimeout = 10_000;
 server.keepAliveTimeout = 5_000;
 
@@ -220,6 +296,7 @@ server.listen(port, '0.0.0.0', () => {
   console.log(`[app-server] listening on http://0.0.0.0:${port}`);
   console.log('[app-server] health endpoint: /health');
   console.log('[app-server] static frontend: dist/');
+  console.log(`[app-server] Telegram egress mode: ${telegramTransport.description}`);
 
   if (webhookSecret) {
     console.log(`[app-server] Telegram webhook enabled: ${webhookPath}`);
@@ -344,9 +421,19 @@ async function handleTelegramAuth(request, response) {
       authDatabase.ensureAdmin(adminTelegramId);
     }
 
-    const knownUser = authDatabase.getUser(verified.user.id);
+    const access = authDatabase.getUserAccess(verified.user.id);
+    const knownUser = access.user;
 
-    if (!knownUser || knownUser.status !== 'active') {
+    if (access.state === 'expired') {
+      respondJson(response, 403, {
+        ok: false,
+        error: 'subscription_expired',
+        accessExpiresAt: knownUser.accessExpiresAt,
+      });
+      return;
+    }
+
+    if (access.state !== 'active') {
       respondJson(response, 403, { ok: false, error: 'access_denied' });
       return;
     }
@@ -387,14 +474,23 @@ function handleCurrentUser(request, response) {
     return;
   }
 
-  const user = getSessionUser(request);
+  const access = getSessionAccess(request);
 
-  if (!user) {
+  if (access.state === 'expired') {
+    respondJson(response, 403, {
+      ok: false,
+      error: 'subscription_expired',
+      accessExpiresAt: access.user.accessExpiresAt,
+    });
+    return;
+  }
+
+  if (access.state !== 'active') {
     respondJson(response, 401, { ok: false, error: 'not_authenticated' });
     return;
   }
 
-  respondJson(response, 200, { ok: true, user: publicUser(user) });
+  respondJson(response, 200, { ok: true, user: publicUser(access.user) });
 }
 
 function handleAuthConfig(request, response) {
@@ -543,12 +639,22 @@ async function handlePrivateAsset(request, response, pathname) {
     return;
   }
 
-  await serveStaticFile(pathname, request.method, response, { allowPrivateAssets: true });
+  await serveStaticFile(pathname, request.method, response, {
+    allowPrivateAssets: true,
+    requestHeaders: request.headers,
+  });
 }
 
 function getSessionUser(request, options = {}) {
+  const access = getSessionAccess(request, options);
+  return access.state === 'active' ? access.user : null;
+}
+
+function getSessionAccess(request, options = {}) {
   const token = parseCookies(request.headers.cookie)[sessionCookieName];
-  return token ? authDatabase.getSessionUser(token, options) : null;
+  return token
+    ? authDatabase.getSessionAccess(token, options)
+    : { state: 'invalid', user: null };
 }
 
 function allowRateLimitedRequest(limiter, request, response) {
@@ -567,6 +673,15 @@ function allowRateLimitedRequest(limiter, request, response) {
   return false;
 }
 
+async function processSubscriptionLifecycle() {
+  try {
+    authDatabase.expireSubscriptions();
+    await telegramBot.processSubscriptionNotifications();
+  } catch (error) {
+    console.error('[subscriptions] lifecycle processing failed', error);
+  }
+}
+
 function publicUser(user) {
   return {
     telegramId: user.telegramId,
@@ -575,6 +690,7 @@ function publicUser(user) {
     username: user.username,
     firstName: user.firstName,
     lastName: user.lastName,
+    accessExpiresAt: user.accessExpiresAt,
   };
 }
 
@@ -637,14 +753,17 @@ function constantTimeStringEqual(expected, provided) {
 function shutdown(signal) {
   console.log(`[app-server] received ${signal}, shutting down`);
   clearInterval(databaseMaintenanceTimer);
+  clearInterval(feedbackFileCleanupTimer);
+  clearInterval(subscriptionTimer);
 
-  server.close((error) => {
+  server.close(async (error) => {
     if (error) {
       console.error('[app-server] graceful shutdown failed', error);
       process.exitCode = 1;
     }
 
     authDatabase.close();
+    await telegramTransport.close().catch(() => {});
   });
   server.closeIdleConnections();
 

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Writable } from 'node:stream';
 import test from 'node:test';
 import { createStaticServer } from './static-server.mjs';
 
@@ -42,7 +43,17 @@ test('static server falls back to the SPA without allowing path traversal', asyn
     });
     assert.equal(authenticatedPrivateResponse.statusCode, 200);
     assert.equal(String(authenticatedPrivateResponse.body), 'private application code');
-    assert.equal(authenticatedPrivateResponse.headers['Cache-Control'], 'private, no-store');
+    assert.equal(authenticatedPrivateResponse.headers['Cache-Control'], 'private, no-cache');
+    assert.match(authenticatedPrivateResponse.headers.ETag, /^W\//);
+    assert.ok(authenticatedPrivateResponse.headers['Last-Modified']);
+
+    const revalidatedPrivateResponse = fakeResponse();
+    await serveStaticFile('/private/app.js', 'GET', revalidatedPrivateResponse, {
+      allowPrivateAssets: true,
+      requestHeaders: { 'if-none-match': authenticatedPrivateResponse.headers.ETag },
+    });
+    assert.equal(revalidatedPrivateResponse.statusCode, 304);
+    assert.equal(revalidatedPrivateResponse.body.byteLength, 0);
 
     const encodedBackslashResponse = fakeResponse();
     await serveStaticFile('/data%5cvideos.json', 'GET', encodedBackslashResponse);
@@ -70,16 +81,21 @@ test('static server falls back to the SPA without allowing path traversal', asyn
 });
 
 function fakeResponse() {
-  return {
-    statusCode: 0,
-    headers: {},
-    body: null,
-    writeHead(statusCode, headers) {
-      this.statusCode = statusCode;
-      this.headers = headers;
+  const chunks = [];
+  const response = new Writable({
+    write(chunk, _encoding, callback) {
+      chunks.push(Buffer.from(chunk));
+      callback();
     },
-    end(body) {
-      this.body = body;
-    },
+  });
+  response.statusCode = 0;
+  response.headers = {};
+  response.writeHead = (statusCode, headers) => {
+    response.statusCode = statusCode;
+    response.headers = headers;
   };
+  Object.defineProperty(response, 'body', {
+    get: () => Buffer.concat(chunks),
+  });
+  return response;
 }

@@ -4,7 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createAuthDatabase } from './auth-database.mjs';
-import { createTelegramBot, formatTtl } from './telegram-bot.mjs';
+import {
+  createTelegramBot,
+  formatSubscriptionDate,
+  formatTtl,
+  parseMoscowEndOfDay,
+} from './telegram-bot.mjs';
 
 test('formats the browser-link lifetime with correct Russian plural forms', () => {
   assert.equal(formatTtl(60), '1 минута');
@@ -13,6 +18,14 @@ test('formats the browser-link lifetime with correct Russian plural forms', () =
   assert.equal(formatTtl(600), '10 минут');
   assert.equal(formatTtl(660), '11 минут');
   assert.equal(formatTtl(1_260), '21 минута');
+});
+
+test('parses subscription dates as the end of the Moscow calendar day', () => {
+  const expiresAt = parseMoscowEndOfDay('31.12.2030');
+  assert.equal(expiresAt, Date.UTC(2030, 11, 31, 20, 59, 59) / 1000);
+  assert.equal(formatSubscriptionDate(expiresAt), '31.12.2030');
+  assert.equal(parseMoscowEndOfDay('31.02.2030'), null);
+  assert.equal(parseMoscowEndOfDay('2030-12-31'), null);
 });
 
 test('admin grants and revokes access through the bot interface', async () => {
@@ -56,6 +69,7 @@ test('admin grants and revokes access through the bot interface', async () => {
 
     await bot.handleUpdate(callback('10001', 'admin:add'));
     await bot.handleUpdate(privateMessage('10001', '20002', 'Admin'));
+    await bot.handleUpdate(callback('10001', 'admin:grant:30:20002'));
 
     assert.equal(database.getUser('20002').status, 'active');
     assert.ok(requests.some(({ payload }) =>
@@ -81,6 +95,112 @@ test('admin grants and revokes access through the bot interface', async () => {
           row.some((button) => button.url?.includes('/auth/magic?token=')))).length,
       magicLinkMessages,
     );
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('admin manages subscription terms from a user card', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-bot-subscription-'));
+  const database = createAuthDatabase(join(directory, 'auth.sqlite'));
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    const method = url.split('/').at(-1);
+    const payload = JSON.parse(options.body);
+    requests.push({ method, payload });
+    return fakeResponse(true, 200, {
+      ok: true,
+      result: method === 'sendMessage' ? { message_id: requests.length } : true,
+    });
+  };
+  const bot = createTelegramBot({
+    botToken: 'test-token',
+    botUsername: 'access_bot',
+    miniAppUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
+    adminTelegramId: '10001',
+    database,
+    fetchImpl,
+  });
+
+  try {
+    await bot.handleUpdate(privateMessage('10001', '/start', 'Admin'));
+    await bot.handleUpdate(callback('10001', 'admin:add'));
+    await bot.handleUpdate(privateMessage('10001', '20002', 'Admin'));
+    const termPrompt = requests.findLast(({ method }) => method === 'sendMessage').payload;
+    assert.ok(termPrompt.reply_markup.inline_keyboard.flat().some(
+      (button) => button.callback_data === 'admin:grant:365:20002',
+    ));
+
+    await bot.handleUpdate(callback('10001', 'admin:grant:7:20002'));
+    const initialExpiry = database.getUser('20002').accessExpiresAt;
+    assert.ok(initialExpiry > Math.floor(Date.now() / 1000));
+
+    await bot.handleUpdate(callback('10001', 'admin:user:20002:0'));
+    const card = requests.findLast(({ method }) => method === 'sendMessage').payload;
+    assert.match(card.text, /Доступ до:/);
+    assert.ok(card.reply_markup.inline_keyboard.flat().some(
+      (button) => button.callback_data === 'admin:extend:30:20002:0',
+    ));
+
+    await bot.handleUpdate(callback('10001', 'admin:extend:30:20002:0'));
+    assert.equal(database.getUser('20002').accessExpiresAt, initialExpiry + 30 * 86_400);
+    await bot.handleUpdate(callback('10001', 'admin:expiry:forever:20002:0'));
+    assert.equal(database.getUser('20002').accessExpiresAt, null);
+    await bot.handleUpdate(callback('10001', 'admin:expiry:date:20002:0'));
+    assert.equal(database.getBotState('10001'), 'awaiting_expiry_date:20002:0');
+    await bot.handleUpdate(privateMessage('10001', '31.12.2035', 'Admin'));
+    assert.equal(
+      database.getUser('20002').accessExpiresAt,
+      Date.UTC(2035, 11, 31, 20, 59, 59) / 1000,
+    );
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('sends subscription warning and expiration notifications once', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-bot-expiry-notify-'));
+  let currentTime = 1_900_000_000;
+  const database = createAuthDatabase(join(directory, 'auth.sqlite'), { now: () => currentTime });
+  const requests = [];
+  let messageId = 1;
+  const fetchImpl = async (url, options) => {
+    const method = url.split('/').at(-1);
+    const payload = JSON.parse(options.body);
+    requests.push({ method, payload });
+    return fakeResponse(true, 200, {
+      ok: true,
+      result: method === 'sendMessage' ? { message_id: messageId++ } : true,
+    });
+  };
+  database.ensureAdmin('10001');
+  const expiresAt = currentTime + 3 * 86_400;
+  database.grantUser('20002', '10001', expiresAt);
+  const bot = createTelegramBot({
+    botToken: 'test-token',
+    botUsername: 'access_bot',
+    miniAppUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
+    adminTelegramId: '10001',
+    database,
+    fetchImpl,
+  });
+
+  try {
+    await bot.processSubscriptionNotifications();
+    await bot.processSubscriptionNotifications();
+    assert.equal(requests.filter(({ payload }) => /закончится/.test(payload.text || '')).length, 1);
+
+    currentTime = expiresAt;
+    database.expireSubscriptions();
+    await bot.processSubscriptionNotifications();
+    await bot.processSubscriptionNotifications();
+    const expired = requests.filter(({ payload }) => /закончилась/.test(payload.text || ''));
+    assert.equal(expired.length, 1);
+    assert.equal(expired[0].payload.reply_markup.remove_keyboard, true);
   } finally {
     database.close();
     rmSync(directory, { recursive: true, force: true });
@@ -121,13 +241,15 @@ test('start reports access status and keeps app entry buttons visible for active
     assert.equal(denied.reply_markup.remove_keyboard, true);
 
     await bot.handleUpdate(privateMessage('20002', '/start', 'User'));
-    const active = requests.at(-1).payload;
-    const buttons = active.reply_markup.keyboard.flat();
-    assert.match(active.text, /Статус доступа: активен/);
-    assert.equal(active.reply_markup.is_persistent, true);
+    const activeStatus = requests.findLast(({ method, payload }) =>
+      method === 'sendMessage' && payload.text?.includes('Статус доступа: активен'))?.payload;
+    const activeEntry = requests.findLast(({ method, payload }) =>
+      method === 'sendMessage' && payload.text === 'Открыть приложение:')?.payload;
+    const buttons = activeEntry.reply_markup.inline_keyboard.flat();
+    assert.equal(activeStatus.reply_markup.remove_keyboard, true);
     assert.deepEqual(buttons, [
       { text: 'PuppyApp 🐶', web_app: { url: 'https://example.com' } },
-      { text: 'Браузер 🌐' },
+      { text: 'Браузер 🌐', callback_data: 'user:browser' },
     ]);
 
     await bot.handleUpdate(privateMessage('20002', 'Браузер 🌐', 'User'));
@@ -147,7 +269,7 @@ test('start reports access status and keeps app entry buttons visible for active
   }
 });
 
-test('grant and status changes notify the user and synchronize the reply keyboard', async () => {
+test('grant and status changes notify the user with authenticated inline app entry', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'miniapp-bot-notify-'));
   const database = createAuthDatabase(join(directory, 'auth.sqlite'));
   const requests = [];
@@ -177,14 +299,14 @@ test('grant and status changes notify the user and synchronize the reply keyboar
     await bot.handleUpdate(privateMessage('10001', '/start', 'Admin'));
     await bot.handleUpdate(callback('10001', 'admin:add'));
     await bot.handleUpdate(privateMessage('10001', '20002', 'Admin'));
+    await bot.handleUpdate(callback('10001', 'admin:grant:30:20002'));
 
     const granted = requests.find(({ method, payload }) =>
       method === 'sendMessage' &&
       String(payload.chat_id) === '20002' &&
       payload.text?.includes('Вам открыт доступ'))?.payload;
     assert.ok(granted);
-    assert.equal(granted.reply_markup.is_persistent, true);
-    assert.ok(granted.reply_markup.keyboard.flat().some(
+    assert.ok(granted.reply_markup.inline_keyboard.flat().some(
       (button) => button.text === 'PuppyApp 🐶' && button.web_app?.url === 'https://example.com',
     ));
 
@@ -200,7 +322,66 @@ test('grant and status changes notify the user and synchronize the reply keyboar
       method === 'sendMessage' &&
       String(payload.chat_id) === '20002' &&
       payload.text?.includes('восстановлен'))?.payload;
-    assert.equal(restored.reply_markup.is_persistent, true);
+    assert.ok(restored.reply_markup.inline_keyboard.flat().some(
+      (button) => button.text === 'PuppyApp 🐶' && button.web_app?.url === 'https://example.com',
+    ));
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('admin restart requires a fresh confirmation and cannot be triggered by a user', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-bot-restart-'));
+  const database = createAuthDatabase(join(directory, 'auth.sqlite'));
+  const requests = [];
+  const restartRequests = [];
+  const fetchImpl = async (url, options) => {
+    const method = url.split('/').at(-1);
+    const payload = JSON.parse(options.body);
+    requests.push({ method, payload });
+    return fakeResponse(true, 200, {
+      ok: true,
+      result: method === 'sendMessage' ? { message_id: requests.length } : true,
+    });
+  };
+  database.ensureAdmin('10001');
+  database.grantUser('20002', '10001');
+  const bot = createTelegramBot({
+    botToken: 'test-token',
+    botUsername: 'access_bot',
+    miniAppUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
+    adminTelegramId: '10001',
+    database,
+    fetchImpl,
+    requestServerRestart: async (request) => restartRequests.push(request),
+  });
+
+  try {
+    await bot.handleUpdate(privateMessage('10001', '/start', 'Admin'));
+    const adminMenu = requests.findLast(({ method, payload }) =>
+      method === 'sendMessage' && payload.text === 'Управление доступами:')?.payload;
+    assert.ok(adminMenu.reply_markup.inline_keyboard.flat().some(
+      (button) => button.callback_data === 'admin:servers:restart',
+    ));
+
+    await bot.handleUpdate(callback('20002', 'admin:servers:restart', 'User'));
+    assert.equal(restartRequests.length, 0);
+
+    await bot.handleUpdate(callback('10001', 'admin:servers:restart'));
+    assert.equal(restartRequests.length, 0);
+    const confirmation = requests.findLast(({ method, payload }) =>
+      method === 'sendMessage' && payload.text?.startsWith('Перезагрузить production-сервер'))?.payload;
+    assert.ok(confirmation.reply_markup.inline_keyboard.flat().some(
+      (button) => button.callback_data === 'admin:servers:restart:confirm',
+    ));
+
+    await bot.handleUpdate(callback('10001', 'admin:servers:restart:confirm'));
+    assert.deepEqual(restartRequests, [{ requestedBy: '10001' }]);
+
+    await bot.handleUpdate(callback('10001', 'admin:servers:restart:confirm'));
+    assert.equal(restartRequests.length, 1);
   } finally {
     database.close();
     rmSync(directory, { recursive: true, force: true });
@@ -308,17 +489,11 @@ test('replacing a browser link deletes the previous link and tracked browser req
   const database = createAuthDatabase(join(directory, 'auth.sqlite'));
   const requests = [];
   let nextBotMessageId = 1;
-  let failNextDelete = true;
   const fetchImpl = async (url, options) => {
     const method = url.split('/').at(-1);
     const payload = JSON.parse(options.body);
     const result = method === 'sendMessage' ? { message_id: nextBotMessageId++ } : true;
     requests.push({ method, payload, result });
-
-    if (method === 'deleteMessage' && failNextDelete) {
-      failNextDelete = false;
-      return fakeResponse(false, 400, { ok: false, description: 'retry cleanup later' });
-    }
 
     return fakeResponse(true, 200, {
       ok: true,
@@ -342,7 +517,7 @@ test('replacing a browser link deletes the previous link and tracked browser req
     const firstRequest = privateMessage('20002', 'Браузер 🌐', 'User');
     await bot.handleUpdate(firstRequest);
     const firstLinkRequest = requests.findLast(({ method, payload }) =>
-      method === 'sendMessage' && payload.reply_markup?.inline_keyboard);
+      method === 'sendMessage' && isMagicLinkMessage(payload));
     const firstToken = new URL(
       firstLinkRequest.payload.reply_markup.inline_keyboard[0][0].url,
     ).searchParams.get('token');
@@ -351,7 +526,7 @@ test('replacing a browser link deletes the previous link and tracked browser req
     const secondRequest = privateMessage('20002', 'Браузер 🌐', 'User');
     await bot.handleUpdate(secondRequest);
     const linkRequests = requests.filter(({ method, payload }) =>
-      method === 'sendMessage' && payload.reply_markup?.inline_keyboard);
+      method === 'sendMessage' && isMagicLinkMessage(payload));
     const secondToken = new URL(
       linkRequests[1].payload.reply_markup.inline_keyboard[0][0].url,
     ).searchParams.get('token');
@@ -364,6 +539,127 @@ test('replacing a browser link deletes the previous link and tracked browser req
     assert.ok(deletedMessageIds.includes(firstRequest.message.message_id));
     assert.ok(deletedMessageIds.includes(secondRequest.message.message_id));
     assert.ok(deletedMessageIds.includes(firstLinkRequest.result.message_id));
+    assert.deepEqual(database.listBotMessagesForCleanup('20002'), []);
+
+    const secondLinkSendIndex = requests.findIndex(({ method, payload }, index) =>
+      index > requests.indexOf(firstLinkRequest) &&
+      method === 'sendMessage' &&
+      isMagicLinkMessage(payload));
+    const previousLinkDeleteIndex = requests.findIndex(({ method, payload }) =>
+      method === 'deleteMessage' && payload.message_id === firstLinkRequest.result.message_id);
+    const secondRequestDeleteIndex = requests.findIndex(({ method, payload }) =>
+      method === 'deleteMessage' && payload.message_id === secondRequest.message.message_id);
+    assert.ok(previousLinkDeleteIndex < secondLinkSendIndex);
+    assert.ok(secondRequestDeleteIndex < secondLinkSendIndex);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('does not send a replacement browser link until stale messages are deleted', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-bot-delete-first-'));
+  const database = createAuthDatabase(join(directory, 'auth.sqlite'));
+  const requests = [];
+  let nextBotMessageId = 800;
+  let rejectDeletes = false;
+  const fetchImpl = async (url, options) => {
+    const method = url.split('/').at(-1);
+    const payload = JSON.parse(options.body);
+    requests.push({ method, payload });
+
+    if (method === 'deleteMessage' && rejectDeletes) {
+      return fakeResponse(false, 400, { ok: false, description: 'delete first' });
+    }
+
+    return fakeResponse(true, 200, {
+      ok: true,
+      result: method === 'sendMessage' ? { message_id: nextBotMessageId++ } : true,
+    });
+  };
+  database.ensureAdmin('10001');
+  database.grantUser('20002', '10001');
+  const bot = createTelegramBot({
+    botToken: 'test-token',
+    botUsername: 'access_bot',
+    miniAppUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
+    adminTelegramId: '10001',
+    database,
+    fetchImpl,
+  });
+
+  try {
+    await bot.handleUpdate(privateMessage('20002', 'Браузер 🌐', 'User'));
+    const firstLinkSend = requests.find(({ method, payload }) =>
+      method === 'sendMessage' && payload.reply_markup?.inline_keyboard);
+    const firstToken = new URL(
+      firstLinkSend.payload.reply_markup.inline_keyboard[0][0].url,
+    ).searchParams.get('token');
+    rejectDeletes = true;
+
+    await assert.rejects(
+      bot.handleUpdate(privateMessage('20002', 'Браузер 🌐', 'User')),
+      /delete first/,
+    );
+
+    const linkMessages = requests.filter(({ method, payload }) =>
+      method === 'sendMessage' && payload.reply_markup?.inline_keyboard);
+    assert.equal(linkMessages.length, 1);
+    assert.equal(database.isMagicLinkUsable(firstToken), true);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('continues after Telegram reports a stale message can never be deleted', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'miniapp-bot-terminal-delete-'));
+  const database = createAuthDatabase(join(directory, 'auth.sqlite'));
+  const requests = [];
+  let nextBotMessageId = 900;
+  let rejectDeletes = false;
+  const fetchImpl = async (url, options) => {
+    const method = url.split('/').at(-1);
+    const payload = JSON.parse(options.body);
+    requests.push({ method, payload });
+
+    if (method === 'deleteMessage' && rejectDeletes) {
+      return fakeResponse(false, 400, {
+        ok: false,
+        description: "Bad Request: message can't be deleted for everyone",
+      });
+    }
+
+    return fakeResponse(true, 200, {
+      ok: true,
+      result: method === 'sendMessage' ? { message_id: nextBotMessageId++ } : true,
+    });
+  };
+  database.ensureAdmin('10001');
+  database.grantUser('20002', '10001');
+  const bot = createTelegramBot({
+    botToken: 'test-token',
+    botUsername: 'access_bot',
+    miniAppUrl: 'https://example.com',
+    publicBaseUrl: 'https://example.com',
+    adminTelegramId: '10001',
+    database,
+    fetchImpl,
+  });
+
+  try {
+    const firstRequest = privateMessage('20002', 'Браузер 🌐', 'User');
+    await bot.handleUpdate(firstRequest);
+    rejectDeletes = true;
+    const repeatedRequest = privateMessage('20002', 'Браузер 🌐', 'User');
+
+    await bot.handleUpdate(repeatedRequest);
+    await bot.handleUpdate(repeatedRequest);
+
+    const linkMessages = requests.filter(({ method, payload }) =>
+      method === 'sendMessage' && payload.reply_markup?.inline_keyboard);
+    assert.equal(linkMessages.length, 3);
     assert.deepEqual(database.listBotMessagesForCleanup('20002'), []);
   } finally {
     database.close();
@@ -476,6 +772,12 @@ function callback(userId, data, firstName = 'Admin') {
       data,
     },
   };
+}
+
+function isMagicLinkMessage(payload) {
+  return payload.reply_markup?.inline_keyboard?.flat().some(
+    (button) => button.url?.startsWith('https://example.com/auth/magic?token='),
+  ) === true;
 }
 
 function fakeResponse(ok, status, body) {
