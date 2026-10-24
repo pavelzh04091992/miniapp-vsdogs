@@ -41,7 +41,7 @@ test('converts every lesson feedback prompt into a question and trainer guidance
       : description.split(/\r?\n/u).filter(Boolean).at(-1))
     .filter((line) => line?.includes('💬'));
 
-  assert.equal(prompts.length, 59);
+  assert.equal(prompts.length, 63);
 
   prompts.forEach((prompt) => {
     const copy = formatLessonFeedbackCopy(prompt);

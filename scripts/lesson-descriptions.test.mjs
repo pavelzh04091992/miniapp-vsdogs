@@ -3,11 +3,11 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const expectedDescriptionIds = Array.from(
-  { length: 59 },
+  { length: 63 },
   (_, index) => String(index + 1).padStart(2, '0'),
 );
 const supplementalFeedbackIds = Array.from(
-  { length: 20 },
+  { length: 24 },
   (_, index) => String(index + 40),
 );
 
@@ -74,12 +74,8 @@ test('keeps undocumented video lessons free of invented descriptions', async () 
     .sort();
 
   assert.deepEqual(undocumentedLessons, [
-    'adult-large-claws|Когти',
-    'adult-large-loneliness|Учим постепенно оставаться одному',
     'adult-large-scooters-bikes|Бросается на самокаты и велосипеды',
     'adult-large-wipe-muzzle|Вытри морду',
-    'conflicts-vandal|Мой щенок вандалит и разносит квартиру',
-    'fitness-left-right|Влево-вправо',
     'fitness-wipe-muzzle|Вытри морду (тач на тряпочку)',
   ]);
 });
@@ -100,6 +96,10 @@ test('maps the supplemental descriptions to their existing player cards', async 
   assert.match(descriptions['57'], /выраженный стресс/u);
   assert.match(descriptions['58'], /Упражнение «Зайка»/u);
   assert.match(descriptions['59'], /Упражнение «Домик»/u);
+  assert.match(descriptions['60'], /Лево–право/u);
+  assert.match(descriptions['61'], /разрушительное поведение/u);
+  assert.match(descriptions['62'], /взрослую собаку спокойно оставаться одной дома/u);
+  assert.match(descriptions['63'], /Приучение взрослой собаки к стрижке когтей/u);
   assert.match(
     appSource,
     /topicSlug: 'fitness-paw', lessonTitle: '«Дай лапу»', descriptionId: '54'/u,
@@ -124,6 +124,22 @@ test('maps the supplemental descriptions to their existing player cards', async 
     appSource,
     /topicSlug: 'fitness-house', lessonTitle: 'Домик', descriptionId: '59'/u,
   );
+  assert.match(
+    appSource,
+    /topicSlug: 'fitness-left-right', lessonTitle: 'Влево-вправо', descriptionId: '60'/u,
+  );
+  assert.match(
+    appSource,
+    /topicSlug: 'conflicts-vandal', lessonTitle: 'Мой щенок вандалит и разносит квартиру', descriptionId: '61'/u,
+  );
+  assert.match(
+    appSource,
+    /topicSlug: 'adult-large-loneliness', lessonTitle: 'Учим постепенно оставаться одному', descriptionId: '62'/u,
+  );
+  assert.match(
+    appSource,
+    /topicSlug: 'adult-large-claws', lessonTitle: 'Когти', descriptionId: '63'/u,
+  );
 });
 
 test('orders useful cards as trainer, seasonal, complex and fitness', async () => {
@@ -144,9 +160,11 @@ test('orders useful cards as trainer, seasonal, complex and fitness', async () =
 });
 
 function isDescriptionHeading(line) {
-  const normalizedLine = line.replace(/:$/u, '');
+  const normalizedLine = line
+    .replace(/^(?:🔹|⚠️|💡)\s*/u, '')
+    .replace(/:$/u, '');
 
-  return /^(?:Как (?:учим|играем|работаем|кормим|приучаем|организуем|выполняем|обучаем)|Подготовка|Результат|Частые ошибки|Особенности 🐾|Важные особенности 🐾|Главное 🐕|С чего начать\? 🐾|Что важно (?:понять|помнить 🐾)|Что можно использовать|Как устроен коготь 🐾|Зачем .+ 🐾)$/u.test(normalizedLine)
+  return /^(?:Как (?:учим|играем|работаем|кормим|приучаем|организуем|выполняем|обучаем)|Подготовка|Результат|Частые ошибки|Особенности 🐾|Важные особенности 🐾|Главное 🐕|Главное правило|С чего начать\? 🐾|Что важно (?:понять|помнить 🐾)|Что можно использовать|Как устроен коготь 🐾|Зачем .+ 🐾|Разберём основные этапы обучения|Разберём распространённые ошибки и способы их исправления)$/u.test(normalizedLine)
     || /^(?:В этом |В )видео (?:разберём|поговорим о том|покажем(?: несколько простых игр)?)$/iu.test(normalizedLine)
     || /^(?:Упражнение развивает|Этот трюк помогает развивать|Главная последовательность|Полный навык выглядит так|Понятный сценарий выглядит так)$/u.test(normalizedLine);
 }

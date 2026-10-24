@@ -1541,6 +1541,7 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'home-toilet', lessonTitle: 'Приучение к улице и режим', descriptionId: '35' },
   { topicSlug: 'home-toilet', lessonTitle: 'Метки дома', descriptionId: '35' },
   { topicSlug: 'conflicts-biting-hands', lessonTitle: 'Грызёт руки и ноги: спокойная и правильная игра', descriptionId: '03' },
+  { topicSlug: 'conflicts-vandal', lessonTitle: 'Мой щенок вандалит и разносит квартиру', descriptionId: '61' },
   { topicSlug: 'conflicts-resource-guarding', lessonTitle: 'Охраняет чашку, вещи и игрушки', descriptionId: '14' },
   { topicSlug: 'conflicts-barks-at-people', lessonTitle: 'Лает на людей или собак', descriptionId: '29' },
   { topicSlug: 'conflicts-neutering', lessonTitle: 'Кастрировать или стерилизовать?', descriptionId: '18' },
@@ -1557,6 +1558,7 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'fitness-house', lessonTitle: 'Домик', descriptionId: '59' },
   { topicSlug: 'fitness-paw', lessonTitle: '«Дай лапу»', descriptionId: '54' },
   { topicSlug: 'fitness-spin', lessonTitle: 'Круть-верть', descriptionId: '55' },
+  { topicSlug: 'fitness-left-right', lessonTitle: 'Влево-вправо', descriptionId: '60' },
   { topicSlug: 'adult-large-leash', lessonTitle: 'Как отучить тянуть поводок?', descriptionId: '22' },
   { topicSlug: 'adult-large-leash', lessonTitle: 'Ошейник или шлейка?', descriptionId: '21' },
   { topicSlug: 'adult-large-leash', lessonTitle: 'Поводок или рулетка?', descriptionId: '23' },
@@ -1574,6 +1576,7 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'adult-large-barking', lessonTitle: 'Приучаем к звукам: домофон и хлопки', descriptionId: '37' },
   { topicSlug: 'adult-large-loneliness', lessonTitle: 'Убираем страх и повышаем уверенность в себе', descriptionId: '15' },
   { topicSlug: 'adult-large-loneliness', lessonTitle: 'Правильная организация пространства', descriptionId: '02' },
+  { topicSlug: 'adult-large-loneliness', lessonTitle: 'Учим постепенно оставаться одному', descriptionId: '62' },
   { topicSlug: 'adult-large-jumping-on-guests', lessonTitle: 'Правильный приход/выход из дома', descriptionId: '38' },
   { topicSlug: 'adult-large-jumping-on-guests', lessonTitle: 'Прыжки на гостей', descriptionId: '39' },
   { topicSlug: 'adult-large-begging', lessonTitle: 'Команда «место»', descriptionId: '19' },
@@ -1590,6 +1593,7 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'adult-large-sounds', lessonTitle: 'Боязнь звуков', descriptionId: '31' },
   { topicSlug: 'adult-large-cars', lessonTitle: 'Приучаем постепенно к машине', descriptionId: '32' },
   { topicSlug: 'adult-large-new-places', lessonTitle: 'Страх лестницы и лифта', descriptionId: '33' },
+  { topicSlug: 'adult-large-claws', lessonTitle: 'Когти', descriptionId: '63' },
   { topicSlug: 'adult-large-paws', lessonTitle: 'Лапы', descriptionId: '44' },
   { topicSlug: 'adult-large-eight', lessonTitle: 'Восемь', descriptionId: '45' },
   { topicSlug: 'adult-large-go-around', lessonTitle: 'Обойди', descriptionId: '46' },
@@ -2588,10 +2592,10 @@ function parseLessonDescriptionSections(description: string): LessonDescriptionS
 }
 
 function isLessonDescriptionHeading(line: string): boolean {
-  const normalizedLine = line.replace(/:$/, '');
+  const normalizedLine = normalizeLessonDescriptionHeading(line);
 
   if (
-    /^(?:Как (?:учим|играем|работаем|кормим|приучаем|организуем|выполняем)|Подготовка|Результат|Частые ошибки|Особенности 🐾|Важные особенности 🐾|Что важно (?:понять|помнить 🐾)|Что можно использовать|Как устроен коготь 🐾|Зачем .+ 🐾)$/.test(normalizedLine)
+    /^(?:Как (?:учим|играем|работаем|кормим|приучаем|организуем|выполняем)|Подготовка|Результат|Частые ошибки|Особенности 🐾|Важные особенности 🐾|Что важно (?:понять|помнить 🐾)|Что можно использовать|Как устроен коготь 🐾|Зачем .+ 🐾|Разберём основные этапы обучения|Разберём распространённые ошибки и способы их исправления|Главное правило)$/.test(normalizedLine)
   ) {
     return true;
   }
@@ -2610,11 +2614,18 @@ function isLessonDescriptionHeading(line: string): boolean {
 }
 
 function getLessonDescriptionSectionTone(title: string): LessonDescriptionTone {
-  if (title.startsWith('Частые ошибки')) {
+  const normalizedTitle = normalizeLessonDescriptionHeading(title);
+
+  if (normalizedTitle.startsWith('Частые ошибки') || normalizedTitle.includes('ошибки и способы их исправления')) {
     return 'mistakes';
   }
 
-  if (title.includes('Особенности') || title.includes('Важно') || title.endsWith('🐾')) {
+  if (
+    normalizedTitle.includes('Особенности')
+    || normalizedTitle.includes('Важно')
+    || normalizedTitle === 'Главное правило'
+    || normalizedTitle.endsWith('🐾')
+  ) {
     return 'note';
   }
 
@@ -2629,7 +2640,10 @@ function createLessonDescriptionSectionMarkup(section: LessonDescriptionSection)
   ]
     .filter(Boolean)
     .join(' ');
-  const visibleTitle = section.title?.replace(/\s*🐾\s*$/, '') ?? '';
+  const visibleTitle = section.title
+    ?.replace(/^(?:🔹|⚠️|💡)\s*/u, '')
+    .replace(/:\s*$/u, '')
+    .replace(/\s*🐾\s*$/u, '') ?? '';
   const headingIcon = section.tone === 'note'
     ? createLessonDescriptionIcon('note')
     : '';
@@ -2643,6 +2657,13 @@ function createLessonDescriptionSectionMarkup(section: LessonDescriptionSection)
       ${createLessonDescriptionBlocksMarkup(section.lines, !section.title)}
     </section>
   `;
+}
+
+function normalizeLessonDescriptionHeading(line: string): string {
+  return line
+    .replace(/^(?:🔹|⚠️|💡)\s*/u, '')
+    .replace(/:\s*$/u, '')
+    .trim();
 }
 
 function createLessonDescriptionBlocksMarkup(
@@ -3325,4 +3346,3 @@ function escapeHtml(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;');
 }
-
