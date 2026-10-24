@@ -46,6 +46,21 @@ test('uses browser history for a complete forward navigation chain', () => {
   assert.equal(canUseBrowserBack(adult, 'adult-large', 'home'), true);
 });
 
+test('keeps puppy fitness separate from the combined fitness route', () => {
+  const home = normalizeInitialHistoryState({}, 'home');
+  const puppies = createForwardHistoryState(home, 'home', 'puppies');
+  const fitness = createForwardHistoryState(puppies, 'puppies', 'puppy-fitness');
+  const topic = createForwardHistoryState(
+    fitness,
+    'puppy-fitness',
+    'puppy-topic:fitness-bow',
+  );
+
+  assert.equal(canUseBrowserBack(topic, 'puppy-topic:fitness-bow', 'puppy-fitness'), true);
+  assert.equal(canUseBrowserBack(fitness, 'puppy-fitness', 'puppies'), true);
+  assert.notEqual(fitness.appRoute, 'fitness');
+});
+
 test('replaces direct deep links instead of creating a player and parent loop', () => {
   const player = normalizeInitialHistoryState({}, 'lesson-video:adult-video');
 
@@ -115,9 +130,10 @@ test('keeps every back-button family on an acyclic parent route', async () => {
   );
   assert.match(
     source,
-    /createTopicLessonsMarkup[\s\S]*?`puppy-situation:\$\{topic\.parentSlug\}`/u,
+    /createTopicLessonsMarkup[\s\S]*?getPuppySituationRoute\(topic\.parentSlug\)/u,
   );
   assert.match(source, /createSituationTopicsMarkup\('fitness', 'home', true\)/u);
+  assert.match(source, /route === 'puppy-fitness'[\s\S]*?createSituationTopicsMarkup\('fitness'\)/u);
   assert.match(source, /data-route="\$\{video\.backRoute\}"/u);
   assert.match(source, /complex-screen__back[\s\S]*?data-route="home"/u);
   assert.match(source, /complex-levels__back[\s\S]*?data-route="complex"/u);

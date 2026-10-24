@@ -498,6 +498,10 @@ function getRouteTransitionDirection(from: AppRoute | null, to: AppRoute): PageT
       return 1;
     }
 
+    if (route === 'puppy-fitness') {
+      return 2;
+    }
+
     if (route.startsWith('complex-levels:')) {
       return 2;
     }
@@ -684,6 +688,10 @@ function getCurrentRoute(): AppRoute {
 
   if (hash === 'fitness') {
     return 'fitness';
+  }
+
+  if (hash === 'puppy-fitness') {
+    return 'puppy-fitness';
   }
 
   if (hash === 'complex-levels:timed' || hash === 'complex-levels:self-check') {

@@ -103,6 +103,7 @@ export type AdultLargeTopicSlug =
 export type AppRoute =
   | 'home'
   | 'fitness'
+  | 'puppy-fitness'
   | 'complex'
   | 'complex-levels:timed'
   | 'complex-levels:self-check'
@@ -1777,6 +1778,10 @@ export function createAppMarkup(
     return createSituationTopicsMarkup('fitness', 'home', true);
   }
 
+  if (route === 'puppy-fitness') {
+    return createSituationTopicsMarkup('fitness');
+  }
+
   if (route === 'complex-levels:timed') {
     return createComplexLevelsMarkup('timed');
   }
@@ -2308,7 +2313,7 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
     return createPuppiesMarkup('all');
   }
 
-  const backRoute: AppRoute = `puppy-situation:${topic.parentSlug}`;
+  const backRoute = getPuppySituationRoute(topic.parentSlug);
 
   const extraFeedSection =
     topic.videoSourceSlug
@@ -3184,7 +3189,7 @@ function createSituationCard(
     <button
       class="situation-card ${getAlternatingCardClass('situation', index, firstColor)}"
       type="button"
-      data-route="puppy-situation:${situation.slug}"
+      data-route="${getPuppySituationRoute(situation.slug)}"
     >
       <span class="situation-card__media">
         <img src="${situation.imagePath}" alt="" />
@@ -3201,6 +3206,10 @@ function createSituationCard(
       </span>
     </button>
   `;
+}
+
+function getPuppySituationRoute(slug: PuppySituationSlug): AppRoute {
+  return slug === 'fitness' ? 'puppy-fitness' : `puppy-situation:${slug}`;
 }
 
 function createAdultLargeSituationCard(

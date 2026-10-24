@@ -73,6 +73,8 @@ test('opens fitness as a regular subsection with its optimized green hero', asyn
 
   assert.match(appSource, /createUsefulCard\([\s\S]*?'Фитнес'[\s\S]*?'fitness'/);
   assert.match(appSource, /createSituationTopicsMarkup\('fitness', 'home', true\)/);
+  assert.match(appSource, /route === 'puppy-fitness'[\s\S]*?createSituationTopicsMarkup\('fitness'\)/);
+  assert.match(appSource, /slug === 'fitness' \? 'puppy-fitness' : `puppy-situation:\$\{slug\}`/);
   assert.match(appSource, /puppy-hero puppy-hero--fitness/);
   assert.match(appSource, /assets\/images\/programs\/fitness-hero\.webp/);
   assert.match(appSource, /Для щенков/);
@@ -80,12 +82,13 @@ test('opens fitness as a regular subsection with its optimized green hero', asyn
   assert.match(appSource, /get\('adult-large-fitness'\)[\s\S]*?createAdultLargeTopicCard/);
   assert.match(appSource, /includeAdultFitness = false/);
   assert.match(appSource, /includeAdultFitness \? 'Для щенков' : 'Подразделы'/);
-  assert.match(appSource, /const backRoute: AppRoute = `puppy-situation:\$\{topic\.parentSlug\}`/);
+  assert.match(appSource, /const backRoute = getPuppySituationRoute\(topic\.parentSlug\)/);
   assert.match(appSource, /const backRoute: AppRoute = `adult-large-situation:\$\{topic\.parentSlug\}`/);
   assert.match(styles, /\.puppy-hero--fitness\s*\{[\s\S]*?linear-gradient\([\s\S]*?#218a5d/);
   assert.match(styles, /\.puppy-hero__image--fitness\s*\{[\s\S]*?height: auto[\s\S]*?aspect-ratio: 1/);
   assert.match(styles, /\.puppy-hero__image--fitness\s*\{[\s\S]*?width: clamp\(210px, 52vw, 228px\)/);
   assert.match(mainSource, /hash === 'fitness'/);
+  assert.match(mainSource, /hash === 'puppy-fitness'/);
 });
 
 test('alternates catalog cards by visible position and keeps fitness endpoints apart', async () => {
@@ -115,7 +118,7 @@ test('keeps back navigation in the actual puppy or adult fitness branch', async 
     readFile(new URL('../src/main.ts', import.meta.url), 'utf8'),
   ]);
 
-  assert.match(appSource, /data-route="puppy-situation:\$\{situation\.slug\}"/);
+  assert.match(appSource, /data-route="\$\{getPuppySituationRoute\(situation\.slug\)\}"/);
   assert.match(appSource, /data-route="adult-large-situation:\$\{situation\.slug\}"/);
   assert.match(appSource, /registerLessonVideo\(lesson, `puppy-topic:\$\{topic\.slug\}`\)/);
   assert.match(appSource, /registerLessonVideo\(lesson, `adult-large-topic:\$\{topic\.slug\}`\)/);
