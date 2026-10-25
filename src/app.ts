@@ -1775,7 +1775,7 @@ export function createAppMarkup(
   }
 
   if (route === 'fitness') {
-    return createSituationTopicsMarkup('fitness', 'home', true);
+    return createFitnessMarkup();
   }
 
   if (route === 'puppy-fitness') {
@@ -2210,20 +2210,20 @@ function createAdultLargeTopicLessonsMarkup(slug: AdultLargeTopicSlug): string {
   `;
 }
 
-function createSituationTopicsMarkup(
-  slug: PuppySituationSlug,
-  backRoute: AppRoute = 'puppies',
-  includeAdultFitness = false,
-): string {
-  const situation = puppySituationsBySlug.get(slug);
+function createFitnessMarkup(): string {
+  const puppyFitness = puppySituationsBySlug.get('fitness');
+  const adultFitness = adultLargeSituationsBySlug.get('adult-large-fitness');
 
-  if (!situation) {
-    return createPuppiesMarkup('all');
+  if (!puppyFitness || !adultFitness) {
+    return createHomeMarkup();
   }
 
-  const heroMarkup =
-    situation.slug === 'fitness' && includeAdultFitness
-      ? `
+  return `
+    <div class="app-shell">
+      ${createSubpageHeaderMarkup('Фитнес', 'home')}
+
+      <main class="screen-content">
+        <div class="content-frame">
           <section class="puppy-hero puppy-hero--fitness" aria-labelledby="fitness-hero-title">
             <div class="puppy-hero__content">
               <h2 id="fitness-hero-title">Фитнес<br />для собак</h2>
@@ -2246,38 +2246,50 @@ function createSituationTopicsMarkup(
               />
             </div>
           </section>
-        `
-      : '';
+
+          <section class="section-block section-block--detail-first" aria-labelledby="general-puppy-fitness-title">
+            <div class="section-heading section-heading--solo">
+              <h2 id="general-puppy-fitness-title">Для щенков</h2>
+            </div>
+            <div class="topic-list">
+              ${puppyFitness.topics.map((topic, index) => createTopicCard(topic, index, 'blue')).join('')}
+            </div>
+          </section>
+
+          <section class="section-block" aria-labelledby="general-adult-fitness-title">
+            <div class="section-heading section-heading--solo">
+              <h2 id="general-adult-fitness-title">Для взрослых собак</h2>
+            </div>
+            <div class="topic-list">
+              ${adultFitness.topics.map((topic, index) => createAdultLargeTopicCard(topic, index, 'blue')).join('')}
+            </div>
+          </section>
+        </div>
+      </main>
+
+      ${createBottomNav('lessons')}
+    </div>
+  `;
+}
+
+function createSituationTopicsMarkup(slug: PuppySituationSlug): string {
+  const situation = puppySituationsBySlug.get(slug);
+
+  if (!situation) {
+    return createPuppiesMarkup('all');
+  }
 
   const topicSectionsMarkup =
     situation.slug === 'fitness'
       ? `
           <section class="section-block section-block--detail-first" aria-labelledby="puppy-fitness-topics-title">
             <div class="section-heading section-heading--solo">
-              <h2 id="puppy-fitness-topics-title">${includeAdultFitness ? 'Для щенков' : 'Подразделы'}</h2>
+              <h2 id="puppy-fitness-topics-title">Подразделы</h2>
             </div>
             <div class="topic-list">
               ${situation.topics.map((topic, index) => createTopicCard(topic, index, 'blue')).join('')}
             </div>
           </section>
-
-          ${includeAdultFitness
-            ? `
-                <section class="section-block" aria-labelledby="adult-fitness-topics-title">
-                  <div class="section-heading section-heading--solo">
-                    <h2 id="adult-fitness-topics-title">Для взрослых собак</h2>
-                  </div>
-                  <div class="topic-list">
-                    ${
-                      adultLargeSituationsBySlug
-                        .get('adult-large-fitness')
-                        ?.topics.map((topic, index) => createAdultLargeTopicCard(topic, index, 'blue'))
-                        .join('') ?? ''
-                    }
-                  </div>
-                </section>
-              `
-            : ''}
         `
       : `
           <section class="section-block section-block--detail-first">
@@ -2292,11 +2304,10 @@ function createSituationTopicsMarkup(
 
   return `
     <div class="app-shell">
-      ${createSubpageHeaderMarkup(situation.title, backRoute)}
+      ${createSubpageHeaderMarkup(situation.title, 'puppies')}
 
       <main class="screen-content">
         <div class="content-frame">
-          ${heroMarkup}
           ${topicSectionsMarkup}
         </div>
       </main>

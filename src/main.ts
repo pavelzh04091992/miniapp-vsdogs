@@ -793,13 +793,32 @@ function navigateTo(route: AppRoute): void {
 function navigateBack(fallbackRoute: AppRoute): void {
   const currentRoute = getCurrentRoute();
   const historyState = getHistoryState();
+  const allowedParentRoutes = getAllowedParentRoutes(currentRoute, fallbackRoute);
 
-  if (canUseBrowserBack(historyState, currentRoute, fallbackRoute)) {
+  if (canUseBrowserBack(historyState, currentRoute, allowedParentRoutes)) {
     window.history.back();
     return;
   }
 
   replaceRouteWithFallback(fallbackRoute);
+}
+
+function getAllowedParentRoutes(
+  currentRoute: AppRoute,
+  fallbackRoute: AppRoute,
+): readonly AppRoute[] {
+  if (currentRoute.startsWith('puppy-topic:') && fallbackRoute === 'puppy-fitness') {
+    return ['puppy-fitness', 'fitness'];
+  }
+
+  if (
+    currentRoute.startsWith('adult-large-topic:')
+    && fallbackRoute === 'adult-large-situation:adult-large-fitness'
+  ) {
+    return ['adult-large-situation:adult-large-fitness', 'fitness'];
+  }
+
+  return [fallbackRoute];
 }
 
 function replaceRouteWithFallback(route: AppRoute): void {

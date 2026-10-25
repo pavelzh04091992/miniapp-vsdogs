@@ -64,25 +64,32 @@ test('retires the previous header as the complex screen opens', async () => {
   assert.match(styles, /\.app-shell--complex-transition-underlay-exit > \.home-header/);
 });
 
-test('keeps the optimized green hero only on the combined fitness page', async () => {
+test('renders combined and puppy fitness with independent page builders', async () => {
   const [appSource, mainSource, styles] = await Promise.all([
     readFile(new URL('../src/app.ts', import.meta.url), 'utf8'),
     readFile(new URL('../src/main.ts', import.meta.url), 'utf8'),
     readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
   ]);
+  const combinedFitnessMarkup = appSource.slice(
+    appSource.indexOf('function createFitnessMarkup'),
+    appSource.indexOf('function createSituationTopicsMarkup'),
+  );
+  const puppyFitnessMarkup = appSource.slice(
+    appSource.indexOf('function createSituationTopicsMarkup'),
+    appSource.indexOf('function createTopicLessonsMarkup'),
+  );
 
   assert.match(appSource, /createUsefulCard\([\s\S]*?'Фитнес'[\s\S]*?'fitness'/);
-  assert.match(appSource, /createSituationTopicsMarkup\('fitness', 'home', true\)/);
+  assert.match(appSource, /route === 'fitness'[\s\S]*?createFitnessMarkup\(\)/);
   assert.match(appSource, /route === 'puppy-fitness'[\s\S]*?createSituationTopicsMarkup\('fitness'\)/);
   assert.match(appSource, /slug === 'fitness' \? 'puppy-fitness' : `puppy-situation:\$\{slug\}`/);
-  assert.match(appSource, /puppy-hero puppy-hero--fitness/);
-  assert.match(appSource, /assets\/images\/programs\/fitness-hero\.webp/);
-  assert.match(appSource, /Для щенков/);
-  assert.match(appSource, /Для взрослых собак/);
-  assert.match(appSource, /get\('adult-large-fitness'\)[\s\S]*?createAdultLargeTopicCard/);
-  assert.match(appSource, /includeAdultFitness = false/);
-  assert.match(appSource, /situation\.slug === 'fitness' && includeAdultFitness/);
-  assert.match(appSource, /includeAdultFitness \? 'Для щенков' : 'Подразделы'/);
+  assert.match(combinedFitnessMarkup, /puppy-hero puppy-hero--fitness/);
+  assert.match(combinedFitnessMarkup, /assets\/images\/programs\/fitness-hero\.webp/);
+  assert.match(combinedFitnessMarkup, /Для щенков/);
+  assert.match(combinedFitnessMarkup, /Для взрослых собак/);
+  assert.match(combinedFitnessMarkup, /createAdultLargeTopicCard/);
+  assert.doesNotMatch(puppyFitnessMarkup, /puppy-hero/);
+  assert.doesNotMatch(puppyFitnessMarkup, /includeAdultFitness/);
   assert.match(appSource, /const backRoute = getPuppySituationRoute\(topic\.parentSlug\)/);
   assert.match(appSource, /const backRoute: AppRoute = `adult-large-situation:\$\{topic\.parentSlug\}`/);
   assert.match(styles, /\.puppy-hero--fitness\s*\{[\s\S]*?linear-gradient\([\s\S]*?#218a5d/);
@@ -126,7 +133,8 @@ test('keeps back navigation in the actual puppy or adult fitness branch', async 
   assert.doesNotMatch(appSource, /topic\.parentSlug === '(?:fitness|adult-large-fitness)'/);
   assert.match(mainSource, /initializeRouteHistory\(\)/);
   assert.match(mainSource, /routeButton\.classList\.contains\('back-button'\)[\s\S]*?navigateBack\(route\)/);
-  assert.match(mainSource, /canUseBrowserBack\(historyState, currentRoute, fallbackRoute\)/);
+  assert.match(mainSource, /getAllowedParentRoutes\(currentRoute, fallbackRoute\)/);
+  assert.match(mainSource, /canUseBrowserBack\(historyState, currentRoute, allowedParentRoutes\)/);
   assert.match(mainSource, /window\.history\.back\(\)/);
   assert.match(mainSource, /replaceRouteWithFallback\(fallbackRoute\)/);
   assert.doesNotMatch(mainSource, /navigateTo\(fallbackRoute\)/);

@@ -61,6 +61,37 @@ test('keeps puppy fitness separate from the combined fitness route', () => {
   assert.notEqual(fitness.appRoute, 'fitness');
 });
 
+test('returns fitness topics to the catalog that opened them', () => {
+  const home = normalizeInitialHistoryState({}, 'home');
+  const commonFitness = createForwardHistoryState(home, 'home', 'fitness');
+  const puppyTopic = createForwardHistoryState(
+    commonFitness,
+    'fitness',
+    'puppy-topic:fitness-bow',
+  );
+  const adultTopic = createForwardHistoryState(
+    commonFitness,
+    'fitness',
+    'adult-large-topic:adult-large-eight',
+  );
+
+  assert.equal(canUseBrowserBack(
+    puppyTopic,
+    'puppy-topic:fitness-bow',
+    ['puppy-fitness', 'fitness'],
+  ), true);
+  assert.equal(canUseBrowserBack(
+    adultTopic,
+    'adult-large-topic:adult-large-eight',
+    ['adult-large-situation:adult-large-fitness', 'fitness'],
+  ), true);
+  assert.equal(canUseBrowserBack(
+    { ...puppyTopic, appParentRoute: 'adult-large' },
+    'puppy-topic:fitness-bow',
+    ['puppy-fitness', 'fitness'],
+  ), false);
+});
+
 test('replaces direct deep links instead of creating a player and parent loop', () => {
   const player = normalizeInitialHistoryState({}, 'lesson-video:adult-video');
 
@@ -126,13 +157,13 @@ test('keeps every back-button family on an acyclic parent route', async () => {
   );
   assert.match(
     source,
-    /createSituationTopicsMarkup\([\s\S]*?backRoute: AppRoute = 'puppies'[\s\S]*?createSubpageHeaderMarkup\(situation\.title, backRoute\)/u,
+    /createSituationTopicsMarkup[\s\S]*?createSubpageHeaderMarkup\(situation\.title, 'puppies'\)/u,
   );
   assert.match(
     source,
     /createTopicLessonsMarkup[\s\S]*?getPuppySituationRoute\(topic\.parentSlug\)/u,
   );
-  assert.match(source, /createSituationTopicsMarkup\('fitness', 'home', true\)/u);
+  assert.match(source, /route === 'fitness'[\s\S]*?createFitnessMarkup\(\)/u);
   assert.match(source, /route === 'puppy-fitness'[\s\S]*?createSituationTopicsMarkup\('fitness'\)/u);
   assert.match(source, /data-route="\$\{video\.backRoute\}"/u);
   assert.match(source, /complex-screen__back[\s\S]*?data-route="home"/u);
