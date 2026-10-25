@@ -104,7 +104,6 @@ export type AppRoute =
   | 'home'
   | 'fitness'
   | 'puppy-fitness'
-  | 'adult-fitness'
   | 'complex'
   | 'complex-levels:timed'
   | 'complex-levels:self-check'
@@ -1776,15 +1775,11 @@ export function createAppMarkup(
   }
 
   if (route === 'fitness') {
-    return createFitnessMarkup();
+    return createSituationTopicsMarkup('fitness', 'home', true);
   }
 
   if (route === 'puppy-fitness') {
     return createSituationTopicsMarkup('fitness');
-  }
-
-  if (route === 'adult-fitness') {
-    return createAdultLargeSituationTopicsMarkup('adult-large-fitness');
   }
 
   if (route === 'complex-levels:timed') {
@@ -2155,73 +2150,6 @@ function createAdultLargeMarkup(): string {
   `;
 }
 
-function createFitnessHeroMarkup(title: string, description: string, titleId: string): string {
-  return `
-    <section class="puppy-hero puppy-hero--fitness" aria-labelledby="${escapeHtml(titleId)}">
-      <div class="puppy-hero__content">
-        <h2 id="${escapeHtml(titleId)}">${escapeHtml(title)}</h2>
-        <p class="puppy-hero__description">${escapeHtml(description)}</p>
-      </div>
-
-      <div class="puppy-hero__media" aria-hidden="true">
-        <span class="puppy-hero__decor puppy-hero__decor--top"></span>
-        <span class="puppy-hero__decor puppy-hero__decor--bottom"></span>
-        <img
-          class="puppy-hero__image puppy-hero__image--fitness"
-          src="/assets/images/programs/fitness-hero.webp"
-          width="1254"
-          height="1254"
-          decoding="async"
-          fetchpriority="high"
-          alt=""
-        />
-      </div>
-    </section>
-  `;
-}
-
-function createFitnessMarkup(): string {
-  const puppyFitness = puppySituationsBySlug.get('fitness');
-  const adultFitness = adultLargeSituationsBySlug.get('adult-large-fitness');
-
-  if (!puppyFitness || !adultFitness) {
-    return createHomeMarkup();
-  }
-
-  const puppyFitnessCard: PuppySituation = {
-    ...puppyFitness,
-    title: 'Фитнес для щенков',
-  };
-
-  return `
-    <div class="app-shell">
-      ${createSubpageHeaderMarkup('Фитнес', 'home')}
-
-      <main class="screen-content">
-        <div class="content-frame">
-          ${createFitnessHeroMarkup(
-            'Фитнес для собак',
-            'Выберите программу по возрасту собаки',
-            'fitness-hero-title',
-          )}
-
-          <section class="section-block section-block--detail-first" aria-labelledby="fitness-programs-title">
-            <div class="section-heading section-heading--solo">
-              <h2 id="fitness-programs-title">Выберите программу</h2>
-            </div>
-            <div class="situation-list">
-              ${createSituationCard(puppyFitnessCard, 0, 'blue')}
-              ${createAdultLargeSituationCard(adultFitness, 1, 'blue')}
-            </div>
-          </section>
-        </div>
-      </main>
-
-      ${createBottomNav('lessons')}
-    </div>
-  `;
-}
-
 function createAdultLargeSituationTopicsMarkup(slug: AdultLargeSituationSlug): string {
   const situation = adultLargeSituationsBySlug.get(slug);
 
@@ -2229,21 +2157,12 @@ function createAdultLargeSituationTopicsMarkup(slug: AdultLargeSituationSlug): s
     return createAdultLargeMarkup();
   }
 
-  const heroMarkup = situation.slug === 'adult-large-fitness'
-    ? createFitnessHeroMarkup(
-        'Фитнес для взрослых',
-        'Упражнения на координацию, контроль тела и контакт',
-        'adult-fitness-hero-title',
-      )
-    : '';
-
   return `
     <div class="app-shell">
       ${createSubpageHeaderMarkup(situation.title, 'adult-large')}
 
       <main class="screen-content">
         <div class="content-frame">
-          ${heroMarkup}
           <section class="section-block section-block--detail-first">
             <div class="section-heading section-heading--solo">
               <h2>Подразделы</h2>
@@ -2267,7 +2186,7 @@ function createAdultLargeTopicLessonsMarkup(slug: AdultLargeTopicSlug): string {
     return createAdultLargeMarkup();
   }
 
-  const backRoute = getAdultLargeSituationRoute(topic.parentSlug);
+  const backRoute: AppRoute = `adult-large-situation:${topic.parentSlug}`;
 
   return `
     <div class="app-shell">
@@ -2291,7 +2210,11 @@ function createAdultLargeTopicLessonsMarkup(slug: AdultLargeTopicSlug): string {
   `;
 }
 
-function createSituationTopicsMarkup(slug: PuppySituationSlug): string {
+function createSituationTopicsMarkup(
+  slug: PuppySituationSlug,
+  backRoute: AppRoute = 'puppies',
+  includeAdultFitness = false,
+): string {
   const situation = puppySituationsBySlug.get(slug);
 
   if (!situation) {
@@ -2299,12 +2222,31 @@ function createSituationTopicsMarkup(slug: PuppySituationSlug): string {
   }
 
   const heroMarkup =
-    situation.slug === 'fitness'
-      ? createFitnessHeroMarkup(
-          'Фитнес для щенков',
-          'Упражнения на координацию, контроль тела и контакт',
-          'puppy-fitness-hero-title',
-        )
+    situation.slug === 'fitness' && includeAdultFitness
+      ? `
+          <section class="puppy-hero puppy-hero--fitness" aria-labelledby="fitness-hero-title">
+            <div class="puppy-hero__content">
+              <h2 id="fitness-hero-title">Фитнес<br />для собак</h2>
+              <p class="puppy-hero__description">
+                Упражнения на координацию, контроль тела и контакт
+              </p>
+            </div>
+
+            <div class="puppy-hero__media" aria-hidden="true">
+              <span class="puppy-hero__decor puppy-hero__decor--top"></span>
+              <span class="puppy-hero__decor puppy-hero__decor--bottom"></span>
+              <img
+                class="puppy-hero__image puppy-hero__image--fitness"
+                src="/assets/images/programs/fitness-hero.webp"
+                width="1254"
+                height="1254"
+                decoding="async"
+                fetchpriority="high"
+                alt=""
+              />
+            </div>
+          </section>
+        `
       : '';
 
   const topicSectionsMarkup =
@@ -2312,12 +2254,30 @@ function createSituationTopicsMarkup(slug: PuppySituationSlug): string {
       ? `
           <section class="section-block section-block--detail-first" aria-labelledby="puppy-fitness-topics-title">
             <div class="section-heading section-heading--solo">
-              <h2 id="puppy-fitness-topics-title">Подразделы</h2>
+              <h2 id="puppy-fitness-topics-title">${includeAdultFitness ? 'Для щенков' : 'Подразделы'}</h2>
             </div>
             <div class="topic-list">
               ${situation.topics.map((topic, index) => createTopicCard(topic, index, 'blue')).join('')}
             </div>
           </section>
+
+          ${includeAdultFitness
+            ? `
+                <section class="section-block" aria-labelledby="adult-fitness-topics-title">
+                  <div class="section-heading section-heading--solo">
+                    <h2 id="adult-fitness-topics-title">Для взрослых собак</h2>
+                  </div>
+                  <div class="topic-list">
+                    ${
+                      adultLargeSituationsBySlug
+                        .get('adult-large-fitness')
+                        ?.topics.map((topic, index) => createAdultLargeTopicCard(topic, index, 'blue'))
+                        .join('') ?? ''
+                    }
+                  </div>
+                </section>
+              `
+            : ''}
         `
       : `
           <section class="section-block section-block--detail-first">
@@ -2332,10 +2292,7 @@ function createSituationTopicsMarkup(slug: PuppySituationSlug): string {
 
   return `
     <div class="app-shell">
-      ${createSubpageHeaderMarkup(
-        situation.slug === 'fitness' ? 'Фитнес для щенков' : situation.title,
-        'puppies',
-      )}
+      ${createSubpageHeaderMarkup(situation.title, backRoute)}
 
       <main class="screen-content">
         <div class="content-frame">
@@ -3255,12 +3212,6 @@ function getPuppySituationRoute(slug: PuppySituationSlug): AppRoute {
   return slug === 'fitness' ? 'puppy-fitness' : `puppy-situation:${slug}`;
 }
 
-function getAdultLargeSituationRoute(slug: AdultLargeSituationSlug): AppRoute {
-  return slug === 'adult-large-fitness'
-    ? 'adult-fitness'
-    : `adult-large-situation:${slug}`;
-}
-
 function createAdultLargeSituationCard(
   situation: AdultLargeSituation,
   index: number,
@@ -3270,7 +3221,7 @@ function createAdultLargeSituationCard(
     <button
       class="situation-card ${getAlternatingCardClass('situation', index, firstColor)}"
       type="button"
-      data-route="${getAdultLargeSituationRoute(situation.slug)}"
+      data-route="adult-large-situation:${situation.slug}"
     >
       <span class="situation-card__media">
         <img src="${situation.imagePath}" alt="" />

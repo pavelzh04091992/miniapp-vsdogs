@@ -29,14 +29,10 @@ export function createForwardHistoryState(
 export function canUseBrowserBack(
   historyState: AppHistoryState,
   currentRoute: AppRoute,
-  allowedParentRoutes: AppRoute | readonly AppRoute[],
+  fallbackRoute: AppRoute,
 ): boolean {
-  const parentRoutes = Array.isArray(allowedParentRoutes)
-    ? allowedParentRoutes
-    : [allowedParentRoutes];
-
   return historyState.appRoute === currentRoute
-    && parentRoutes.includes(historyState.appParentRoute as AppRoute)
+    && historyState.appParentRoute === fallbackRoute
     && getNavigationDepth(historyState) > 0;
 }
 
