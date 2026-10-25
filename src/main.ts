@@ -498,7 +498,7 @@ function getRouteTransitionDirection(from: AppRoute | null, to: AppRoute): PageT
       return 1;
     }
 
-    if (route === 'puppy-fitness') {
+    if (route === 'puppy-fitness' || route === 'adult-fitness') {
       return 2;
     }
 
@@ -694,6 +694,10 @@ function getCurrentRoute(): AppRoute {
     return 'puppy-fitness';
   }
 
+  if (hash === 'adult-fitness') {
+    return 'adult-fitness';
+  }
+
   if (hash === 'complex-levels:timed' || hash === 'complex-levels:self-check') {
     return hash;
   }
@@ -793,13 +797,37 @@ function navigateTo(route: AppRoute): void {
 function navigateBack(fallbackRoute: AppRoute): void {
   const currentRoute = getCurrentRoute();
   const historyState = getHistoryState();
+  const allowedParentRoutes = getAllowedParentRoutes(currentRoute, fallbackRoute);
 
-  if (canUseBrowserBack(historyState, currentRoute, fallbackRoute)) {
+  if (canUseBrowserBack(historyState, currentRoute, allowedParentRoutes)) {
     window.history.back();
     return;
   }
 
   replaceRouteWithFallback(fallbackRoute);
+}
+
+function getAllowedParentRoutes(
+  currentRoute: AppRoute,
+  fallbackRoute: AppRoute,
+): readonly AppRoute[] {
+  if (currentRoute === 'puppy-fitness') {
+    return ['puppies', 'fitness'];
+  }
+
+  if (currentRoute === 'adult-fitness') {
+    return ['adult-large', 'fitness'];
+  }
+
+  if (currentRoute.startsWith('puppy-topic:') && fallbackRoute === 'puppy-fitness') {
+    return ['puppy-fitness', 'puppy-situation:fitness'];
+  }
+
+  if (currentRoute.startsWith('adult-large-topic:') && fallbackRoute === 'adult-fitness') {
+    return ['adult-fitness', 'adult-large-situation:adult-large-fitness'];
+  }
+
+  return [fallbackRoute];
 }
 
 function replaceRouteWithFallback(route: AppRoute): void {

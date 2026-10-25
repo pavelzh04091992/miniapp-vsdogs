@@ -64,7 +64,7 @@ test('retires the previous header as the complex screen opens', async () => {
   assert.match(styles, /\.app-shell--complex-transition-underlay-exit > \.home-header/);
 });
 
-test('opens fitness as a regular subsection with its optimized green hero', async () => {
+test('keeps general, puppy and adult fitness as separate route levels', async () => {
   const [appSource, mainSource, styles] = await Promise.all([
     readFile(new URL('../src/app.ts', import.meta.url), 'utf8'),
     readFile(new URL('../src/main.ts', import.meta.url), 'utf8'),
@@ -72,23 +72,24 @@ test('opens fitness as a regular subsection with its optimized green hero', asyn
   ]);
 
   assert.match(appSource, /createUsefulCard\([\s\S]*?'Фитнес'[\s\S]*?'fitness'/);
-  assert.match(appSource, /createSituationTopicsMarkup\('fitness', 'home', true\)/);
+  assert.match(appSource, /route === 'fitness'[\s\S]*?createFitnessMarkup\(\)/);
   assert.match(appSource, /route === 'puppy-fitness'[\s\S]*?createSituationTopicsMarkup\('fitness'\)/);
+  assert.match(appSource, /route === 'adult-fitness'[\s\S]*?createAdultLargeSituationTopicsMarkup\('adult-large-fitness'\)/);
   assert.match(appSource, /slug === 'fitness' \? 'puppy-fitness' : `puppy-situation:\$\{slug\}`/);
+  assert.match(appSource, /slug === 'adult-large-fitness'[\s\S]*?\? 'adult-fitness'/);
   assert.match(appSource, /puppy-hero puppy-hero--fitness/);
   assert.match(appSource, /assets\/images\/programs\/fitness-hero\.webp/);
-  assert.match(appSource, /Для щенков/);
-  assert.match(appSource, /Для взрослых собак/);
-  assert.match(appSource, /get\('adult-large-fitness'\)[\s\S]*?createAdultLargeTopicCard/);
-  assert.match(appSource, /includeAdultFitness = false/);
-  assert.match(appSource, /includeAdultFitness \? 'Для щенков' : 'Подразделы'/);
+  assert.match(appSource, /Фитнес для щенков/);
+  assert.match(appSource, /Фитнес для взрослых/);
+  assert.match(appSource, /createFitnessMarkup[\s\S]*?createSituationCard\(puppyFitnessCard[\s\S]*?createAdultLargeSituationCard\(adultFitness/);
   assert.match(appSource, /const backRoute = getPuppySituationRoute\(topic\.parentSlug\)/);
-  assert.match(appSource, /const backRoute: AppRoute = `adult-large-situation:\$\{topic\.parentSlug\}`/);
+  assert.match(appSource, /const backRoute = getAdultLargeSituationRoute\(topic\.parentSlug\)/);
   assert.match(styles, /\.puppy-hero--fitness\s*\{[\s\S]*?linear-gradient\([\s\S]*?#218a5d/);
   assert.match(styles, /\.puppy-hero__image--fitness\s*\{[\s\S]*?height: auto[\s\S]*?aspect-ratio: 1/);
   assert.match(styles, /\.puppy-hero__image--fitness\s*\{[\s\S]*?width: clamp\(210px, 52vw, 228px\)/);
   assert.match(mainSource, /hash === 'fitness'/);
   assert.match(mainSource, /hash === 'puppy-fitness'/);
+  assert.match(mainSource, /hash === 'adult-fitness'/);
 });
 
 test('alternates catalog cards by visible position and keeps fitness endpoints apart', async () => {
@@ -108,7 +109,6 @@ test('alternates catalog cards by visible position and keeps fitness endpoints a
   assert.ok(
     (appSource.match(/situation\.topics\.map\(\(topic, index\) => createTopicCard\(topic, index, 'blue'\)\)/g) ?? []).length >= 2,
   );
-  assert.match(appSource, /createAdultLargeTopicCard\(topic, index, 'blue'\)/);
   assert.match(appSource, /createAdultLargeTopicCard\(topic, index, 'rose'\)/);
 });
 
@@ -119,13 +119,14 @@ test('keeps back navigation in the actual puppy or adult fitness branch', async 
   ]);
 
   assert.match(appSource, /data-route="\$\{getPuppySituationRoute\(situation\.slug\)\}"/);
-  assert.match(appSource, /data-route="adult-large-situation:\$\{situation\.slug\}"/);
+  assert.match(appSource, /data-route="\$\{getAdultLargeSituationRoute\(situation\.slug\)\}"/);
   assert.match(appSource, /registerLessonVideo\(lesson, `puppy-topic:\$\{topic\.slug\}`\)/);
   assert.match(appSource, /registerLessonVideo\(lesson, `adult-large-topic:\$\{topic\.slug\}`\)/);
   assert.doesNotMatch(appSource, /topic\.parentSlug === '(?:fitness|adult-large-fitness)'/);
   assert.match(mainSource, /initializeRouteHistory\(\)/);
   assert.match(mainSource, /routeButton\.classList\.contains\('back-button'\)[\s\S]*?navigateBack\(route\)/);
-  assert.match(mainSource, /canUseBrowserBack\(historyState, currentRoute, fallbackRoute\)/);
+  assert.match(mainSource, /getAllowedParentRoutes\(currentRoute, fallbackRoute\)/);
+  assert.match(mainSource, /canUseBrowserBack\(historyState, currentRoute, allowedParentRoutes\)/);
   assert.match(mainSource, /window\.history\.back\(\)/);
   assert.match(mainSource, /replaceRouteWithFallback\(fallbackRoute\)/);
   assert.doesNotMatch(mainSource, /navigateTo\(fallbackRoute\)/);
