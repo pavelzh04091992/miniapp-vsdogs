@@ -2165,7 +2165,7 @@ function createAdultLargeSituationTopicsMarkup(slug: AdultLargeSituationSlug): s
         <div class="content-frame">
           <section class="section-block section-block--detail-first">
             <div class="section-heading section-heading--solo">
-              <h2>Подразделы</h2>
+              <h2>Разделы</h2>
             </div>
             <div class="topic-list">
               ${situation.topics.map((topic, index) => createAdultLargeTopicCard(topic, index, 'rose')).join('')}
@@ -2284,7 +2284,7 @@ function createSituationTopicsMarkup(slug: PuppySituationSlug): string {
       ? `
           <section class="section-block section-block--detail-first" aria-labelledby="puppy-fitness-topics-title">
             <div class="section-heading section-heading--solo">
-              <h2 id="puppy-fitness-topics-title">Подразделы</h2>
+              <h2 id="puppy-fitness-topics-title">Разделы</h2>
             </div>
             <div class="topic-list">
               ${situation.topics.map((topic, index) => createTopicCard(topic, index, 'blue')).join('')}

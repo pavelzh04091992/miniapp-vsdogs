@@ -90,6 +90,7 @@ test('renders combined and puppy fitness with independent page builders', async 
   assert.match(combinedFitnessMarkup, /createAdultLargeTopicCard/);
   assert.doesNotMatch(puppyFitnessMarkup, /puppy-hero/);
   assert.doesNotMatch(puppyFitnessMarkup, /includeAdultFitness/);
+  assert.doesNotMatch(appSource, />Подразделы</);
   assert.match(appSource, /const backRoute = getPuppySituationRoute\(topic\.parentSlug\)/);
   assert.match(appSource, /const backRoute: AppRoute = `adult-large-situation:\$\{topic\.parentSlug\}`/);
   assert.match(styles, /\.puppy-hero--fitness\s*\{[\s\S]*?linear-gradient\([\s\S]*?#218a5d/);
