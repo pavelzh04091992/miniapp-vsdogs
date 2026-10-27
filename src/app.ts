@@ -4,6 +4,19 @@ import { formatLessonFeedbackCopy } from './lib/feedback-copy';
 import localVideoCatalog from './local-video-catalog.json';
 import lessonFeedbackPrompts from './lesson-feedback-prompts.json';
 import videoDescriptions from './video-descriptions.json';
+import {
+  getSeasonTheme,
+  getSeasonalVideo,
+  getSeasonalVideos,
+  isSeasonId,
+  isSeasonalSection,
+  seasonThemes,
+  seasonalSectionDefinitions,
+  seasonalVideos,
+  type SeasonId,
+  type SeasonalSection,
+  type SeasonalVideo,
+} from './seasonal-content';
 
 type VideoDescriptionId = keyof typeof videoDescriptions;
 
@@ -102,6 +115,8 @@ export type AdultLargeTopicSlug =
 
 export type AppRoute =
   | 'home'
+  | 'seasonal'
+  | `seasonal-list:${SeasonId}:${SeasonalSection}`
   | 'fitness'
   | 'puppy-fitness'
   | 'complex'
@@ -1751,6 +1766,21 @@ complexLevelVideos.forEach((video) => {
   lessonVideosById.set(video.id, { ...video });
 });
 
+seasonalVideos.forEach((video) => {
+  if (lessonVideosById.has(video.id)) {
+    throw new Error(`Duplicate seasonal lesson video id: ${video.id}`);
+  }
+
+  lessonVideosById.set(video.id, {
+    id: video.id,
+    mediaId: video.mediaId,
+    title: video.title,
+    description: video.description,
+    sourceType: 'hls',
+    backRoute: 'seasonal',
+  });
+});
+
 function getLessonVideoFromRoute(route: AppRoute): LessonVideoEntry | null {
   if (!route.startsWith('lesson-video:')) {
     return null;
@@ -1763,6 +1793,7 @@ export function createAppMarkup(
   route: AppRoute,
   activeFilter: PuppyFilter,
   videosState: SituationVideosState,
+  activeSeason: SeasonId = 'autumn',
 ): string {
   const lessonVideo = getLessonVideoFromRoute(route);
 
@@ -1772,6 +1803,18 @@ export function createAppMarkup(
 
   if (route === 'complex') {
     return createComplexMarkup();
+  }
+
+  if (route === 'seasonal') {
+    return createSeasonalVideosMarkup(activeSeason);
+  }
+
+  if (route.startsWith('seasonal-list:')) {
+    const seasonalListRoute = getSeasonalListRoute(route);
+
+    if (seasonalListRoute) {
+      return createSeasonalVideoListMarkup(seasonalListRoute.season, seasonalListRoute.section);
+    }
   }
 
   if (route === 'fitness') {
@@ -1884,6 +1927,22 @@ export function getAllAppAssetPaths(): string[] {
   return [...new Set(paths)];
 }
 
+export function getSeasonalListRoute(
+  route: AppRoute,
+): { season: SeasonId; section: SeasonalSection } | null {
+  if (!route.startsWith('seasonal-list:')) {
+    return null;
+  }
+
+  const [, season, section] = route.split(':');
+
+  if (!season || !section || !isSeasonId(season) || !isSeasonalSection(section)) {
+    return null;
+  }
+
+  return { season, section };
+}
+
 export function getSituationSlugFromRoute(route: AppRoute): PuppySituationSlug | null {
   if (!route.startsWith('puppy-situation:')) {
     return null;
@@ -1983,7 +2042,7 @@ function createHomeMarkup(): string {
 
             <div class="useful-grid" role="list" aria-label="Полезные материалы">
               ${createUsefulCard('Спросить у кинолога', '/assets/icons/ask_kinolog.webp', 'useful-card--ask', undefined, 'home')}
-              ${createUsefulCard('Сезонные темы', '/assets/icons/seasons.webp', 'useful-card--seasonal')}
+              ${createUsefulCard('Сезонные темы', '/assets/icons/seasons.webp', 'useful-card--seasonal', 'seasonal')}
               ${createUsefulCard('Комплекс', '/assets/icons/course.webp', 'useful-card--course', 'complex')}
               ${createUsefulCard(
                 'Фитнес',
@@ -2059,6 +2118,245 @@ function createSubpageHeaderMarkup(title: string, backRoute: AppRoute): string {
     </header>
   `;
 }
+
+function createSeasonalVideosMarkup(activeSeason: SeasonId): string {
+  const theme = getSeasonTheme(activeSeason);
+  const videos = getSeasonalVideos(activeSeason);
+  const hasVideos = videos.length > 0;
+
+  return `
+    <div class="app-shell app-shell--seasonal" data-season-theme="${theme.id}">
+      ${createSubpageHeaderMarkup('Сезонные видео', 'home')}
+
+      <main class="screen-content seasonal-screen">
+        <div class="content-frame">
+          ${createSeasonHeroMarkup(theme, hasVideos)}
+          ${createSeasonSwitcherMarkup(activeSeason)}
+          <div class="seasonal-content" data-seasonal-content>
+            ${hasVideos
+              ? seasonalSectionDefinitions
+                  .map((section) => createSeasonalSectionMarkup(activeSeason, section.id, section.title))
+                  .join('')
+              : createSeasonalEmptyStateMarkup(theme.label)}
+          </div>
+        </div>
+      </main>
+
+      ${createBottomNav('lessons')}
+    </div>
+  `;
+}
+
+function createSeasonHeroMarkup(theme: ReturnType<typeof getSeasonTheme>, hasVideos: boolean): string {
+  return `
+    <section class="seasonal-hero" aria-labelledby="seasonal-hero-title">
+      <img
+        class="seasonal-hero__image"
+        src="${escapeHtml(theme.heroImagePath)}"
+        alt=""
+        aria-hidden="true"
+      />
+      <span class="seasonal-hero__veil" aria-hidden="true"></span>
+      <div class="seasonal-hero__content">
+        <h2 id="seasonal-hero-title">${escapeHtml(theme.heroTitle)}</h2>
+        <p>${escapeHtml(theme.heroDescription)}</p>
+        ${hasVideos
+          ? `
+            <button class="seasonal-hero__cta" type="button" data-seasonal-cta>
+              <span>Смотреть подборку</span>
+              ${createArrowIconMarkup('seasonal-hero__cta-icon')}
+            </button>
+          `
+          : ''}
+      </div>
+    </section>
+  `;
+}
+
+function createSeasonSwitcherMarkup(activeSeason: SeasonId): string {
+  return `
+    <div class="season-switcher" role="group" aria-label="Выберите сезон">
+      ${seasonThemes
+        .map((season) => {
+          const activeClass = season.id === activeSeason ? ' season-switcher__button--active' : '';
+
+          return `
+            <button
+              class="season-switcher__button${activeClass}"
+              type="button"
+              data-season="${season.id}"
+              aria-pressed="${season.id === activeSeason}"
+            >
+              ${createSeasonIconMarkup(season.id, 'season-switcher__icon')}
+              <span>${escapeHtml(season.label)}</span>
+            </button>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+}
+
+function createSeasonalSectionMarkup(
+  season: SeasonId,
+  section: SeasonalSection,
+  title: string,
+): string {
+  const videos = getSeasonalVideos(season, section);
+
+  if (videos.length === 0) {
+    return '';
+  }
+
+  const listRoute: AppRoute = `seasonal-list:${season}:${section}`;
+
+  return `
+    <section class="seasonal-section" aria-labelledby="seasonal-${section}-title">
+      <div class="seasonal-section__heading">
+        <h2 id="seasonal-${section}-title">
+          ${createSeasonalSectionIconMarkup(section)}
+          <span>${escapeHtml(title)}</span>
+        </h2>
+        <button class="seasonal-section__link" type="button" data-route="${listRoute}">
+          <span>Все видео</span>
+          ${createArrowIconMarkup('seasonal-section__link-icon')}
+        </button>
+      </div>
+      <div class="seasonal-bento">
+        ${videos
+          .map((video, index) => createSeasonalVideoCardMarkup(video, index === 0 ? 'featured' : 'compact'))
+          .join('')}
+      </div>
+    </section>
+  `;
+}
+
+function createSeasonalVideoCardMarkup(
+  video: SeasonalVideo,
+  variant: 'featured' | 'compact' | 'list',
+): string {
+  const route: AppRoute = `lesson-video:${video.id}`;
+  const variantClass = `seasonal-video-card--${variant}`;
+  const posterPath = `/media/${encodeURIComponent(video.mediaId)}/poster.webp`;
+
+  return `
+    <button
+      class="seasonal-video-card ${variantClass}"
+      type="button"
+      data-route="${route}"
+      aria-label="Смотреть видео: ${escapeHtml(video.title)}"
+    >
+      <span class="seasonal-video-card__media">
+        <img
+          class="seasonal-video-card__poster"
+          src="${posterPath}"
+          alt=""
+          data-seasonal-poster
+        />
+        <span class="seasonal-video-card__poster-fallback" aria-hidden="true">
+          ${createPlayIconMarkup('seasonal-video-card__fallback-icon')}
+        </span>
+        <span class="seasonal-video-card__shade" aria-hidden="true"></span>
+        <span class="seasonal-video-card__category">${escapeHtml(video.category)}</span>
+        <span class="seasonal-video-card__play" aria-hidden="true">
+          ${createPlayIconMarkup('seasonal-video-card__play-icon')}
+        </span>
+        <span class="seasonal-video-card__duration">${escapeHtml(video.duration)}</span>
+      </span>
+      <span class="seasonal-video-card__body">
+        <strong class="seasonal-video-card__title">${escapeHtml(video.title)}</strong>
+        <span class="seasonal-video-card__meta">${escapeHtml(video.category)} · ${escapeHtml(video.duration)}</span>
+      </span>
+    </button>
+  `;
+}
+
+function createSeasonalVideoListMarkup(season: SeasonId, section: SeasonalSection): string {
+  const theme = getSeasonTheme(season);
+  const sectionDefinition = seasonalSectionDefinitions.find((candidate) => candidate.id === section);
+  const videos = getSeasonalVideos(season, section);
+  const title = `${sectionDefinition?.title ?? 'Видео'} · ${theme.label}`;
+
+  return `
+    <div class="app-shell app-shell--seasonal" data-season-theme="${theme.id}">
+      ${createSubpageHeaderMarkup(title, 'seasonal')}
+
+      <main class="screen-content seasonal-list-screen">
+        <div class="content-frame">
+          <section class="seasonal-list" aria-labelledby="seasonal-list-title">
+            <div class="seasonal-list__heading">
+              ${createSeasonalSectionIconMarkup(section)}
+              <div>
+                <p>${escapeHtml(theme.label)}</p>
+                <h2 id="seasonal-list-title">${escapeHtml(sectionDefinition?.title ?? 'Видео')}</h2>
+              </div>
+            </div>
+            ${videos.length > 0
+              ? `<div class="seasonal-list__grid">${videos
+                  .map((video) => createSeasonalVideoCardMarkup(video, 'list'))
+                  .join('')}</div>`
+              : createSeasonalEmptyStateMarkup(theme.label)}
+          </section>
+        </div>
+      </main>
+
+      ${createBottomNav('lessons')}
+    </div>
+  `;
+}
+
+function createSeasonalEmptyStateMarkup(seasonLabel: string): string {
+  return `
+    <section class="seasonal-empty" aria-labelledby="seasonal-empty-title">
+      <span class="seasonal-empty__icon" aria-hidden="true">
+        ${createPlayIconMarkup('seasonal-empty__play')}
+      </span>
+      <h2 id="seasonal-empty-title">Здесь скоро появятся новые видео!</h2>
+      <p>Мы готовим полезные материалы для сезона «${escapeHtml(seasonLabel)}».</p>
+    </section>
+  `;
+}
+
+function createSeasonIconMarkup(season: SeasonId, className: string): string {
+  const paths: Record<SeasonId, string> = {
+    winter: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M12 3l-2 2m2-2 2 2m-2 16-2-2m2 2 2-2M4.2 7.5l2.7.7m-2.7-.7.8-2.7m14.8 11.7-2.7-.7m2.7.7-.8 2.7M4.2 16.5l.8 2.7m-.8-2.7 2.7-.7m12.9-8.3-.8-2.7m.8 2.7-2.7.7" />',
+    spring: '<path d="M12 10.2c-2.2-3.7-1-6.2 1.2-6.2 1.8 0 2.8 2.2 1.8 4.4 2.8-2.2 5.5-1.1 5.5 1.3 0 2-2.2 3.1-4.6 2.3 2.7 1.8 2.5 4.7.3 5.6-1.9.8-3.6-.9-3.8-3.3-1 3.2-3.7 4.1-5.3 2.6-1.6-1.5-.5-4.1 2.2-4.9-3.3.2-5.1-2.1-4-4 1.1-2 3.9-1.8 5.4.7" /><circle cx="12" cy="11.5" r="2.1" />',
+    summer: '<circle cx="12" cy="12" r="4" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9 7 7m10 10 2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" />',
+    autumn: '<path d="M19.5 4.5C13 4.7 7.2 7.4 5.2 12.2c-1.2 2.9.7 6.1 3.9 6.2 5.5.1 9.2-6 10.4-13.9Z" /><path d="M5.2 19.6c2.2-4.9 5.7-8.2 10.3-10.5M9.5 15.2l-3.6-.4m7-3.3.2-3.3" />',
+  };
+
+  return `<svg class="${className}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[season]}</svg>`;
+}
+
+function createSeasonalSectionIconMarkup(section: SeasonalSection): string {
+  const path = section === 'walks'
+    ? '<path d="M4 17.5c2.4-4.8 5.7-7.2 10.7-7.2H20" /><path d="m16.5 6.8 3.5 3.5-3.5 3.5" /><circle cx="5" cy="17.5" r="2" />'
+    : '<path d="M9 18h6m-5 3h4M8.5 14.8c-1.3-1-2.1-2.6-2.1-4.3A5.6 5.6 0 0 1 12 4.9a5.6 5.6 0 0 1 5.6 5.6c0 1.7-.8 3.3-2.1 4.3-.8.7-1.1 1.2-1.2 2.2H9.7c-.1-1-.4-1.5-1.2-2.2Z" />';
+
+  return `<svg class="seasonal-section__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${path}</svg>`;
+}
+
+function createPlayIconMarkup(className: string): string {
+  return `
+    <svg class="${className}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="m9 7 8 5-8 5V7Z" />
+    </svg>
+  `;
+}
+
+function createArrowIconMarkup(className: string): string {
+  return `
+    <svg class="${className}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="m9 5 7 7-7 7" />
+    </svg>
+  `;
+}
+
+export function isSeasonalVideoRoute(route: AppRoute): boolean {
+  return route.startsWith('lesson-video:')
+    && getSeasonalVideo(route.slice('lesson-video:'.length)) !== null;
+}
+
 function createPuppiesMarkup(activeFilter: PuppyFilter): string {
   const visibleSituations =
     activeFilter === 'all'

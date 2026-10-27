@@ -4,8 +4,11 @@ import {
   SituationVideosState,
   createAppMarkup,
   getAllAppAssetPaths,
+  getSeasonalListRoute,
   getVideoSourceSlugForRoute,
+  isSeasonalVideoRoute,
 } from './app';
+import { isSeasonId, type SeasonId } from './seasonal-content';
 import { fetchSituationVideos } from './lib/videos';
 import {
   getTelegramWebApp,
@@ -37,6 +40,7 @@ const root = appRoot;
 const webApp = isTelegramMiniAppLaunch() ? getTelegramWebApp() : null;
 
 let activeFilter: PuppyFilter = 'all';
+let activeSeason: SeasonId = 'autumn';
 let videosState: SituationVideosState = { status: 'idle' };
 let lastBottomNavIndicatorLeft = '50%';
 let lastRenderedRoute: AppRoute | null = null;
@@ -119,7 +123,7 @@ window.addEventListener(
 document.addEventListener('click', (event) => {
   const target = event.target;
 
-  if (!(target instanceof HTMLElement)) {
+  if (!(target instanceof Element)) {
     return;
   }
 
@@ -163,6 +167,32 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  const seasonButton = target.closest<HTMLButtonElement>('[data-season]');
+
+  if (seasonButton) {
+    const nextSeason = seasonButton.dataset.season;
+
+    if (!nextSeason || !isSeasonId(nextSeason) || nextSeason === activeSeason) {
+      return;
+    }
+
+    activeSeason = nextSeason;
+    void render();
+    return;
+  }
+
+  const seasonalCta = target.closest<HTMLButtonElement>('[data-seasonal-cta]');
+
+  if (seasonalCta) {
+    const seasonalContent = root.querySelector<HTMLElement>('[data-seasonal-content]');
+
+    seasonalContent?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    });
+    return;
+  }
+
   const externalButton = target.closest<HTMLElement>('[data-external-url]');
 
   if (externalButton) {
@@ -188,6 +218,21 @@ document.addEventListener('click', (event) => {
 
   showFeedback(message);
 });
+
+document.addEventListener(
+  'error',
+  (event) => {
+    const poster = event.target;
+
+    if (!(poster instanceof HTMLImageElement) || !poster.matches('[data-seasonal-poster]')) {
+      return;
+    }
+
+    poster.hidden = true;
+    poster.closest('.seasonal-video-card')?.classList.add('seasonal-video-card--poster-error');
+  },
+  true,
+);
 
 async function startPrivateApp(): Promise<void> {
   void preloadAllAssets(getAllAppAssetPaths());
@@ -229,7 +274,9 @@ function setupAppViewportHeight(webApp: TelegramWebApp | null): void {
 async function render(): Promise<void> {
   const sequence = ++renderSequence;
   const route = getCurrentRoute();
-  const markup = applyImageLoadingHints(createAppMarkup(route, activeFilter, videosState));
+  const markup = applyImageLoadingHints(
+    createAppMarkup(route, activeFilter, videosState, activeSeason),
+  );
 
   if (sequence !== renderSequence || route !== getCurrentRoute()) {
     return;
@@ -492,6 +539,7 @@ function getRouteTransitionDirection(from: AppRoute | null, to: AppRoute): PageT
     if (
       route === 'complex' ||
       route === 'fitness' ||
+      route === 'seasonal' ||
       route === 'puppies' ||
       route === 'adult-large'
     ) {
@@ -499,6 +547,10 @@ function getRouteTransitionDirection(from: AppRoute | null, to: AppRoute): PageT
     }
 
     if (route === 'puppy-fitness') {
+      return 2;
+    }
+
+    if (route.startsWith('seasonal-list:')) {
       return 2;
     }
 
@@ -686,6 +738,18 @@ function getCurrentRoute(): AppRoute {
     return 'complex';
   }
 
+  if (hash === 'seasonal') {
+    return 'seasonal';
+  }
+
+  if (hash.startsWith('seasonal-list:')) {
+    const route = hash as AppRoute;
+
+    if (getSeasonalListRoute(route)) {
+      return route;
+    }
+  }
+
   if (hash === 'fitness') {
     return 'fitness';
   }
@@ -738,6 +802,11 @@ async function syncRouteState(): Promise<void> {
   videoCatalogAbortController = null;
   const route = getCurrentRoute();
   const videoSourceSlug = getVideoSourceSlugForRoute(route);
+  const seasonalListRoute = getSeasonalListRoute(route);
+
+  if (seasonalListRoute) {
+    activeSeason = seasonalListRoute.season;
+  }
 
   if (route !== 'puppies') {
     activeFilter = 'all';
@@ -807,6 +876,14 @@ function getAllowedParentRoutes(
   currentRoute: AppRoute,
   fallbackRoute: AppRoute,
 ): readonly AppRoute[] {
+  if (isSeasonalVideoRoute(currentRoute) && fallbackRoute === 'seasonal') {
+    return [
+      'seasonal',
+      'seasonal-list:autumn:walks',
+      'seasonal-list:autumn:tips',
+    ];
+  }
+
   if (currentRoute.startsWith('puppy-topic:') && fallbackRoute === 'puppy-fitness') {
     return ['puppy-fitness', 'fitness'];
   }

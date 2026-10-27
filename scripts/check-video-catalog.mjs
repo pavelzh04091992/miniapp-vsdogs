@@ -3,9 +3,20 @@ import ts from 'typescript';
 
 const sourceText = fs.readFileSync('src/app.ts', 'utf8');
 const catalog = JSON.parse(fs.readFileSync('src/local-video-catalog.json', 'utf8'));
+const seasonalSourceText = fs.readFileSync('src/seasonal-content.ts', 'utf8');
+const seasonalDescriptions = JSON.parse(
+  fs.readFileSync('src/seasonal-video-descriptions.json', 'utf8'),
+);
 const sourceFile = ts.createSourceFile(
   'src/app.ts',
   sourceText,
+  ts.ScriptTarget.Latest,
+  true,
+  ts.ScriptKind.TS,
+);
+const seasonalSourceFile = ts.createSourceFile(
+  'src/seasonal-content.ts',
+  seasonalSourceText,
   ts.ScriptTarget.Latest,
   true,
   ts.ScriptKind.TS,
@@ -83,6 +94,44 @@ for (const mediaId of catalog.unassignedMedia) {
   intentionallyUnassigned.add(mediaId);
 }
 
+const seasonalVideosDeclaration = seasonalSourceFile.statements
+  .filter(ts.isVariableStatement)
+  .flatMap((statement) => [...statement.declarationList.declarations])
+  .find((candidate) => candidate.name.getText(seasonalSourceFile) === 'seasonalVideos');
+const seasonalVideosInitializer = seasonalVideosDeclaration?.initializer;
+
+if (!seasonalVideosInitializer || !ts.isArrayLiteralExpression(seasonalVideosInitializer)) {
+  throw new Error('Cannot inspect seasonalVideos');
+}
+
+const seasonalMediaIds = new Set();
+for (const video of seasonalVideosInitializer.elements) {
+  const seasonalProperty = (name) => propertyFrom(seasonalSourceFile, video, name);
+  const id = stringFrom(seasonalProperty('id'));
+  const mediaId = stringFrom(seasonalProperty('mediaId'));
+  const seasons = seasonalProperty('seasons');
+
+  if (!id || !mediaId) throw new Error('Seasonal video must define id and mediaId');
+  if (id !== mediaId) throw new Error(`Seasonal video id must match media id: ${id} / ${mediaId}`);
+  if (seasonalMediaIds.has(mediaId)) throw new Error(`Duplicate seasonal media id: ${mediaId}`);
+  if (!seasonalDescriptions[id]) throw new Error(`Missing seasonal description: ${id}`);
+  if (!seasons || !ts.isArrayLiteralExpression(seasons)) {
+    throw new Error(`Missing seasons for seasonal video: ${id}`);
+  }
+  if (seasons.elements.some((season) => stringFrom(season) !== 'autumn')) {
+    throw new Error(`Only autumn seasonal videos are currently published: ${id}`);
+  }
+
+  seasonalMediaIds.add(mediaId);
+}
+
+const unusedSeasonalDescriptions = Object.keys(seasonalDescriptions).filter(
+  (id) => !seasonalMediaIds.has(id),
+);
+if (unusedSeasonalDescriptions.length) {
+  throw new Error(`Unused seasonal descriptions: ${unusedSeasonalDescriptions.join(', ')}`);
+}
+
 const unaccountedMedia = Object.keys(catalog.mediaFiles).filter(
   (mediaId) => !usedMedia.has(mediaId) && !intentionallyUnassigned.has(mediaId),
 );
@@ -92,5 +141,21 @@ if (unaccountedMedia.length) {
 
 console.log(
   `Video catalog OK: ${activeLessonCount} active cards, ${assignedTargets.size} mapped cards, ` +
-    `${complexMediaIds.length} complex cards, ${intentionallyUnassigned.size} videos without cards`,
+    `${complexMediaIds.length} complex cards, ${seasonalMediaIds.size} seasonal cards, ` +
+    `${intentionallyUnassigned.size} videos without cards`,
 );
+
+function propertyFrom(file, object, name) {
+  if (!ts.isObjectLiteralExpression(object)) return undefined;
+  return object.properties.find(
+    (candidate) =>
+      ts.isPropertyAssignment(candidate)
+      && candidate.name.getText(file).replace(/["']/g, '') === name,
+  )?.initializer;
+}
+
+function stringFrom(node) {
+  return node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+    ? node.text
+    : '';
+}
