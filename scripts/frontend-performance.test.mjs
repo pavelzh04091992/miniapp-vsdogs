@@ -19,7 +19,7 @@ test('renders immediately while preloading the complete optimized artwork catalo
   assert.doesNotMatch(appSource, /legacyPuppySituations|adult-small/);
 });
 
-test('tracks the visible mobile viewport so the flex navigation stays on screen', async () => {
+test('tracks stable Telegram viewport dimensions so transient browser UI does not rescale the shell', async () => {
   const [mainSource, styles, telegramSource] = await Promise.all([
     readFile(new URL('../src/main.ts', import.meta.url), 'utf8'),
     readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
@@ -27,14 +27,17 @@ test('tracks the visible mobile viewport so the flex navigation stays on screen'
   ]);
 
   assert.match(mainSource, /setupAppViewportHeight\(webApp\)/);
-  assert.match(mainSource, /window\.visualViewport\?\.height/);
-  assert.match(mainSource, /webApp\?\.viewportHeight/);
+  assert.match(mainSource, /webApp\?\.viewportStableHeight/);
+  assert.match(mainSource, /document\.documentElement\.clientWidth/);
+  assert.match(mainSource, /--app-viewport-width/);
   assert.match(mainSource, /webApp\?\.onEvent\?\.\('viewportChanged'/);
+  assert.match(mainSource, /isStateStable/);
+  assert.doesNotMatch(mainSource, /window\.visualViewport\?\.height/);
   assert.match(styles, /#app\s*\{[\s\S]*?height: var\(--app-viewport-height\)/);
   assert.match(styles, /\.app-shell\s*\{[\s\S]*?height: var\(--app-viewport-height\)/);
+  assert.match(styles, /--frame-width-mobile: var\(--app-viewport-width\)/);
   assert.match(styles, /\.bottom-nav\s*\{[\s\S]*?flex: 0 0 auto[\s\S]*?--tg-content-safe-area-inset-bottom/);
-  assert.doesNotMatch(styles, /--tg-viewport-stable-height/);
-  assert.match(telegramSource, /viewportHeight\?: number/);
+  assert.match(telegramSource, /viewportStableHeight\?: number/);
   assert.match(telegramSource, /onEvent\?:/);
 });
 

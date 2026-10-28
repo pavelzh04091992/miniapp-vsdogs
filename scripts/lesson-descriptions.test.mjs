@@ -50,12 +50,25 @@ test('keeps every source description structured and connected to a player', asyn
   assert.match(appSource, /lesson\.longDescription = getVideoDescription\(descriptionId\)/u);
   assert.match(
     appSource,
-    /createLessonDescriptionBlocksMarkup\(section\.lines, !section\.title\)/u,
+    /createLessonDescriptionBlocksMarkup\([\s\S]*?section\.lines,[\s\S]*?!section\.title,[\s\S]*?getLessonDescriptionSectionLayout\(section\)/u,
   );
   assert.match(
     appSource,
     /emphasizeFirstParagraph && index === 0 && block\.type === 'paragraph'/u,
   );
+});
+
+test('formats seasonal prose with the shared structured lesson renderer', async () => {
+  const appSource = await readFile(new URL('../src/app.ts', import.meta.url), 'utf8');
+
+  assert.match(appSource, /Как \.\+ пошагово/u);
+  assert.match(appSource, /Частые ошибки\(\?: ❌\)\?/u);
+  assert.match(appSource, /Важные \(\?:особенности\|нюансы\)/u);
+  assert.match(appSource, /getLessonDescriptionSectionLayout/u);
+  assert.match(appSource, /layout === 'steps'/u);
+  assert.match(appSource, /number: String\(index \+ 1\)/u);
+  assert.match(appSource, /layout === 'mistakes'/u);
+  assert.match(appSource, /layout === 'bullets'/u);
 });
 
 test('keeps undocumented video lessons free of invented descriptions', async () => {

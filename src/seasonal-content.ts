@@ -34,8 +34,8 @@ export const seasonThemes = [
     heroTitle: 'Зимние видео',
     heroDescription: 'Полезные советы для комфортной зимы с вашим питомцем.',
     heroImagePath: '/assets/images/seasons/winter-pug.webp',
-    accent: '#67a9f7',
-    softBackground: '#eef6ff',
+    accent: '#4C97EB',
+    softBackground: '#EDF6FF',
   },
   {
     id: 'spring',
@@ -43,8 +43,8 @@ export const seasonThemes = [
     heroTitle: 'Весенние видео',
     heroDescription: 'Идеи для активной весны и радостных прогулок вместе.',
     heroImagePath: '/assets/images/seasons/spring-pug.webp',
-    accent: '#eb78a6',
-    softBackground: '#fff1f6',
+    accent: '#E66EA3',
+    softBackground: '#FFF0F6',
   },
   {
     id: 'summer',
@@ -52,8 +52,8 @@ export const seasonThemes = [
     heroTitle: 'Летние видео',
     heroDescription: 'Полезные советы для безопасного и яркого лета с собакой.',
     heroImagePath: '/assets/images/seasons/summer-pug.webp',
-    accent: '#f4ae25',
-    softBackground: '#fff8e5',
+    accent: '#E5A321',
+    softBackground: '#FFF8E8',
   },
   {
     id: 'autumn',
@@ -61,8 +61,8 @@ export const seasonThemes = [
     heroTitle: 'Осенние видео',
     heroDescription: 'Полезные советы для уютной осени с вашим питомцем.',
     heroImagePath: '/assets/images/seasons/autumn-pug.webp',
-    accent: '#ff7847',
-    softBackground: '#fff5ed',
+    accent: '#FF7847',
+    softBackground: '#FFF3EA',
   },
 ] as const satisfies readonly SeasonTheme[];
 

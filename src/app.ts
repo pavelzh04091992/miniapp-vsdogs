@@ -2023,7 +2023,14 @@ function createHomeMarkup(): string {
             </div>
 
             <div class="hero-card__media">
-              <img class="hero-card__dog" src="/assets/hero-dog.webp" alt="" />
+              <img
+                class="hero-card__dog"
+                src="/assets/hero-dog.webp"
+                width="204"
+                height="282"
+                alt=""
+                aria-hidden="true"
+              />
             </div>
           </section>
 
@@ -2150,12 +2157,16 @@ function createSeasonalVideosMarkup(activeSeason: SeasonId): string {
 function createSeasonHeroMarkup(theme: ReturnType<typeof getSeasonTheme>, hasVideos: boolean): string {
   return `
     <section class="seasonal-hero" aria-labelledby="seasonal-hero-title">
-      <img
-        class="seasonal-hero__image"
-        src="${escapeHtml(theme.heroImagePath)}"
-        alt=""
-        aria-hidden="true"
-      />
+      <span class="seasonal-hero__visual" aria-hidden="true">
+        <img
+          class="seasonal-hero__image"
+          src="${escapeHtml(theme.heroImagePath)}"
+          width="1440"
+          height="600"
+          alt=""
+          aria-hidden="true"
+        />
+      </span>
       <span class="seasonal-hero__veil" aria-hidden="true"></span>
       <div class="seasonal-hero__content">
         <h2 id="seasonal-hero-title">${escapeHtml(theme.heroTitle)}</h2>
@@ -2265,7 +2276,6 @@ function createSeasonalVideoCardMarkup(
       </span>
       <span class="seasonal-video-card__body">
         <strong class="seasonal-video-card__title">${escapeHtml(video.title)}</strong>
-        <span class="seasonal-video-card__meta">${escapeHtml(video.category)} · ${escapeHtml(video.duration)}</span>
       </span>
     </button>
   `;
@@ -2807,6 +2817,7 @@ function createPlayerTitleMarkup(title: string): string {
 
 type LessonDescriptionTone = 'default' | 'mistakes' | 'note';
 type LessonDescriptionIcon = 'bullet' | 'mistake' | 'note' | 'message' | 'flow';
+type LessonDescriptionLayout = 'auto' | 'steps' | 'mistakes' | 'bullets';
 
 type LessonDescriptionBlock =
   | { type: 'paragraph'; lines: string[] }
@@ -2910,7 +2921,7 @@ function isLessonDescriptionHeading(line: string): boolean {
   const normalizedLine = normalizeLessonDescriptionHeading(line);
 
   if (
-    /^(?:Как (?:учим|играем|работаем|кормим|приучаем|организуем|выполняем)|Подготовка|Результат|Частые ошибки|Особенности 🐾|Важные особенности 🐾|Что важно (?:понять|помнить 🐾)|Что можно использовать|Как устроен коготь 🐾|Зачем .+ 🐾|Разберём основные этапы обучения|Разберём распространённые ошибки и способы их исправления|Главное правило)$/.test(normalizedLine)
+    /^(?:Как (?:учим|играем|работаем|кормим|приучаем|организуем|выполняем)|Как .+ пошагово|Подготовка|Результат|Частые ошибки(?: ❌)?|Особенности 🐾|Важные (?:особенности|нюансы)(?: 🐾)?|Обратите внимание(?: 🐾)?|Что важно (?:понять|помнить 🐾)|Что можно использовать|Как устроен коготь 🐾|Зачем .+ 🐾|Разберём основные этапы обучения|Разберём распространённые ошибки и способы их исправления|Главное правило)$/.test(normalizedLine)
   ) {
     return true;
   }
@@ -2958,10 +2969,12 @@ function createLessonDescriptionSectionMarkup(section: LessonDescriptionSection)
   const visibleTitle = section.title
     ?.replace(/^(?:🔹|⚠️|💡)\s*/u, '')
     .replace(/:\s*$/u, '')
-    .replace(/\s*🐾\s*$/u, '') ?? '';
+    .replace(/\s*(?:🐾|❌)\s*$/u, '') ?? '';
   const headingIcon = section.tone === 'note'
     ? createLessonDescriptionIcon('note')
-    : '';
+    : section.tone === 'mistakes'
+      ? createLessonDescriptionIcon('mistake')
+      : '';
   const titleMarkup = section.title
     ? `<h2 class="lesson-description__heading">${headingIcon}<span>${escapeHtml(visibleTitle)}</span></h2>`
     : '';
@@ -2969,9 +2982,38 @@ function createLessonDescriptionSectionMarkup(section: LessonDescriptionSection)
   return `
     <section class="${sectionClass}">
       ${titleMarkup}
-      ${createLessonDescriptionBlocksMarkup(section.lines, !section.title)}
+      ${createLessonDescriptionBlocksMarkup(
+        section.lines,
+        !section.title,
+        getLessonDescriptionSectionLayout(section),
+      )}
     </section>
   `;
+}
+
+function getLessonDescriptionSectionLayout(
+  section: LessonDescriptionSection,
+): LessonDescriptionLayout {
+  const normalizedTitle = section.title
+    ? normalizeLessonDescriptionHeading(section.title)
+    : '';
+
+  if (/^Как .+ пошагово$/u.test(normalizedTitle)) {
+    return 'steps';
+  }
+
+  if (/^Частые ошибки(?: ❌)?$/u.test(normalizedTitle)) {
+    return 'mistakes';
+  }
+
+  if (
+    section.tone === 'note'
+    && /^(?:Важные (?:особенности|нюансы)(?: 🐾)?|Обратите внимание(?: 🐾)?)$/u.test(normalizedTitle)
+  ) {
+    return 'bullets';
+  }
+
+  return 'auto';
 }
 
 function normalizeLessonDescriptionHeading(line: string): string {
@@ -2984,7 +3026,37 @@ function normalizeLessonDescriptionHeading(line: string): string {
 function createLessonDescriptionBlocksMarkup(
   lines: string[],
   emphasizeFirstParagraph = false,
+  layout: LessonDescriptionLayout = 'auto',
 ): string {
+  if (layout === 'steps') {
+    return createLessonDescriptionBlockMarkup({
+      type: 'steps',
+      items: lines.map((line, index) => {
+        const sentenceMatch = line.match(/^(.+?[.!?])(?:\s+)(.+)$/u);
+
+        return {
+          number: String(index + 1),
+          title: sentenceMatch?.[1] ?? line,
+          details: sentenceMatch?.[2] ? [sentenceMatch[2]] : [],
+        };
+      }),
+    });
+  }
+
+  if (layout === 'mistakes') {
+    return createLessonDescriptionBlockMarkup({
+      type: 'mistakes',
+      items: lines.map((line) => line.replace(/^❌\s*/u, '')),
+    });
+  }
+
+  if (layout === 'bullets') {
+    return createLessonDescriptionBlockMarkup({
+      type: 'bullets',
+      items: lines.map((line) => line.replace(/^(?:🐾|\*|•)\s*/u, '')),
+    });
+  }
+
   const blocks: LessonDescriptionBlock[] = [];
   let paragraphLines: string[] = [];
   let stepItems: Array<{ number: string; title: string; details: string[] }> = [];
@@ -3449,11 +3521,13 @@ function createProgramCard(
       ${extraAttrs}
     >
       <span class="program-card__media">
-        <img src="${imagePath}" alt="" />
+        <img src="${imagePath}" alt="" aria-hidden="true" />
       </span>
       <span class="program-card__body">
-        <span class="program-card__title">${titleMarkup}</span>
-        <span class="program-card__description">${description}</span>
+        <span class="program-card__copy">
+          <span class="program-card__title">${titleMarkup}</span>
+          <span class="program-card__description">${description}</span>
+        </span>
         <span class="program-card__arrow" aria-hidden="true">
           <span class="program-card__arrow-icon"></span>
         </span>

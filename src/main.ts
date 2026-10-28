@@ -8,7 +8,7 @@ import {
   getVideoSourceSlugForRoute,
   isSeasonalVideoRoute,
 } from './app';
-import { isSeasonId, type SeasonId } from './seasonal-content';
+import { getSeasonTheme, isSeasonId, type SeasonId } from './seasonal-content';
 import { fetchSituationVideos } from './lib/videos';
 import {
   getTelegramWebApp,
@@ -40,7 +40,9 @@ const root = appRoot;
 const webApp = isTelegramMiniAppLaunch() ? getTelegramWebApp() : null;
 
 let activeFilter: PuppyFilter = 'all';
-let activeSeason: SeasonId = 'autumn';
+const ACTIVE_SEASON_STORAGE_KEY = 'miniapp-active-season';
+
+let activeSeason: SeasonId = readStoredSeason();
 let videosState: SituationVideosState = { status: 'idle' };
 let lastBottomNavIndicatorLeft = '50%';
 let lastRenderedRoute: AppRoute | null = null;
@@ -52,6 +54,7 @@ let routeSyncSequence = 0;
 let videoCatalogAbortController: AbortController | null = null;
 let renderSequence = 0;
 let playerTitleFitFrame: number | null = null;
+let seasonTransitionSequence = 0;
 const preloadedImages = new Map<string, HTMLImageElement>();
 const assetPreloadPromises = new Map<string, Promise<void>>();
 const ASSET_PRELOAD_TIMEOUT_MS = 15_000;
@@ -176,8 +179,7 @@ document.addEventListener('click', (event) => {
       return;
     }
 
-    activeSeason = nextSeason;
-    void render();
+    void switchSeason(nextSeason);
     return;
   }
 
@@ -242,34 +244,136 @@ async function startPrivateApp(): Promise<void> {
 function setupAppViewportHeight(webApp: TelegramWebApp | null): void {
   let pendingFrame: number | null = null;
 
-  const applyHeight = (): void => {
+  const applyViewportSize = (): void => {
     pendingFrame = null;
-    const viewportHeights = [
-      window.innerHeight,
-      window.visualViewport?.height,
-      webApp?.viewportHeight,
-    ].filter((height): height is number => Number.isFinite(height) && (height ?? 0) > 0);
-    const visibleHeight = Math.min(...viewportHeights);
+    const documentHeight = document.documentElement.clientHeight || window.innerHeight;
+    const documentWidth = document.documentElement.clientWidth || window.innerWidth;
+    const stableTelegramHeight = webApp?.viewportStableHeight;
+    const visibleHeight = typeof stableTelegramHeight === 'number' && Number.isFinite(stableTelegramHeight) && stableTelegramHeight > 0
+      ? stableTelegramHeight
+      : documentHeight;
 
     if (Number.isFinite(visibleHeight) && visibleHeight > 0) {
       document.documentElement.style.setProperty('--app-viewport-height', `${Math.round(visibleHeight)}px`);
     }
+
+    if (Number.isFinite(documentWidth) && documentWidth > 0) {
+      document.documentElement.style.setProperty('--app-viewport-width', `${Math.round(documentWidth)}px`);
+    }
   };
 
-  const scheduleHeightUpdate = (): void => {
+  const scheduleViewportUpdate = (event?: unknown): void => {
+    if (
+      event &&
+      typeof event === 'object' &&
+      'isStateStable' in event &&
+      (event as { isStateStable?: boolean }).isStateStable === false
+    ) {
+      return;
+    }
+
     if (pendingFrame !== null) {
       window.cancelAnimationFrame(pendingFrame);
     }
 
-    pendingFrame = window.requestAnimationFrame(applyHeight);
+    pendingFrame = window.requestAnimationFrame(applyViewportSize);
   };
 
-  applyHeight();
-  window.addEventListener('resize', scheduleHeightUpdate, { passive: true });
-  window.addEventListener('orientationchange', scheduleHeightUpdate, { passive: true });
-  window.visualViewport?.addEventListener('resize', scheduleHeightUpdate, { passive: true });
-  window.visualViewport?.addEventListener('scroll', scheduleHeightUpdate, { passive: true });
-  webApp?.onEvent?.('viewportChanged', scheduleHeightUpdate);
+  applyViewportSize();
+  window.addEventListener('resize', scheduleViewportUpdate, { passive: true });
+  window.addEventListener('orientationchange', scheduleViewportUpdate, { passive: true });
+  webApp?.onEvent?.('viewportChanged', scheduleViewportUpdate);
+}
+
+function readStoredSeason(): SeasonId {
+  try {
+    const storedSeason = window.sessionStorage.getItem(ACTIVE_SEASON_STORAGE_KEY);
+    return storedSeason && isSeasonId(storedSeason) ? storedSeason : 'autumn';
+  } catch {
+    return 'autumn';
+  }
+}
+
+function storeActiveSeason(season: SeasonId): void {
+  try {
+    window.sessionStorage.setItem(ACTIVE_SEASON_STORAGE_KEY, season);
+  } catch {
+    // Session storage can be unavailable in restricted embedded browsers.
+  }
+}
+
+async function switchSeason(nextSeason: SeasonId): Promise<void> {
+  const sequence = ++seasonTransitionSequence;
+  activeSeason = nextSeason;
+  storeActiveSeason(nextSeason);
+
+  if (getCurrentRoute() !== 'seasonal') {
+    await render();
+    return;
+  }
+
+  const theme = getSeasonTheme(nextSeason);
+  await preloadAsset(theme.heroImagePath);
+
+  if (sequence !== seasonTransitionSequence || getCurrentRoute() !== 'seasonal') {
+    return;
+  }
+
+  const screen = root.querySelector<HTMLElement>('.seasonal-screen');
+  const shell = root.querySelector<HTMLElement>('.app-shell--seasonal');
+
+  if (!screen || !shell) {
+    await render();
+    return;
+  }
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!reducedMotion) {
+    screen.classList.add('seasonal-screen--season-leave');
+    await waitForMilliseconds(100);
+
+    if (sequence !== seasonTransitionSequence || getCurrentRoute() !== 'seasonal') {
+      return;
+    }
+  }
+
+  const template = document.createElement('template');
+  template.innerHTML = applyImageLoadingHints(
+    createAppMarkup('seasonal', activeFilter, videosState, nextSeason),
+  ).trim();
+  const nextShell = template.content.querySelector<HTMLElement>('.app-shell--seasonal');
+  const currentHero = screen.querySelector<HTMLElement>('.seasonal-hero');
+  const currentContent = screen.querySelector<HTMLElement>('.seasonal-content');
+  const nextHero = nextShell?.querySelector<HTMLElement>('.seasonal-hero');
+  const nextContent = nextShell?.querySelector<HTMLElement>('.seasonal-content');
+
+  if (!nextShell || !currentHero || !currentContent || !nextHero || !nextContent) {
+    screen.classList.remove('seasonal-screen--season-leave');
+    await render();
+    return;
+  }
+
+  shell.dataset.seasonTheme = nextSeason;
+  shell.querySelectorAll<HTMLButtonElement>('[data-season]').forEach((button) => {
+    const isActive = button.dataset.season === nextSeason;
+    button.classList.toggle('season-switcher__button--active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+  currentHero.replaceWith(nextHero);
+  currentContent.replaceWith(nextContent);
+  screen.classList.remove('seasonal-screen--season-leave');
+
+  if (!reducedMotion) {
+    screen.classList.add('seasonal-screen--season-enter');
+    window.setTimeout(() => {
+      screen.classList.remove('seasonal-screen--season-enter');
+    }, 240);
+  }
+}
+
+function waitForMilliseconds(duration: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, duration));
 }
 async function render(): Promise<void> {
   const sequence = ++renderSequence;
@@ -512,6 +616,12 @@ function updatePageMarkup(markup: string): void {
     return;
   }
 
+  currentShell.className = nextShell.className;
+  if (nextShell.dataset.seasonTheme) {
+    currentShell.dataset.seasonTheme = nextShell.dataset.seasonTheme;
+  } else {
+    delete currentShell.dataset.seasonTheme;
+  }
   currentHeader.replaceWith(nextHeader);
   currentContent.replaceWith(nextContent);
 
@@ -806,6 +916,7 @@ async function syncRouteState(): Promise<void> {
 
   if (seasonalListRoute) {
     activeSeason = seasonalListRoute.season;
+    storeActiveSeason(activeSeason);
   }
 
   if (route !== 'puppies') {
