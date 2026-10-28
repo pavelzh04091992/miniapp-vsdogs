@@ -2155,11 +2155,10 @@ function createWelcomeVideoModalMarkup(): string {
     <div class="welcome-video-modal" data-welcome-video-modal aria-hidden="true">
       <button class="welcome-video-modal__backdrop" type="button" data-welcome-video-backdrop aria-label="Закрыть приветственное видео"></button>
       <section class="welcome-video-modal__sheet" role="dialog" aria-modal="true" aria-labelledby="welcome-video-title" aria-describedby="welcome-video-subtitle">
-        <div class="welcome-video-modal__handle" aria-hidden="true"></div>
         <header class="welcome-video-modal__header">
           <div class="welcome-video-modal__heading">
-            <h2 id="welcome-video-title">Добро пожаловать!</h2>
-            <p id="welcome-video-subtitle">Знакомство с нашей школой</p>
+            <h2 id="welcome-video-title">Знакомство со школой</h2>
+            <p id="welcome-video-subtitle">Узнайте, как устроено наше обучение</p>
           </div>
           <button class="welcome-video-modal__close" type="button" data-welcome-video-close aria-label="Закрыть">
             <span aria-hidden="true"></span>
@@ -2167,12 +2166,10 @@ function createWelcomeVideoModalMarkup(): string {
         </header>
         <div class="welcome-video-modal__video" role="status">
           <div class="welcome-video-modal__unavailable">
-            <span class="welcome-video-modal__play-icon" aria-hidden="true"></span>
             <p>Приветственное видео пока недоступно</p>
           </div>
         </div>
-        <p class="welcome-video-modal__description">Узнайте, как устроено обучение и с чего начать занятия с питомцем.</p>
-        <button class="welcome-video-modal__lessons" type="button" data-route="puppies">
+        <button class="welcome-video-modal__lessons" type="button" data-welcome-video-close>
           <span>Перейти к урокам</span>
           <span class="welcome-video-modal__arrow" aria-hidden="true"></span>
         </button>

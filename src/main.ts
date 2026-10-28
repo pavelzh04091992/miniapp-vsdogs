@@ -62,6 +62,7 @@ let suppressNextWelcomePopState = false;
 let welcomeVideoScrollTop = 0;
 let welcomeVideoOpener: HTMLButtonElement | null = null;
 let previousWelcomeBodyStyles: { position: string; top: string; width: string; overflow: string } | null = null;
+let welcomeVideoClosePromise: Promise<void> | null = null;
 const preloadedImages = new Map<string, HTMLImageElement>();
 const assetPreloadPromises = new Map<string, Promise<void>>();
 const ASSET_PRELOAD_TIMEOUT_MS = 15_000;
@@ -182,7 +183,11 @@ document.addEventListener('click', (event) => {
     }
 
     if (welcomeVideoModalOpen) {
-      closeWelcomeVideoModal({ preserveHistory: true, restoreFocus: false });
+      event.preventDefault();
+      void closeWelcomeVideoModal({ preserveHistory: true, restoreFocus: false }).then(() => {
+        navigateTo(route);
+      });
+      return;
     }
 
     const currentRoute = getCurrentRoute();
@@ -422,6 +427,11 @@ function waitForMilliseconds(duration: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, duration));
 }
 function openWelcomeVideoModal(opener: HTMLButtonElement): void {
+  if (welcomeVideoClosePromise) {
+    void welcomeVideoClosePromise.then(() => openWelcomeVideoModal(opener));
+    return;
+  }
+
   const overlay = root.querySelector<HTMLElement>('[data-welcome-video-modal]');
 
   if (!overlay || welcomeVideoModalOpen) {
@@ -454,9 +464,9 @@ function openWelcomeVideoModal(opener: HTMLButtonElement): void {
   overlay.querySelector<HTMLButtonElement>('[data-welcome-video-close]')?.focus();
 }
 
-function closeWelcomeVideoModal(options: { fromPopState?: boolean; preserveHistory?: boolean; restoreFocus?: boolean } = {}): void {
+function closeWelcomeVideoModal(options: { fromPopState?: boolean; preserveHistory?: boolean; restoreFocus?: boolean } = {}): Promise<void> {
   if (!welcomeVideoModalOpen) {
-    return;
+    return welcomeVideoClosePromise ?? Promise.resolve();
   }
 
   const overlay = root.querySelector<HTMLElement>('[data-welcome-video-modal]');
@@ -484,24 +494,47 @@ function closeWelcomeVideoModal(options: { fromPopState?: boolean; preserveHisto
   }
 
   overlay?.classList.remove('welcome-video-modal--open');
-  overlay?.setAttribute('aria-hidden', 'true');
-  document.documentElement.classList.remove('welcome-video-open');
-
-  if (previousWelcomeBodyStyles) {
-    document.body.style.position = previousWelcomeBodyStyles.position;
-    document.body.style.top = previousWelcomeBodyStyles.top;
-    document.body.style.width = previousWelcomeBodyStyles.width;
-    document.body.style.overflow = previousWelcomeBodyStyles.overflow;
-    previousWelcomeBodyStyles = null;
-  }
-
-  window.scrollTo(0, welcomeVideoScrollTop);
+  overlay?.classList.add('welcome-video-modal--closing');
   webApp?.BackButton?.hide();
 
-  if (options.restoreFocus !== false && welcomeVideoOpener?.isConnected) {
-    welcomeVideoOpener.focus();
-  }
-  welcomeVideoOpener = null;
+  welcomeVideoClosePromise = new Promise((resolve) => {
+    let finished = false;
+    const finishClose = (): void => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      overlay?.classList.remove('welcome-video-modal--closing');
+      overlay?.setAttribute('aria-hidden', 'true');
+      document.documentElement.classList.remove('welcome-video-open');
+
+      if (previousWelcomeBodyStyles) {
+        document.body.style.position = previousWelcomeBodyStyles.position;
+        document.body.style.top = previousWelcomeBodyStyles.top;
+        document.body.style.width = previousWelcomeBodyStyles.width;
+        document.body.style.overflow = previousWelcomeBodyStyles.overflow;
+        previousWelcomeBodyStyles = null;
+      }
+
+      window.scrollTo(0, welcomeVideoScrollTop);
+      if (options.restoreFocus !== false && welcomeVideoOpener?.isConnected) {
+        welcomeVideoOpener.focus();
+      }
+      welcomeVideoOpener = null;
+      welcomeVideoClosePromise = null;
+      resolve();
+    };
+    const sheet = overlay?.querySelector<HTMLElement>('.welcome-video-modal__sheet');
+
+    sheet?.addEventListener('transitionend', (event) => {
+      if (event.target === sheet && event.propertyName === 'opacity') {
+        finishClose();
+      }
+    }, { once: true });
+    window.setTimeout(finishClose, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 20 : 320);
+  });
+
+  return welcomeVideoClosePromise;
 }
 
 async function render(): Promise<void> {

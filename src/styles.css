@@ -5500,19 +5500,31 @@ img {
   inset: 0;
   z-index: 1200;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  background: rgba(0, 0, 0, 0.44);
-  transition: opacity 230ms ease, visibility 230ms ease;
+  padding: max(12px, env(safe-area-inset-top)) 0 max(12px, env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2.5px);
+  -webkit-backdrop-filter: blur(2.5px);
+  transition: opacity 260ms ease, visibility 260ms ease;
+}
+
+.welcome-video-modal--open,
+.welcome-video-modal--closing {
+  visibility: visible;
 }
 
 .welcome-video-modal--open {
-  visibility: visible;
   opacity: 1;
   pointer-events: auto;
+}
+
+.welcome-video-modal--closing {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .welcome-video-modal__backdrop {
@@ -5526,42 +5538,48 @@ img {
 }
 
 .welcome-video-modal__sheet {
-  width: min(100%, 640px);
-  max-height: calc(100dvh - env(safe-area-inset-top));
-  padding: 10px 18px max(18px, env(safe-area-inset-bottom));
+  width: min(calc(100% - 32px), 460px);
+  max-height: min(90dvh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px));
+  padding: 20px;
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border-radius: 24px 24px 0 0;
+  border-radius: 23px;
   background: #ffffff;
-  box-shadow: 0 -12px 40px rgba(8, 38, 87, 0.2);
-  transform: translateY(100%);
-  transition: transform 230ms cubic-bezier(0.22, 0.8, 0.25, 1);
+  box-shadow: 0 16px 48px rgba(8, 38, 87, 0.18);
+  opacity: 0;
+  transform: translateY(15px) scale(0.94);
+  transition:
+    opacity 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .welcome-video-modal--open .welcome-video-modal__sheet {
-  transform: translateY(0);
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
-.welcome-video-modal__handle {
-  width: 38px;
-  height: 4px;
-  margin: 0 auto 14px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: #cbd3de;
+.welcome-video-modal--closing .welcome-video-modal__sheet {
+  opacity: 0;
+  transform: translateY(15px) scale(0.96);
 }
 
 .welcome-video-modal__header {
   min-height: 42px;
-  margin-bottom: 14px;
+  margin-bottom: 17px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  position: sticky;
+  top: -20px;
+  z-index: 2;
+  margin-top: -20px;
+  padding-top: 20px;
+  background: #ffffff;
 }
 
 .welcome-video-modal__heading h2 {
@@ -5573,7 +5591,7 @@ img {
 }
 
 .welcome-video-modal__heading p {
-  margin: 4px 0 0;
+  margin: 5px 0 0;
   color: #62758f;
   font-size: 12px;
   line-height: 1.35;
@@ -5621,7 +5639,7 @@ img {
 
 .welcome-video-modal__video {
   width: 100%;
-  min-height: 150px;
+  min-height: 120px;
   aspect-ratio: 16 / 9;
   border-radius: 16px;
   display: grid;
@@ -5636,7 +5654,6 @@ img {
   padding: 20px;
   display: grid;
   justify-items: center;
-  gap: 12px;
   text-align: center;
 }
 
@@ -5647,37 +5664,11 @@ img {
   line-height: 1.45;
 }
 
-.welcome-video-modal__play-icon {
-  width: 46px;
-  height: 46px;
-  border: 1px solid rgba(255, 255, 255, 0.36);
-  border-radius: 50%;
-  position: relative;
-  display: block;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.welcome-video-modal__play-icon::after {
-  content: '';
-  position: absolute;
-  top: 13px;
-  left: 18px;
-  border-top: 9px solid transparent;
-  border-bottom: 9px solid transparent;
-  border-left: 13px solid #ffffff;
-}
-
-.welcome-video-modal__description {
-  margin: 14px 0;
-  color: #62758f;
-  font-size: 13px;
-  line-height: 1.48;
-}
-
 .welcome-video-modal__lessons {
   width: 100%;
   min-height: 48px;
-  padding: 0 18px;
+  margin-top: 18px;
+  padding: 0 16px;
   border: 0;
   border-radius: 13px;
   display: flex;
@@ -5705,27 +5696,16 @@ img {
   outline-offset: 3px;
 }
 
-@media (min-width: 640px) {
-  .welcome-video-modal {
-    padding: 24px;
-    align-items: center;
-  }
-
+@media (max-width: 359px) {
   .welcome-video-modal__sheet {
-    max-height: min(90dvh, 760px);
-    border-radius: 22px;
-    transform: translateY(14px);
-  }
-
-  .welcome-video-modal--open .welcome-video-modal__sheet {
-    transform: translateY(0);
+    padding: 16px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .welcome-video-modal,
   .welcome-video-modal__sheet {
-    transition-duration: 1ms;
+    transition-duration: 1ms !important;
   }
 }
 
