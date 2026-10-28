@@ -40,9 +40,9 @@
   --useful-icon-size: 36px;
   --useful-title-size: 12px;
   --program-grid-gap: clamp(10px, 2.8vw, 14px);
-  --program-card-min-height: clamp(238px, 66vw, 284px);
-  --program-card-padding: clamp(12px, 3.2vw, 16px);
-  --program-card-inner-gap: clamp(8px, 2.4vw, 12px);
+  --program-card-height: 254px;
+  --program-card-padding: clamp(14px, 3.6vw, 16px);
+  --program-card-inner-gap: 8px;
   --program-card-body-gap: clamp(6px, 1.8vw, 9px);
   --program-card-content-inset: 0;
   --program-arrow-size: clamp(34px, 9vw, 38px);
@@ -1524,7 +1524,7 @@ img {
   --program-glass-tint: 116, 173, 232;
   width: 100%;
   max-width: 100%;
-  min-height: var(--program-card-min-height);
+  min-height: var(--program-card-height);
   border: 1px solid rgba(255, 255, 255, 0.88);
   padding: var(--program-card-padding);
   position: relative;
@@ -1611,9 +1611,22 @@ img {
   --program-glass-tint: 235, 112, 132;
 }
 
+.program-grid > .program-card:nth-child(1),
+.program-grid > .program-card:nth-child(3) {
+  height: var(--program-card-height);
+  min-height: var(--program-card-height);
+  grid-template-rows: minmax(0, 1fr) 112px;
+  align-self: stretch;
+}
+
+.program-grid > .program-card:nth-child(1) .program-card__media,
+.program-grid > .program-card:nth-child(3) .program-card__media {
+  min-height: 112px;
+}
+
 .program-card__media {
   min-width: 0;
-  min-height: clamp(88px, 24vw, 112px);
+  min-height: 112px;
   padding-right: 0;
   order: 2;
   display: flex;
@@ -1624,11 +1637,11 @@ img {
 
 .program-card__media img {
   display: block;
-  width: min(100%, clamp(92px, 29vw, 126px));
-  height: auto;
-  max-height: clamp(94px, 28vw, 122px);
+  width: 112px;
+  height: 112px;
   object-fit: contain;
-  object-position: left bottom;
+  object-position: center bottom;
+  transform: translateY(4px);
 }
 
 .program-card__body {
@@ -4065,6 +4078,15 @@ img {
 
 .app-shell--seasonal .subpage-header {
   --frame-inner-padding: 12px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+}
+
+.app-shell--seasonal .subpage-header .content-frame {
+  width: min(
+    var(--screen-max),
+    calc(var(--frame-width-mobile) - var(--frame-safe-inline) * 2 - var(--page-gutter) * 2)
+  );
+  max-width: var(--screen-max);
 }
 
 .seasonal-screen,
@@ -5098,10 +5120,6 @@ img {
 }
 
 @media (max-width: 430px) {
-  .program-card {
-    min-height: var(--program-card-min-height);
-  }
-
   .program-card__body {
     width: 100%;
   }
@@ -5114,15 +5132,6 @@ img {
     word-break: normal;
   }
 
-  .program-card__media {
-    min-height: clamp(88px, 24vw, 112px);
-    padding-right: 0;
-  }
-
-  .program-card__media img {
-    max-height: clamp(94px, 28vw, 122px);
-  }
-
   .program-card__arrow {
     position: static;
   }
@@ -5130,8 +5139,8 @@ img {
 
 @media (max-width: 340px) {
   :root {
-    --program-card-min-height: 214px;
-    --program-card-padding: 11px;
+    --program-card-height: 180px;
+    --program-card-padding: 14px;
     --program-grid-gap: 8px;
   }
 
@@ -5139,27 +5148,41 @@ img {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .program-card {
+  .program-grid > .program-card:nth-child(1),
+  .program-grid > .program-card:nth-child(3) {
+    height: var(--program-card-height);
+    min-height: var(--program-card-height);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .program-grid > .program-card:nth-child(1) .program-card__body,
+  .program-grid > .program-card:nth-child(3) .program-card__body {
+    grid-row: 1;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(108px, 1fr);
+    padding-right: 120px;
   }
 
-  .program-card__media {
-    min-height: 108px;
-    justify-content: center;
+  .program-grid > .program-card:nth-child(1) .program-card__media,
+  .program-grid > .program-card:nth-child(3) .program-card__media {
+    position: absolute;
+    inset: 0;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 14px 14px 14px 0;
+    min-height: 0;
   }
 
-  .program-card__title {
-    font-size: 14.5px;
-  }
-
-  .program-card__description {
-    font-size: 11px;
+  .program-grid > .program-card:nth-child(1) .program-card__arrow,
+  .program-grid > .program-card:nth-child(3) .program-card__arrow {
+    position: absolute;
+    top: 0;
+    right: 0;
   }
 
   .program-card__media img {
-    width: min(100%, 92px);
-    max-height: 92px;
+    width: 112px;
+    height: 112px;
   }
 }
 
