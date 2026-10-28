@@ -121,6 +121,7 @@ export type AdultLargeTopicSlug =
 
 export type AppRoute =
   | 'home'
+  | 'video-library'
   | 'seasonal'
   | `seasonal-list:${SeasonId}:${SeasonalSection}`
   | 'fitness'
@@ -1684,6 +1685,8 @@ interface LessonVideoEntry {
   sourceType: LessonVideoSource;
   backRoute: AppRoute;
   seasons?: readonly SeasonId[];
+  coverPath?: string;
+  summary?: string;
 }
 
 const lessonVideosById = new Map<string, LessonVideoEntry>();
@@ -1704,6 +1707,8 @@ function registerLessonVideo(lesson: PuppyLessonItem, backRoute: AppRoute): void
     description: lesson.longDescription,
     sourceType: lesson.video.sourceType,
     backRoute,
+    coverPath: lesson.coverPath,
+    summary: lesson.description,
   });
 }
 
@@ -1785,11 +1790,150 @@ seasonalVideos.forEach((video) => {
     mediaId: video.mediaId,
     title: video.title,
     description: video.description,
+      summary: video.description.split(/[.!?\n]/u, 1)[0] ?? '',
     sourceType: 'hls',
     backRoute: 'seasonal',
     seasons: video.seasons,
   });
 });
+
+export type VideoLibraryCategory = 'commands' | 'tricks' | 'walks' | 'seasonal' | 'fitness';
+
+export type VideoLibraryFilter = 'all' | VideoLibraryCategory;
+export type VideoLibraryMode = 'wheel' | 'list';
+
+export interface VideoLibraryState {
+  category: VideoLibraryFilter;
+  mode: VideoLibraryMode;
+  query: string;
+  searchOpen: boolean;
+  activeId: string | null;
+  motionDirection: 'left' | 'right';
+}
+
+export const initialVideoLibraryState: VideoLibraryState = {
+  category: 'all',
+  mode: 'wheel',
+  query: '',
+  searchOpen: false,
+  activeId: null,
+  motionDirection: 'right',
+};
+
+export interface VideoLibraryItem {
+  id: string;
+  order: number;
+  title: string;
+  description: string;
+  coverPath: string;
+  durationLabel: string;
+  mediaId?: string;
+  sourceType?: 'hls' | 'mp4';
+  category: VideoLibraryCategory | null;
+  route: AppRoute;
+  available: boolean;
+  searchText: string;
+}
+
+const videoLibraryItems = createVideoLibraryItems();
+
+export function getVideoLibraryItems(): readonly VideoLibraryItem[] {
+  return videoLibraryItems;
+}
+
+function createVideoLibraryItems(): VideoLibraryItem[] {
+  const itemsByMedia = new Map<string, VideoLibraryItem>();
+
+  lessonVideosById.forEach((video) => {
+    const sourceId = video.mediaId ?? video.id;
+    const seasonal = Boolean(video.seasons?.length);
+    const category = seasonal ? 'seasonal' : getVideoLibraryCategory(video);
+    const coverPath = video.coverPath ?? `/media/${encodeURIComponent(sourceId)}/poster.webp`;
+    const item: VideoLibraryItem = {
+      id: video.id,
+      order: itemsByMedia.size + 1,
+      title: video.title,
+      description: video.summary ?? video.description?.split(/\n/u, 1)[0] ?? '',
+      coverPath,
+      durationLabel: seasonalVideos.find((seasonalVideo) => seasonalVideo.id === video.id)?.duration ?? '',
+      mediaId: sourceId,
+      sourceType: video.sourceType,
+      category,
+      route: `lesson-video:${video.id}`,
+      available: true,
+      searchText: `${video.title} ${video.description ?? ''} ${getVideoLibraryCategoryLabel(category)}`.toLocaleLowerCase(),
+    };
+
+    const dedupeKey = `${video.sourceType}:${sourceId}`;
+    if (!itemsByMedia.has(dedupeKey)) {
+      itemsByMedia.set(dedupeKey, item);
+    }
+  });
+
+  dogSkillsLessons.forEach((lesson) => {
+    const item: VideoLibraryItem = {
+      id: `dog-skills-${lesson.id}`,
+      order: itemsByMedia.size + 1,
+      title: lesson.title,
+      description: lesson.cardDescription,
+      coverPath: lesson.coverPath,
+      durationLabel: '',
+      category: 'tricks',
+      route: `dog-skills-video:${lesson.id}`,
+      available: false,
+      searchText: `${lesson.title} ${lesson.cardDescription} ${getVideoLibraryCategoryLabel('tricks')}`.toLocaleLowerCase(),
+    };
+
+    itemsByMedia.set(`unavailable:${lesson.id}`, item);
+  });
+
+  return [...itemsByMedia.values()];
+}
+
+function getVideoLibraryCategoryLabel(category: VideoLibraryCategory | null): string {
+  switch (category) {
+    case 'commands': return 'Команды';
+    case 'tricks': return 'Трюки';
+    case 'walks': return 'Прогулки';
+    case 'seasonal': return 'Сезонное';
+    case 'fitness': return 'Фитнес';
+    default: return '';
+  }
+}
+
+function getVideoLibraryCategory(video: LessonVideoEntry): VideoLibraryCategory | null {
+  const routeSlug = video.backRoute.split(':').at(-1) ?? '';
+  const puppyTopic = puppyTopicsBySlug.get(routeSlug as PuppyTopicSlug);
+  const adultTopic = adultLargeTopicsBySlug.get(routeSlug as AdultLargeTopicSlug);
+  const parentSlug = puppyTopic?.parentSlug ?? adultTopic?.parentSlug ?? '';
+  const normalizedTitle = video.title.toLocaleLowerCase();
+
+  if (parentSlug.includes('fitness') || routeSlug.startsWith('fitness-') || routeSlug.startsWith('adult-large-')) {
+    return routeSlug.includes('fitness') || parentSlug.includes('fitness') ? 'fitness' : getTitleCategory(normalizedTitle);
+  }
+
+  if (routeSlug.includes('walk') || parentSlug.includes('walk')) {
+    return 'walks';
+  }
+
+  return getTitleCategory(normalizedTitle);
+}
+
+function getTitleCategory(title: string): VideoLibraryCategory | null {
+  if (/команд|ко мне|рядом|дай лап|стоп|сидеть|лежать|место/u.test(title)) {
+    return 'commands';
+  }
+
+  if (/прогул|повод|улиц|гулять/u.test(title)) {
+    return 'walks';
+  }
+
+  if (/трюк|напёрст|домик|зайка|поклон|круть/u.test(title)) {
+    return 'tricks';
+  }
+
+  return null;
+}
 
 function getLessonVideoFromRoute(route: AppRoute): LessonVideoEntry | null {
   if (!route.startsWith('lesson-video:')) {
@@ -1816,6 +1960,7 @@ export function createAppMarkup(
   activeFilter: PuppyFilter,
   videosState: SituationVideosState,
   activeSeason: SeasonId = 'autumn',
+  videoLibraryState: VideoLibraryState = initialVideoLibraryState,
 ): string {
   const lessonVideo = getLessonVideoFromRoute(route);
   const dogSkillsLesson = getDogSkillsLessonFromRoute(route);
@@ -1834,6 +1979,10 @@ export function createAppMarkup(
 
   if (route === 'seasonal') {
     return createSeasonalVideosMarkup(activeSeason);
+  }
+
+  if (route === 'video-library') {
+    return createVideoLibraryMarkup(videoLibraryState);
   }
 
   if (route.startsWith('seasonal-list:')) {
@@ -2070,9 +2219,9 @@ function createHomeMarkup(): string {
             <div class="section-heading">
               <h2 id="useful-title">Полезное</h2>
               <button
-                class="section-link js-feedback"
+                class="section-link"
                 type="button"
-                data-feedback="Раздел со всеми материалами пока в разработке"
+                data-route="video-library"
               >
                 <span>Смотреть всё</span>
                 <span class="section-link__arrow" aria-hidden="true"></span>
@@ -2178,7 +2327,7 @@ function createWelcomeVideoModalMarkup(): string {
   `;
 }
 
-function createSubpageHeaderMarkup(title: string, backRoute: AppRoute): string {
+function createSubpageHeaderMarkup(title: string, backRoute: AppRoute, headerActionMarkup = ''): string {
   return `
     <header class="subpage-header">
       <div class="content-frame">
@@ -2187,12 +2336,134 @@ function createSubpageHeaderMarkup(title: string, backRoute: AppRoute): string {
             <img class="subpage-header__logo" src="/assets/logo-dog.svg" alt="" aria-hidden="true" />
           </button>
           <h1 class="subpage-title">${escapeHtml(title)}</h1>
-          <button class="back-button" type="button" data-route="${escapeHtml(backRoute)}" aria-label="Назад">
-            <span class="back-button__icon" aria-hidden="true"></span>
-          </button>
+          ${headerActionMarkup
+            ? `<span class="subpage-header__actions">${headerActionMarkup}<button class="back-button" type="button" data-route="${escapeHtml(backRoute)}" aria-label="Назад"><span class="back-button__icon" aria-hidden="true"></span></button></span>`
+            : `<button class="back-button" type="button" data-route="${escapeHtml(backRoute)}" aria-label="Назад"><span class="back-button__icon" aria-hidden="true"></span></button>`}
         </div>
       </div>
     </header>
+  `;
+}
+
+const videoLibraryCategories: readonly { id: VideoLibraryFilter; label: string }[] = [
+  { id: 'all', label: 'Все видео' },
+  { id: 'commands', label: 'Команды' },
+  { id: 'tricks', label: 'Трюки' },
+  { id: 'walks', label: 'Прогулки' },
+  { id: 'seasonal', label: 'Сезонное' },
+  { id: 'fitness', label: 'Фитнес' },
+];
+
+function createVideoLibraryMarkup(state: VideoLibraryState): string {
+  const query = state.query.trim().toLocaleLowerCase();
+  const filtered = getVideoLibraryItems().filter((video) =>
+    (state.category === 'all' || video.category === state.category) &&
+    (!query || video.searchText.includes(query)),
+  );
+  const activeIndex = Math.max(0, filtered.findIndex((video) => video.id === state.activeId));
+  const activeVideo = filtered[activeIndex];
+  const visibleVideos = filtered
+    .map((video, index) => ({ video, index, offset: index - activeIndex }))
+    .filter(({ offset }) => Math.abs(offset) <= 1);
+  const categoryMarkup = videoLibraryCategories.map((category) => {
+    const count = category.id === 'all'
+      ? getVideoLibraryItems().length
+      : getVideoLibraryItems().filter((video) => video.category === category.id).length;
+    return `
+      <button class="video-library__category${state.category === category.id ? ' is-active' : ''}"
+        type="button" data-library-category="${category.id}" aria-pressed="${state.category === category.id}">
+        <span>${category.label}</span><span class="video-library__category-count">${count}</span>
+      </button>
+    `;
+  }).join('');
+  const carouselMarkup = filtered.length === 0
+    ? `<div class="video-library__empty" role="status"><h2>${query ? 'Ничего не найдено' : 'Здесь скоро появятся видео!'}</h2><p>${query ? 'Попробуйте изменить запрос или выбрать другую категорию.' : 'Мы готовим новые материалы для этой категории.'}</p>${query ? '<button type="button" data-library-reset>Сбросить фильтры</button>' : ''}</div>`
+    : state.mode === 'wheel'
+      ? `
+        <div class="video-library__wheel" data-library-wheel aria-label="Карусель видео" tabindex="0">
+          ${visibleVideos.map(({ video, index, offset }) => createVideoLibraryWheelCard(video, index, offset, state.motionDirection)).join('')}
+        </div>
+        <div class="video-library__position" aria-live="polite">
+          <span>${String(activeIndex + 1).padStart(2, '0')}</span><span aria-hidden="true">/</span><span>${String(filtered.length).padStart(2, '0')}</span>
+        </div>
+      `
+      : `<div class="video-library__list">${filtered.map((video) => createVideoLibraryListCard(video)).join('')}</div>`;
+
+  return `
+    <div class="app-shell app-shell--video-library">
+      ${createSubpageHeaderMarkup(
+        'Видеотека',
+        'home',
+        `<button type="button" class="video-library__header-search" data-library-search-toggle aria-label="Поиск видео" aria-expanded="${state.searchOpen}"><img class="video-library__search-icon" src="/assets/icons/search-library.webp" alt="" /></button>`,
+      )}
+      <main class="screen-content video-library-screen">
+        <div class="content-frame video-library-frame">
+          ${state.searchOpen || state.query ? `
+            <label class="video-library__search">
+              <img class="video-library__search-icon" src="/assets/icons/search-library.webp" alt="" />
+              <input type="search" data-library-search value="${escapeHtml(state.query)}" placeholder="Найти видео..." aria-label="Найти видео" />
+              ${state.query ? '<button type="button" data-library-clear-search aria-label="Очистить поиск">×</button>' : ''}
+            </label>
+          ` : ''}
+          <section class="video-library__welcome">
+            <h2>Учимся играя</h2>
+            <p>Выбирайте видео и открывайте новые навыки вместе с питомцем.</p>
+          </section>
+          <div class="video-library__toolbar">
+            <span class="video-library__toolbar-title">Видео для вас</span>
+            <div class="video-library__toolbar-actions">
+              <div class="video-library__view-switch" role="group" aria-label="Режим просмотра">
+                <button type="button" data-library-mode="wheel" aria-label="Режим карусели" aria-pressed="${state.mode === 'wheel'}">◉</button>
+                <button type="button" data-library-mode="list" aria-label="Режим списка" aria-pressed="${state.mode === 'list'}">☷</button>
+              </div>
+            </div>
+          </div>
+          ${carouselMarkup}
+          ${state.mode === 'wheel' && filtered.length > 0 ? `
+            <div class="video-library__categories-heading"><h2>Выберите категорию</h2></div>
+            <div class="video-library__categories" role="group" aria-label="Категории видео">${categoryMarkup}</div>
+          ` : `<div class="video-library__categories video-library__categories--list" role="group" aria-label="Категории видео">${categoryMarkup}</div>`}
+          ${activeVideo && !activeVideo.available ? '<p class="video-library__availability-note">Для некоторых уроков видео скоро появится.</p>' : ''}
+        </div>
+      </main>
+      ${createBottomNav('lessons')}
+    </div>
+  `;
+}
+
+function createVideoLibraryWheelCard(
+  video: VideoLibraryItem,
+  index: number,
+  offset: number,
+  motionDirection: VideoLibraryState['motionDirection'],
+): string {
+  const active = offset === 0;
+  const enterOffset = motionDirection === 'left' ? '-24px' : '24px';
+  const style = `--wheel-offset:${offset};--wheel-depth:${Math.abs(offset)};--wheel-enter-offset:${enterOffset}`;
+  return `
+    <button class="video-library-card${active ? ' is-active' : ''}${video.available ? '' : ' is-unavailable'}"
+      type="button" data-library-card data-library-index="${index}" data-route="${active ? video.route : ''}"
+      data-library-offset="${offset}" data-media-id="${escapeHtml(video.mediaId ?? '')}"
+      data-media-source="${video.sourceType ?? ''}"
+      style="${style}" aria-label="${active ? (video.available ? 'Открыть видео: ' : 'Посмотреть информацию: ') : 'Перейти к видео: '}${escapeHtml(video.title)}"
+      aria-current="${active ? 'true' : 'false'}" tabindex="${active ? '0' : '-1'}">
+      <span class="video-library-card__cover">
+        <img src="${escapeHtml(video.coverPath)}" alt="" loading="${Math.abs(offset) === 0 ? 'eager' : 'lazy'}" />
+        ${video.available ? `<span class="video-library-card__play" aria-hidden="true">${createPlayIconMarkup('video-library-card__play-icon')}</span>` : '<span class="video-library-card__soon">Видео скоро</span>'}
+        ${video.available ? `<span class="video-library-card__duration" data-library-duration${video.durationLabel ? '' : ' hidden'}>${escapeHtml(video.durationLabel)}</span>` : ''}
+      </span>
+      <span class="video-library-card__body"><strong>${escapeHtml(video.title)}</strong><span>${escapeHtml(video.description)}</span></span>
+    </button>
+  `;
+}
+
+function createVideoLibraryListCard(video: VideoLibraryItem): string {
+  return `
+    <button class="video-library-list-card${video.available ? '' : ' is-unavailable'}" type="button" data-route="${video.route}">
+      <span class="video-library-list-card__cover"><img src="${escapeHtml(video.coverPath)}" alt="" loading="lazy" />${video.available ? '' : '<span>Скоро</span>'}</span>
+      <span class="video-library-list-card__copy"><strong>${escapeHtml(video.title)}</strong><span>${escapeHtml(video.description)}</span></span>
+      <span class="video-library-list-card__arrow" aria-hidden="true">›</span>
+    </button>
   `;
 }
 
