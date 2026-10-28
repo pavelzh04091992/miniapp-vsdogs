@@ -123,6 +123,21 @@ test('seasonal cards show duration only on the preview badge', async () => {
   assert.equal((cardSource.match(/video\.category/gu) ?? []).length, 1);
 });
 
+test('every season keeps the collection CTA and empty states have no play glyph', async () => {
+  const appSource = await readFile(new URL('../src/app.ts', import.meta.url), 'utf8');
+  const heroStart = appSource.indexOf('function createSeasonHeroMarkup');
+  const heroEnd = appSource.indexOf('function createSeasonSwitcherMarkup', heroStart);
+  const emptyStart = appSource.indexOf('function createSeasonalEmptyStateMarkup');
+  const emptyEnd = appSource.indexOf('function createSeasonIconMarkup', emptyStart);
+  const heroSource = appSource.slice(heroStart, heroEnd);
+  const emptySource = appSource.slice(emptyStart, emptyEnd);
+
+  assert.match(heroSource, /data-seasonal-cta/u);
+  assert.match(heroSource, />Смотреть подборку</u);
+  assert.doesNotMatch(heroSource, /hasVideos/u);
+  assert.doesNotMatch(emptySource, /createPlayIconMarkup|seasonal-empty__(?:icon|play)/u);
+});
+
 test('seasonal heroes isolate copy, artwork and the standard app header geometry', async () => {
   const [appSource, css] = await Promise.all([
     readFile(new URL('../src/app.ts', import.meta.url), 'utf8'),

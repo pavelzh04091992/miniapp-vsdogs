@@ -2137,7 +2137,7 @@ function createSeasonalVideosMarkup(activeSeason: SeasonId): string {
 
       <main class="screen-content seasonal-screen">
         <div class="content-frame">
-          ${createSeasonHeroMarkup(theme, hasVideos)}
+          ${createSeasonHeroMarkup(theme)}
           ${createSeasonSwitcherMarkup(activeSeason)}
           <div class="seasonal-content" data-seasonal-content>
             ${hasVideos
@@ -2154,7 +2154,7 @@ function createSeasonalVideosMarkup(activeSeason: SeasonId): string {
   `;
 }
 
-function createSeasonHeroMarkup(theme: ReturnType<typeof getSeasonTheme>, hasVideos: boolean): string {
+function createSeasonHeroMarkup(theme: ReturnType<typeof getSeasonTheme>): string {
   return `
     <section class="seasonal-hero" aria-labelledby="seasonal-hero-title">
       <span class="seasonal-hero__visual" aria-hidden="true">
@@ -2171,14 +2171,10 @@ function createSeasonHeroMarkup(theme: ReturnType<typeof getSeasonTheme>, hasVid
       <div class="seasonal-hero__content">
         <h2 id="seasonal-hero-title">${escapeHtml(theme.heroTitle)}</h2>
         <p>${escapeHtml(theme.heroDescription)}</p>
-        ${hasVideos
-          ? `
-            <button class="seasonal-hero__cta" type="button" data-seasonal-cta>
-              <span>Смотреть подборку</span>
-              ${createArrowIconMarkup('seasonal-hero__cta-icon')}
-            </button>
-          `
-          : ''}
+        <button class="seasonal-hero__cta" type="button" data-seasonal-cta>
+          <span>Смотреть подборку</span>
+          ${createArrowIconMarkup('seasonal-hero__cta-icon')}
+        </button>
       </div>
     </section>
   `;
@@ -2318,9 +2314,6 @@ function createSeasonalVideoListMarkup(season: SeasonId, section: SeasonalSectio
 function createSeasonalEmptyStateMarkup(seasonLabel: string): string {
   return `
     <section class="seasonal-empty" aria-labelledby="seasonal-empty-title">
-      <span class="seasonal-empty__icon" aria-hidden="true">
-        ${createPlayIconMarkup('seasonal-empty__play')}
-      </span>
       <h2 id="seasonal-empty-title">Здесь скоро появятся новые видео!</h2>
       <p>Мы готовим полезные материалы для сезона «${escapeHtml(seasonLabel)}».</p>
     </section>
