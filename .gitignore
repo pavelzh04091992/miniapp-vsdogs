@@ -3,10 +3,17 @@ dist/
 .env
 .env.test
 .env.test-prod
+.env.*
+!.env.example
+!.env.test-prod.example
 .test-secrets/
 .DS_Store
 .idea/
 *.log
+# Local Codex previews, upload helpers and one-off scripts.
+.codex-*
+# Local production SSH keys.
+prod_root_*
 HANDOFF_AUTH_OPTION_2.md
 data/*
 !data/.gitkeep

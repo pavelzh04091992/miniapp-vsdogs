@@ -1808,7 +1808,9 @@ export interface VideoLibraryState {
   query: string;
   searchOpen: boolean;
   activeId: string | null;
-  motionDirection: 'left' | 'right';
+  transitionFromId: string | null;
+  transitionRetainedIds: string[];
+  transitionMode: 'none' | 'card' | 'jump';
 }
 
 export const initialVideoLibraryState: VideoLibraryState = {
@@ -1817,7 +1819,9 @@ export const initialVideoLibraryState: VideoLibraryState = {
   query: '',
   searchOpen: false,
   activeId: null,
-  motionDirection: 'right',
+  transitionFromId: null,
+  transitionRetainedIds: [],
+  transitionMode: 'none',
 };
 
 export interface VideoLibraryItem {
@@ -2361,10 +2365,28 @@ function createVideoLibraryMarkup(state: VideoLibraryState): string {
     (!query || video.searchText.includes(query)),
   );
   const activeIndex = Math.max(0, filtered.findIndex((video) => video.id === state.activeId));
-  const activeVideo = filtered[activeIndex];
+  const transitionFromIndex = state.transitionMode === 'card' && state.transitionFromId
+    ? filtered.findIndex((video) => video.id === state.transitionFromId)
+    : -1;
+  const visibleIndexes = new Set<number>();
+  for (const centerIndex of [activeIndex, transitionFromIndex]) {
+    if (centerIndex < 0) continue;
+    for (let offset = -2; offset <= 2; offset += 1) {
+      const index = centerIndex + offset;
+      if (index >= 0 && index < filtered.length) visibleIndexes.add(index);
+    }
+  }
+  if (state.transitionMode === 'card') {
+    for (const id of state.transitionRetainedIds) {
+      const index = filtered.findIndex((video) => video.id === id);
+      if (index >= 0) visibleIndexes.add(index);
+    }
+  }
   const visibleVideos = filtered
     .map((video, index) => ({ video, index, offset: index - activeIndex }))
-    .filter(({ offset }) => Math.abs(offset) <= 1);
+    .filter(({ index }) => visibleIndexes.has(index))
+    .sort((a, b) => Number(Math.abs(b.offset) > 2) - Number(Math.abs(a.offset) > 2) ||
+      Number(a.offset === 0) - Number(b.offset === 0));
   const categoryMarkup = videoLibraryCategories.map((category) => {
     const count = category.id === 'all'
       ? getVideoLibraryItems().length
@@ -2380,8 +2402,12 @@ function createVideoLibraryMarkup(state: VideoLibraryState): string {
     ? `<div class="video-library__empty" role="status"><h2>${query ? 'Ничего не найдено' : 'Здесь скоро появятся видео!'}</h2><p>${query ? 'Попробуйте изменить запрос или выбрать другую категорию.' : 'Мы готовим новые материалы для этой категории.'}</p>${query ? '<button type="button" data-library-reset>Сбросить фильтры</button>' : ''}</div>`
     : state.mode === 'wheel'
       ? `
-        <div class="video-library__wheel" data-library-wheel aria-label="Карусель видео" tabindex="0">
-          ${visibleVideos.map(({ video, index, offset }) => createVideoLibraryWheelCard(video, index, offset, state.motionDirection)).join('')}
+        <div class="video-library__carousel-stage">
+          <div class="video-library__carousel-viewport">
+            <div class="video-library__wheel" data-library-wheel aria-label="Карусель видео" tabindex="0">
+              ${visibleVideos.map(({ video, index, offset }) => createVideoLibraryWheelCard(video, index, offset, state.transitionMode, state.transitionFromId)).join('')}
+            </div>
+          </div>
         </div>
         <div class="video-library__position" aria-live="polite">
           <span>${String(activeIndex + 1).padStart(2, '0')}</span><span aria-hidden="true">/</span><span>${String(filtered.length).padStart(2, '0')}</span>
@@ -2405,10 +2431,7 @@ function createVideoLibraryMarkup(state: VideoLibraryState): string {
               ${state.query ? '<button type="button" data-library-clear-search aria-label="Очистить поиск">×</button>' : ''}
             </label>
           ` : ''}
-          <section class="video-library__welcome">
-            <h2>Учимся играя</h2>
-            <p>Выбирайте видео и открывайте новые навыки вместе с питомцем.</p>
-          </section>
+          <p class="video-library__intro">Выбирайте видео и открывайте новые навыки вместе с питомцем.</p>
           <div class="video-library__toolbar">
             <span class="video-library__toolbar-title">Видео для вас</span>
             <div class="video-library__toolbar-actions">
@@ -2418,12 +2441,13 @@ function createVideoLibraryMarkup(state: VideoLibraryState): string {
               </div>
             </div>
           </div>
-          ${carouselMarkup}
-          ${state.mode === 'wheel' && filtered.length > 0 ? `
+        <div class="video-library__carousel-content${state.mode === 'wheel' ? ' video-library__carousel-content--wheel' : ''}" style="view-transition-name:${state.transitionMode === 'jump' ? 'video-library-carousel' : 'none'}">
+            ${carouselMarkup}
+          </div>
+          ${state.mode === 'wheel' ? `
             <div class="video-library__categories-heading"><h2>Выберите категорию</h2></div>
-            <div class="video-library__categories" role="group" aria-label="Категории видео">${categoryMarkup}</div>
-          ` : `<div class="video-library__categories video-library__categories--list" role="group" aria-label="Категории видео">${categoryMarkup}</div>`}
-          ${activeVideo && !activeVideo.available ? '<p class="video-library__availability-note">Для некоторых уроков видео скоро появится.</p>' : ''}
+            <div class="video-library__categories" data-library-categories role="group" aria-label="Категории видео"><span class="video-library__category-indicator" data-library-category-indicator aria-hidden="true"></span>${categoryMarkup}</div>
+          ` : `<div class="video-library__categories video-library__categories--list" data-library-categories role="group" aria-label="Категории видео"><span class="video-library__category-indicator" data-library-category-indicator aria-hidden="true"></span>${categoryMarkup}</div>`}
         </div>
       </main>
       ${createBottomNav('lessons')}
@@ -2435,21 +2459,41 @@ function createVideoLibraryWheelCard(
   video: VideoLibraryItem,
   index: number,
   offset: number,
-  motionDirection: VideoLibraryState['motionDirection'],
+  transitionMode: VideoLibraryState['transitionMode'],
+  transitionFromId: VideoLibraryState['transitionFromId'],
 ): string {
   const active = offset === 0;
-  const enterOffset = motionDirection === 'left' ? '-24px' : '24px';
-  const style = `--wheel-offset:${offset};--wheel-depth:${Math.abs(offset)};--wheel-enter-offset:${enterOffset}`;
+  const outsideCarouselWindow = Math.abs(offset) > 2;
+  const visibleOffset = Math.max(-2, Math.min(2, offset));
+  const depth = Math.abs(visibleOffset);
+  const scale = depth === 0 ? 1 : depth === 1 ? 0.86 : Math.max(0.58, 1 - depth * 0.14);
+  const opacity = outsideCarouselWindow ? 0 : depth === 0 ? 1 : depth === 1 ? 0.8 : 0.52;
+  const rotation = visibleOffset < 0 ? 7 : visibleOffset > 0 ? -7 : 0;
+  const horizontalPosition = visibleOffset === 0
+    ? '-50%'
+    : `calc(-50% ${visibleOffset < 0 ? '-' : '+'} ${Math.abs(visibleOffset) * 82}%)`;
+  const style = `--wheel-offset:${visibleOffset};--wheel-depth:${depth};--wheel-position-x:${horizontalPosition};--wheel-scale:${scale};--wheel-opacity:${opacity};--wheel-rotate:${rotation}deg`;
+  const transitionName = transitionMode === 'jump'
+    ? 'none'
+    : `video-library-card-${video.id.replace(/[^A-Za-z0-9_-]/gu, '-')}`;
+  const transitionLayerClass = transitionMode === 'card'
+    ? active
+      ? ' is-transition-promoting'
+      : video.id === transitionFromId
+        ? ' is-transition-demoting'
+        : ''
+    : '';
   return `
-    <button class="video-library-card${active ? ' is-active' : ''}${video.available ? '' : ' is-unavailable'}"
+    <button class="video-library-card${active ? ' is-active' : ''}${video.available ? '' : ' is-unavailable'}${outsideCarouselWindow ? ' is-transition-exiting' : ''}${transitionLayerClass}"
       type="button" data-library-card data-library-index="${index}" data-route="${active ? video.route : ''}"
-      data-library-offset="${offset}" data-media-id="${escapeHtml(video.mediaId ?? '')}"
+      data-library-id="${escapeHtml(video.id)}"
+      data-library-offset="${visibleOffset}" data-media-id="${escapeHtml(video.mediaId ?? '')}"
       data-media-source="${video.sourceType ?? ''}"
-      style="${style}" aria-label="${active ? (video.available ? 'Открыть видео: ' : 'Посмотреть информацию: ') : 'Перейти к видео: '}${escapeHtml(video.title)}"
-      aria-current="${active ? 'true' : 'false'}" tabindex="${active ? '0' : '-1'}">
+      style="${style};view-transition-name:${transitionName}" aria-label="${active ? (video.available ? 'Открыть видео: ' : 'Посмотреть информацию: ') : 'Перейти к видео: '}${escapeHtml(video.title)}"
+      aria-current="${active ? 'true' : 'false'}" aria-hidden="${outsideCarouselWindow}" tabindex="${active ? '0' : '-1'}"${outsideCarouselWindow ? ' disabled' : ''}>
       <span class="video-library-card__cover">
         <img src="${escapeHtml(video.coverPath)}" alt="" loading="${Math.abs(offset) === 0 ? 'eager' : 'lazy'}" />
-        ${video.available ? `<span class="video-library-card__play" aria-hidden="true">${createPlayIconMarkup('video-library-card__play-icon')}</span>` : '<span class="video-library-card__soon">Видео скоро</span>'}
+        ${video.available && active ? `<span class="video-library-card__play" aria-hidden="true">${createPlayIconMarkup('video-library-card__play-icon')}</span>` : ''}
         ${video.available ? `<span class="video-library-card__duration" data-library-duration${video.durationLabel ? '' : ' hidden'}>${escapeHtml(video.durationLabel)}</span>` : ''}
       </span>
       <span class="video-library-card__body"><strong>${escapeHtml(video.title)}</strong><span>${escapeHtml(video.description)}</span></span>
@@ -2958,7 +3002,7 @@ function createFitnessMarkup(): string {
   }
 
   return `
-    <div class="app-shell">
+    <div class="app-shell app-shell--fitness">
       ${createSubpageHeaderMarkup('Фитнес', 'home')}
 
       <main class="screen-content">

@@ -50,10 +50,37 @@ const ACTIVE_SEASON_STORAGE_KEY = 'miniapp-active-season';
 
 let activeSeason: SeasonId = readStoredSeason();
 let videoLibraryState: VideoLibraryState = { ...initialVideoLibraryState };
-let videoLibraryPointerStart: { pointerId: number; x: number; y: number } | null = null;
+type VideoLibraryNavigationMode = 'card' | 'jump';
+type VideoLibraryNavigationRequest = { targetId: string; mode: VideoLibraryNavigationMode };
+type VideoLibraryCardFrame = { transform: string; translate: string; opacity: string };
+let videoLibraryDisplayedId: string | null = null;
+let videoLibraryTransitionTargetId: string | null = null;
+let videoLibraryTransitionRunning = false;
+let pendingVideoLibraryNavigationRender = false;
+let videoLibraryTransitionToken = 0;
+let videoLibraryNavigationQueue: VideoLibraryNavigationRequest[] = [];
+let videoLibraryCardAnimations: Animation[] = [];
+let videoLibraryPendingCategory: VideoLibraryFilter | null = null;
+let videoLibraryCategoryTransitionToken = 0;
+let videoLibraryCategoryTransitionRunning = false;
+let videoLibraryCategoryOpacityAnimation: Animation | null = null;
+let videoLibraryCategoryOpacityElement: HTMLElement | null = null;
+let videoLibraryCategoryHeightAnimation: Animation | null = null;
+let videoLibraryCategoryHeightElement: HTMLElement | null = null;
+let videoLibraryPointerStart: {
+  pointerId: number;
+  x: number;
+  y: number;
+  startedAt: number;
+  wheel: HTMLElement;
+  dragging: boolean;
+} | null = null;
 let suppressVideoLibraryClick = false;
+let pendingVideoLibraryWheelTop: number | null = null;
 let videoLibraryWheelDelta = 0;
 let videoLibraryWheelDirection = 0;
+let pendingVideoLibraryCategoryIndicatorStart: { x: number; width: number } | null = null;
+let pendingVideoLibraryCategoryScrollLeft: number | null = null;
 let videosState: SituationVideosState = { status: 'idle' };
 let lastBottomNavIndicatorLeft = '50%';
 let lastRenderedRoute: AppRoute | null = null;
@@ -194,26 +221,17 @@ document.addEventListener('click', (event) => {
     const index = Number(libraryCard.dataset.libraryIndex);
     const visibleItems = getVisibleVideoLibraryItems();
     const selected = visibleItems[index];
-    if (selected && selectVideoLibraryItem(visibleItems, index)) {
-      void render();
-      return;
+    if (selected) {
+      const navigation = selectVideoLibraryItem(visibleItems, index);
+      if (navigation === 'render') void render();
+      if (navigation !== 'none') return;
     }
   }
 
   const libraryCategory = target.closest<HTMLButtonElement>('[data-library-category]');
   if (libraryCategory) {
     const category = libraryCategory.dataset.libraryCategory as VideoLibraryFilter | undefined;
-    if (category && category !== videoLibraryState.category) {
-      videoLibraryState = { ...videoLibraryState, category, activeId: null, motionDirection: 'right' };
-      void render().then(() => {
-        const activeCategory = root.querySelector<HTMLElement>('[data-library-category][aria-pressed="true"]');
-        activeCategory?.scrollIntoView({
-          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-          block: 'nearest',
-          inline: 'center',
-        });
-      });
-    }
+    if (category) void transitionVideoLibraryCategory(category);
     return;
   }
 
@@ -221,22 +239,82 @@ document.addEventListener('click', (event) => {
   if (libraryMode) {
     const mode = libraryMode.dataset.libraryMode as VideoLibraryMode | undefined;
     if (mode && mode !== videoLibraryState.mode) {
-      videoLibraryState = { ...videoLibraryState, mode };
+      videoLibraryState = { ...videoLibraryState, mode, transitionFromId: null, transitionRetainedIds: [], transitionMode: 'none' };
       void render();
     }
     return;
   }
 
   if (target.closest('[data-library-search-toggle]')) {
-    videoLibraryState = { ...videoLibraryState, searchOpen: !videoLibraryState.searchOpen };
-    void render().then(() => {
+    if (videoLibraryState.searchOpen) {
+      pendingVideoLibraryWheelTop = null;
+      pendingVideoLibraryCategoryIndicatorStart = null;
+      const searchField = root.querySelector<HTMLElement>('.video-library__search');
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (searchField && !reduceMotion) {
+        if (searchField.classList.contains('video-library__search--closing')) return;
+
+        searchField.classList.add('video-library__search--closing');
+        root.querySelector('[data-library-search-toggle]')?.setAttribute('aria-expanded', 'false');
+        let closed = false;
+        const finishClosing = (): void => {
+          if (closed) return;
+          closed = true;
+          videoLibraryState = {
+            ...videoLibraryState,
+            searchOpen: false,
+            query: '',
+            activeId: null,
+            transitionFromId: null,
+            transitionRetainedIds: [],
+            transitionMode: 'none',
+          };
+          void render({ suppressCategoryIndicatorMotion: true });
+        };
+
+        const onSearchAnimationEnd = (event: AnimationEvent): void => {
+          if (event.target === searchField && event.animationName === 'video-library-search-close') {
+            finishClosing();
+          }
+        };
+        searchField.addEventListener('animationend', onSearchAnimationEnd);
+        window.setTimeout(finishClosing, 320);
+        return;
+      }
+
+      videoLibraryState = {
+        ...videoLibraryState,
+        searchOpen: false,
+        query: '',
+        activeId: null,
+        transitionFromId: null,
+        transitionRetainedIds: [],
+        transitionMode: 'none',
+      };
+      void render({ suppressCategoryIndicatorMotion: true });
+      return;
+    }
+
+    pendingVideoLibraryCategoryIndicatorStart = null;
+    pendingVideoLibraryWheelTop = root
+      .querySelector<HTMLElement>('.video-library__wheel')
+      ?.getBoundingClientRect().top ?? null;
+    videoLibraryState = {
+      ...videoLibraryState,
+      searchOpen: true,
+      transitionFromId: null,
+      transitionRetainedIds: [],
+      transitionMode: 'none',
+    };
+    void render({ suppressCategoryIndicatorMotion: true }).then(() => {
       if (videoLibraryState.searchOpen) root.querySelector<HTMLInputElement>('[data-library-search]')?.focus();
     });
     return;
   }
 
   if (target.closest('[data-library-clear-search]')) {
-    videoLibraryState = { ...videoLibraryState, query: '', activeId: null, searchOpen: true, motionDirection: 'right' };
+    videoLibraryState = { ...videoLibraryState, query: '', activeId: null, transitionFromId: null, transitionRetainedIds: [], searchOpen: true, transitionMode: 'none' };
     void render().then(() => root.querySelector<HTMLInputElement>('[data-library-search]')?.focus());
     return;
   }
@@ -350,8 +428,8 @@ document.addEventListener('input', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLInputElement) || !target.matches('[data-library-search]')) return;
   const selectionStart = target.selectionStart;
-  videoLibraryState = { ...videoLibraryState, query: target.value, activeId: null, motionDirection: 'right' };
-  void render().then(() => {
+  videoLibraryState = { ...videoLibraryState, query: target.value, activeId: null, transitionFromId: null, transitionRetainedIds: [], transitionMode: 'none' };
+  void render({ suppressCategoryIndicatorMotion: true }).then(() => {
     const input = root.querySelector<HTMLInputElement>('[data-library-search]');
     input?.focus();
     if (input && selectionStart !== null) input.setSelectionRange(selectionStart, selectionStart);
@@ -361,7 +439,26 @@ document.addEventListener('input', (event) => {
 document.addEventListener('pointerdown', (event) => {
   const wheel = (event.target as Element | null)?.closest<HTMLElement>('[data-library-wheel]');
   if (!wheel || event.button !== 0) return;
-  videoLibraryPointerStart = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+  suppressVideoLibraryClick = false;
+  videoLibraryPointerStart = {
+    pointerId: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+    startedAt: performance.now(),
+    wheel,
+    dragging: false,
+  };
+});
+
+document.addEventListener('pointermove', (event) => {
+  const start = videoLibraryPointerStart;
+  if (!start || start.pointerId !== event.pointerId || getCurrentRoute() !== 'video-library') return;
+  const deltaX = event.clientX - start.x;
+  const deltaY = event.clientY - start.y;
+  if (Math.abs(deltaX) < 5 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
+  start.dragging = true;
+  start.wheel.classList.add('is-dragging');
+  start.wheel.style.setProperty('--wheel-drag-x', `${deltaX}px`);
 });
 
 document.addEventListener('pointerup', (event) => {
@@ -370,15 +467,44 @@ document.addEventListener('pointerup', (event) => {
   if (!start || start.pointerId !== event.pointerId || getCurrentRoute() !== 'video-library') return;
   const deltaX = event.clientX - start.x;
   const deltaY = event.clientY - start.y;
-  if (Math.abs(deltaX) < 18 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
-  const items = getVisibleVideoLibraryItems();
-  const currentIndex = Math.max(0, items.findIndex((item) => item.id === videoLibraryState.activeId));
-  const nextIndex = Math.max(0, Math.min(items.length - 1, currentIndex + (deltaX < 0 ? 1 : -1)));
+  if (!start.dragging || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) {
+    start.wheel.classList.remove('is-dragging');
+    start.wheel.style.setProperty('--wheel-drag-x', '0px');
+    return;
+  }
+  const elapsed = Math.max(1, performance.now() - start.startedAt);
+  const distance = Math.abs(deltaX);
+  const quickSwipe = distance >= 22 && distance / elapsed >= 0.55;
+  const shouldAdvance = distance >= 40 || quickSwipe;
   suppressVideoLibraryClick = true;
   window.setTimeout(() => { suppressVideoLibraryClick = false; }, 500);
-  if (nextIndex !== currentIndex && selectVideoLibraryItem(items, nextIndex)) {
-    void render();
+  if (!shouldAdvance) {
+    start.wheel.classList.remove('is-dragging');
+    start.wheel.style.setProperty('--wheel-drag-x', '0px');
+    return;
   }
+  const items = getVisibleVideoLibraryItems();
+  const currentIndex = getVideoLibraryNavigationBaseIndex(items);
+  const nextIndex = Math.max(0, Math.min(items.length - 1, currentIndex + (deltaX < 0 ? 1 : -1)));
+  if (nextIndex !== currentIndex) {
+    const navigation = selectVideoLibraryItem(items, nextIndex);
+    if (navigation === 'render') void render();
+    else {
+      start.wheel.classList.remove('is-dragging');
+      start.wheel.style.setProperty('--wheel-drag-x', '0px');
+    }
+  } else {
+    start.wheel.classList.remove('is-dragging');
+    start.wheel.style.setProperty('--wheel-drag-x', '0px');
+  }
+});
+
+document.addEventListener('pointercancel', (event) => {
+  const start = videoLibraryPointerStart;
+  videoLibraryPointerStart = null;
+  if (!start || start.pointerId !== event.pointerId) return;
+  start.wheel.classList.remove('is-dragging');
+  start.wheel.style.setProperty('--wheel-drag-x', '0px');
 });
 
 document.addEventListener('wheel', (event) => {
@@ -398,10 +524,10 @@ document.addEventListener('wheel', (event) => {
       : primaryDelta;
   const direction = Math.sign(normalizedDelta);
   const items = getVisibleVideoLibraryItems();
-  const currentIndex = Math.max(0, items.findIndex((item) => item.id === videoLibraryState.activeId));
-  const nextIndex = Math.max(0, Math.min(items.length - 1, currentIndex + direction));
+  const currentIndex = getVideoLibraryNavigationBaseIndex(items);
+  const adjacentIndex = Math.max(0, Math.min(items.length - 1, currentIndex + direction));
 
-  if (nextIndex === currentIndex) {
+  if (adjacentIndex === currentIndex) {
     videoLibraryWheelDelta = 0;
     videoLibraryWheelDirection = 0;
     return;
@@ -414,11 +540,19 @@ document.addEventListener('wheel', (event) => {
   }
 
   videoLibraryWheelDelta += normalizedDelta;
-  if (Math.abs(videoLibraryWheelDelta) < 30) return;
+  const stepSize = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+    ? 48
+    : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+      ? window.innerHeight
+      : 100;
+  const steps = Math.floor(Math.abs(videoLibraryWheelDelta) / stepSize);
+  if (steps === 0) return;
 
-  videoLibraryWheelDelta = 0;
-  if (nextIndex !== currentIndex && selectVideoLibraryItem(items, nextIndex)) {
-    void render();
+  videoLibraryWheelDelta -= direction * steps * stepSize;
+  const nextIndex = Math.max(0, Math.min(items.length - 1, currentIndex + direction * steps));
+  if (nextIndex !== currentIndex) {
+    const navigation = selectVideoLibraryItem(items, nextIndex);
+    if (navigation === 'render') void render();
   }
 }, { passive: false });
 
@@ -426,11 +560,13 @@ document.addEventListener('keydown', (event) => {
   if (getCurrentRoute() !== 'video-library' || isEditableElement(event.target)) return;
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
   const items = getVisibleVideoLibraryItems();
-  const currentIndex = Math.max(0, items.findIndex((item) => item.id === videoLibraryState.activeId));
+  const currentIndex = getVideoLibraryNavigationBaseIndex(items);
   const nextIndex = Math.max(0, Math.min(items.length - 1, currentIndex + (event.key === 'ArrowRight' ? 1 : -1)));
-  if (nextIndex !== currentIndex && selectVideoLibraryItem(items, nextIndex)) {
+  if (nextIndex !== currentIndex) {
+    const navigation = selectVideoLibraryItem(items, nextIndex);
+    if (navigation === 'none') return;
     event.preventDefault();
-    void render();
+    if (navigation === 'render') void render();
   }
 });
 
@@ -707,9 +843,32 @@ function closeWelcomeVideoModal(options: { fromPopState?: boolean; preserveHisto
   return welcomeVideoClosePromise;
 }
 
-async function render(): Promise<void> {
+async function render(options: {
+  suppressCategoryIndicatorMotion?: boolean;
+  categoryTransitionToken?: number;
+  categoryTransitionHeight?: number;
+} = {}): Promise<void> {
   const sequence = ++renderSequence;
   const route = getCurrentRoute();
+  if (
+    videoLibraryCategoryTransitionRunning &&
+    (route !== 'video-library' || options.categoryTransitionToken !== videoLibraryCategoryTransitionToken)
+  ) {
+    cancelVideoLibraryCategoryTransition();
+  }
+  const isVideoLibraryNavigationRender = pendingVideoLibraryNavigationRender;
+  pendingVideoLibraryNavigationRender = false;
+  if (videoLibraryTransitionRunning && (!isVideoLibraryNavigationRender || route !== 'video-library')) {
+    cancelVideoLibraryNavigation();
+    if (videoLibraryState.transitionMode === 'card' || videoLibraryState.transitionMode === 'jump') {
+      videoLibraryState = {
+        ...videoLibraryState,
+        transitionFromId: null,
+        transitionRetainedIds: [],
+        transitionMode: 'none',
+      };
+    }
+  }
   const markup = applyImageLoadingHints(
     createAppMarkup(route, activeFilter, videosState, activeSeason, videoLibraryState),
   );
@@ -721,6 +880,7 @@ async function render(): Promise<void> {
   const complexTransitionOrigin = pendingComplexTransitionOrigin;
   pendingComplexTransitionOrigin = null;
   const routeChanged = lastRenderedRoute !== null && lastRenderedRoute !== route;
+  const enteringVideoLibrary = route === 'video-library' && lastRenderedRoute !== route;
   const direction = pendingTransitionDirection ?? getRouteTransitionDirection(lastRenderedRoute, route);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const savedScrollTop = routeChanged ? getSavedPageScrollTop(route) : getCurrentScrollTop();
@@ -749,10 +909,68 @@ async function render(): Promise<void> {
     }
 
     updateBottomNavIndicatorPosition();
+    updateVideoLibraryCategoryIndicator(!options.suppressCategoryIndicatorMotion);
+    if (route === 'video-library' && enteringVideoLibrary) {
+      const categories = root.querySelector<HTMLElement>('[data-library-categories]');
+      if (categories) categories.scrollLeft = 0;
+      pendingVideoLibraryCategoryScrollLeft = null;
+    }
+    if (route === 'video-library' && pendingVideoLibraryCategoryScrollLeft !== null) {
+      const categories = root.querySelector<HTMLElement>('[data-library-categories]');
+      if (categories && pendingVideoLibraryCategoryScrollLeft !== null) {
+        categories.scrollLeft = pendingVideoLibraryCategoryScrollLeft;
+      }
+      pendingVideoLibraryCategoryScrollLeft = null;
+    }
+    if (route === 'video-library' && !videoLibraryTransitionRunning) {
+      const visibleItems = getVisibleVideoLibraryItems();
+      videoLibraryDisplayedId = videoLibraryState.activeId ?? visibleItems[0]?.id ?? null;
+    }
     lastRenderedRoute = route;
   };
 
   pendingTransitionDirection = null;
+
+  if (
+    route === 'video-library' &&
+    lastRenderedRoute === route &&
+    videoLibraryState.transitionMode === 'jump' &&
+    typeof (document as Document & { startViewTransition?: (callback: () => void) => { finished: Promise<void> } }).startViewTransition === 'function' &&
+    !reducedMotion
+  ) {
+    const transitionDocument = document as Document & {
+      startViewTransition(callback: () => void): { finished: Promise<void> };
+    };
+    const transitionMode = videoLibraryState.transitionMode;
+    if (videoLibraryState.transitionMode === 'jump') {
+      const oldCarousel = root.querySelector<HTMLElement>('.video-library__carousel-content');
+      oldCarousel?.style.setProperty('view-transition-name', 'video-library-carousel');
+      root.querySelectorAll<HTMLElement>('.video-library-card').forEach((card) => {
+        card.style.setProperty('view-transition-name', 'none');
+      });
+    }
+    const transition = transitionDocument.startViewTransition(() => {
+      if (sequence !== renderSequence || route !== getCurrentRoute()) return;
+      updatePageMarkup(markup);
+      finishMarkupUpdate();
+    });
+    const transitionTargetId = videoLibraryTransitionTargetId ?? videoLibraryState.activeId;
+    const transitionToken = videoLibraryTransitionToken;
+    const finishVideoLibraryTransition = (): void => {
+      if (sequence !== renderSequence) return;
+      finishVideoLibraryCardTransition(transitionToken, transitionTargetId, 20);
+      if (transitionMode === 'jump') {
+        const carousel = root.querySelector<HTMLElement>('.video-library__carousel-content');
+        carousel?.style.setProperty('view-transition-name', 'none');
+        root.querySelectorAll<HTMLButtonElement>('.video-library-card[data-library-id]').forEach((card) => {
+          const id = card.dataset.libraryId ?? '';
+          card.style.setProperty('view-transition-name', `video-library-card-${id.replace(/[^A-Za-z0-9_-]/gu, '-')}`);
+        });
+      }
+    };
+    void transition.finished.then(finishVideoLibraryTransition, finishVideoLibraryTransition);
+    return;
+  }
 
   if (isComplexTransition && !reducedMotion) {
     animateComplexRouteTransition(markup, route === 'complex', finishMarkupUpdate);
@@ -771,8 +989,65 @@ async function render(): Promise<void> {
     return;
   }
 
-  updatePageMarkup(markup);
+  const fallbackCarouselSnapshot =
+    route === 'video-library' &&
+    lastRenderedRoute === route &&
+    videoLibraryState.transitionMode === 'jump' &&
+    !reducedMotion
+      ? root.querySelector<HTMLElement>('.video-library__carousel-content')?.cloneNode(true) as HTMLElement | undefined
+      : undefined;
+
+  const categoryTransitionHeight = options.categoryTransitionToken === videoLibraryCategoryTransitionToken
+    ? options.categoryTransitionHeight
+    : undefined;
+  const preserveSearchFieldState = Boolean(root.querySelector('.video-library__search'));
+  const videoLibraryCardFrames = route === 'video-library' &&
+    lastRenderedRoute === route &&
+    videoLibraryState.transitionMode === 'card' &&
+    !reducedMotion
+    ? captureVideoLibraryCardFrames()
+    : null;
+  updatePageMarkup(markup, categoryTransitionHeight);
+  if (videoLibraryCardFrames) animateVideoLibraryCardTransition(videoLibraryCardFrames);
+  if (preserveSearchFieldState) {
+    root.querySelector('.video-library__search')?.classList.add('video-library__search--stable');
+  }
+  if (fallbackCarouselSnapshot) {
+    fallbackCarouselSnapshot.classList.add('video-library__carousel-content--outgoing');
+    fallbackCarouselSnapshot.style.setProperty('view-transition-name', 'none');
+    fallbackCarouselSnapshot.querySelectorAll<HTMLElement>('*').forEach((element) => {
+      element.style.setProperty('view-transition-name', 'none');
+    });
+    root.querySelector('.video-library__carousel-content')?.append(fallbackCarouselSnapshot);
+    fallbackCarouselSnapshot.addEventListener('animationend', () => fallbackCarouselSnapshot.remove(), { once: true });
+    window.setTimeout(() => fallbackCarouselSnapshot.remove(), 240);
+    const incomingCarousel = root.querySelector<HTMLElement>('.video-library__carousel-content');
+    incomingCarousel?.classList.add('video-library__carousel-content--incoming');
+    incomingCarousel?.addEventListener('animationend', () => {
+      incomingCarousel.classList.remove('video-library__carousel-content--incoming');
+    }, { once: true });
+    window.setTimeout(() => incomingCarousel?.classList.remove('video-library__carousel-content--incoming'), 240);
+  }
+  animateVideoLibrarySearchOpen();
   finishMarkupUpdate();
+  if (videoLibraryState.transitionMode !== 'none') {
+    const transitionMode = videoLibraryState.transitionMode;
+    const carousel = root.querySelector<HTMLElement>('.video-library__carousel-content');
+    carousel?.style.setProperty('view-transition-name', 'none');
+    root.querySelectorAll<HTMLButtonElement>('.video-library-card[data-library-id]').forEach((card) => {
+      const id = card.dataset.libraryId ?? '';
+      card.style.setProperty('view-transition-name', `video-library-card-${id.replace(/[^A-Za-z0-9_-]/gu, '-')}`);
+    });
+    if (transitionMode === 'card' || transitionMode === 'jump') {
+      const targetId = videoLibraryTransitionTargetId ?? videoLibraryState.activeId;
+      const transitionToken = videoLibraryTransitionToken;
+      window.setTimeout(() => {
+        finishVideoLibraryCardTransition(transitionToken, targetId, 0);
+      }, reducedMotion ? 0 : 340);
+    } else {
+      videoLibraryState = { ...videoLibraryState, transitionFromId: null, transitionRetainedIds: [], transitionMode: 'none' };
+    }
+  }
 
   if (!routeChanged || reducedMotion) {
     return;
@@ -790,6 +1065,104 @@ async function render(): Promise<void> {
       { once: true },
     );
   }
+}
+
+function clearVideoLibraryTransitionLayerClasses(): void {
+  root.querySelectorAll<HTMLElement>(
+    '.video-library-card.is-transition-promoting, .video-library-card.is-transition-demoting, .video-library-card.is-waapi-transitioning',
+  )
+    .forEach((card) => {
+      card.classList.remove('is-transition-promoting', 'is-transition-demoting', 'is-waapi-transitioning');
+    });
+}
+
+function captureVideoLibraryCardFrames(): Map<string, VideoLibraryCardFrame> {
+  const frames = new Map<string, VideoLibraryCardFrame>();
+  root.querySelectorAll<HTMLElement>('.video-library-card[data-library-id]').forEach((card) => {
+    const id = card.dataset.libraryId;
+    if (!id) return;
+    const style = window.getComputedStyle(card);
+    frames.set(id, { transform: style.transform, translate: style.translate, opacity: style.opacity });
+  });
+  return frames;
+}
+
+function animateVideoLibraryCardTransition(frames: Map<string, VideoLibraryCardFrame>): void {
+  videoLibraryCardAnimations.forEach((animation) => animation.cancel());
+  videoLibraryCardAnimations = [];
+  const cards = [...root.querySelectorAll<HTMLElement>('.video-library-card[data-library-id]')];
+  cards.forEach((card) => card.classList.add('is-waapi-transitioning'));
+
+  for (const card of cards) {
+    const id = card.dataset.libraryId;
+    if (!id) continue;
+    const targetStyle = window.getComputedStyle(card);
+    const target: VideoLibraryCardFrame = {
+      transform: targetStyle.transform,
+      translate: targetStyle.translate,
+      opacity: targetStyle.opacity,
+    };
+    const from = frames.get(id) ?? { ...target, opacity: '0' };
+    if (
+      from.transform === target.transform &&
+      from.translate === target.translate &&
+      from.opacity === target.opacity
+    ) {
+      continue;
+    }
+
+    const animation = card.animate(
+      [from, target],
+      { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' },
+    );
+    videoLibraryCardAnimations.push(animation);
+    void animation.finished.then(
+      () => {
+        animation.cancel();
+        videoLibraryCardAnimations = videoLibraryCardAnimations.filter((active) => active !== animation);
+      },
+      () => {
+        videoLibraryCardAnimations = videoLibraryCardAnimations.filter((active) => active !== animation);
+      },
+    );
+  }
+}
+
+function cancelVideoLibraryCardAnimations(): void {
+  videoLibraryCardAnimations.forEach((animation) => animation.cancel());
+  videoLibraryCardAnimations = [];
+  root.querySelectorAll<HTMLElement>('.video-library-card.is-waapi-transitioning')
+    .forEach((card) => card.classList.remove('is-waapi-transitioning'));
+}
+
+function animateVideoLibrarySearchOpen(): void {
+  const previousTop = pendingVideoLibraryWheelTop;
+  pendingVideoLibraryWheelTop = null;
+
+  if (previousTop === null || getCurrentRoute() !== 'video-library' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return;
+  }
+
+  const wheel = root.querySelector<HTMLElement>('.video-library__wheel');
+  if (!wheel) return;
+
+  const offset = previousTop - wheel.getBoundingClientRect().top;
+  if (Math.abs(offset) < 1) return;
+
+  wheel.classList.add('video-library__wheel--search-opening');
+  wheel.style.transform = `translateY(${offset}px)`;
+  void wheel.offsetHeight;
+
+  const finish = (event?: TransitionEvent): void => {
+    if (event && (event.target !== wheel || event.propertyName !== 'transform')) return;
+    wheel.classList.remove('video-library__wheel--search-opening');
+    wheel.removeEventListener('transitionend', onTransitionEnd);
+  };
+  const onTransitionEnd = (event: TransitionEvent): void => finish(event);
+
+  wheel.addEventListener('transitionend', onTransitionEnd);
+  window.requestAnimationFrame(() => wheel.style.removeProperty('transform'));
+  window.setTimeout(() => finish(), 450);
 }
 
 function setupVideoLibraryDurations(): void {
@@ -1020,11 +1393,21 @@ function fitPlayerHeaderTitle(): void {
   title.style.fontSize = `${minimumFontSize}px`;
 }
 
-function updatePageMarkup(markup: string): void {
+function updatePageMarkup(markup: string, categoryTransitionHeight?: number): void {
+  const prepareCategoryIncomingCarousel = (content: ParentNode | null): void => {
+    if (categoryTransitionHeight === undefined || !content) return;
+    const carousel = content.querySelector<HTMLElement>('.video-library__carousel-content');
+    if (!carousel) return;
+    carousel.style.height = `${categoryTransitionHeight}px`;
+    carousel.style.opacity = '0';
+    carousel.classList.add('video-library__carousel-content--category-switching');
+  };
+
   const currentShell = root.querySelector<HTMLElement>(':scope > .app-shell');
 
   if (!currentShell) {
     root.innerHTML = markup;
+    prepareCategoryIncomingCarousel(root);
     return;
   }
 
@@ -1040,9 +1423,16 @@ function updatePageMarkup(markup: string): void {
 
   if (!nextShell || !currentHeader || !currentContent || !currentNav || !nextHeader || !nextContent || !nextNav) {
     root.innerHTML = markup;
+    prepareCategoryIncomingCarousel(root);
     return;
   }
 
+  const updateReusedVideoLibraryCards =
+    getCurrentRoute() === 'video-library' && videoLibraryState.transitionMode === 'card'
+      ? reuseVideoLibraryCardNodes(currentContent, nextContent)
+      : () => {};
+
+  prepareCategoryIncomingCarousel(nextContent);
   currentShell.className = nextShell.className;
   if (nextShell.dataset.seasonTheme) {
     currentShell.dataset.seasonTheme = nextShell.dataset.seasonTheme;
@@ -1051,6 +1441,7 @@ function updatePageMarkup(markup: string): void {
   }
   currentHeader.replaceWith(nextHeader);
   currentContent.replaceWith(nextContent);
+  updateReusedVideoLibraryCards();
 
   const currentTabs = currentNav.querySelectorAll<HTMLElement>('.bottom-nav__tab');
   const nextTabs = nextNav.querySelectorAll<HTMLElement>('.bottom-nav__tab');
@@ -1061,6 +1452,39 @@ function updatePageMarkup(markup: string): void {
       nextTabs[index]?.classList.contains('bottom-nav__tab--active') ?? false,
     );
   });
+}
+
+function reuseVideoLibraryCardNodes(currentContent: HTMLElement, nextContent: HTMLElement): () => void {
+  const currentCards = new Map<string, HTMLButtonElement>();
+  currentContent.querySelectorAll<HTMLButtonElement>('.video-library-card[data-library-id]').forEach((card) => {
+    if (card.closest('.video-library__carousel-content--outgoing')) return;
+    const id = card.dataset.libraryId;
+    if (id) currentCards.set(id, card);
+  });
+
+  const cardUpdates: Array<() => void> = [];
+  nextContent.querySelectorAll<HTMLButtonElement>('.video-library-card[data-library-id]').forEach((nextCard) => {
+    const id = nextCard.dataset.libraryId;
+    const currentCard = id ? currentCards.get(id) : undefined;
+    if (!currentCard) return;
+
+    const nextAttributes = [...nextCard.attributes].map(({ name, value }) => [name, value] as const);
+    const nextPlay = nextCard.querySelector<HTMLElement>('.video-library-card__play')?.cloneNode(true);
+    nextCard.replaceWith(currentCard);
+    currentCards.delete(id!);
+    cardUpdates.push(() => {
+      [...currentCard.attributes].forEach((attribute) => currentCard.removeAttribute(attribute.name));
+      nextAttributes.forEach(([name, value]) => currentCard.setAttribute(name, value));
+
+      const currentPlay = currentCard.querySelector<HTMLElement>('.video-library-card__play');
+      if (currentPlay && !nextPlay) currentPlay.remove();
+      if (!currentPlay && nextPlay) {
+        currentCard.querySelector('.video-library-card__cover')?.append(nextPlay.cloneNode(true));
+      }
+    });
+  });
+
+  return () => cardUpdates.forEach((update) => update());
 }
 
 function getRouteTransitionDirection(from: AppRoute | null, to: AppRoute): PageTransitionDirection {
@@ -1361,22 +1785,389 @@ function getVisibleVideoLibraryItems() {
   );
 }
 
+async function transitionVideoLibraryCategory(category: VideoLibraryFilter): Promise<void> {
+  if (category === videoLibraryPendingCategory) return;
+
+  if (category === videoLibraryState.category) {
+    if (videoLibraryPendingCategory !== null) cancelVideoLibraryCategoryTransition();
+    return;
+  }
+
+  const token = ++videoLibraryCategoryTransitionToken;
+  cancelVideoLibraryCategoryHeightAnimation();
+  videoLibraryPendingCategory = category;
+  videoLibraryCategoryTransitionRunning = true;
+  pendingVideoLibraryCategoryScrollLeft = root
+    .querySelector<HTMLElement>('[data-library-categories]')
+    ?.scrollLeft ?? 0;
+
+  const categoryButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-library-category]')];
+  categoryButtons.forEach((button) => {
+    const active = button.dataset.libraryCategory === category;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  updateVideoLibraryCategoryIndicator(false);
+  cancelVideoLibraryNavigation();
+  videoLibraryState = {
+    ...videoLibraryState,
+    activeId: videoLibraryDisplayedId ?? videoLibraryState.activeId,
+    transitionFromId: null,
+    transitionRetainedIds: [],
+    transitionMode: 'none',
+  };
+
+  const outgoing = root.querySelector<HTMLElement>('.video-library__carousel-content');
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const filtered = getVideoLibraryItems().filter((item) => {
+    const query = videoLibraryState.query.trim().toLocaleLowerCase();
+    return (category === 'all' || item.category === category) && (!query || item.searchText.includes(query));
+  });
+  const activeId = filtered[0]?.id ?? null;
+
+  if (!outgoing || reducedMotion) {
+    videoLibraryState = { ...videoLibraryState, category, activeId };
+    videoLibraryPendingCategory = null;
+    videoLibraryCategoryTransitionRunning = false;
+    await render({ suppressCategoryIndicatorMotion: true, categoryTransitionToken: token });
+    return;
+  }
+
+  const retainedHeight = outgoing.getBoundingClientRect().height;
+  outgoing.style.height = `${retainedHeight}px`;
+  outgoing.classList.add('video-library__carousel-content--category-switching');
+  if (!await animateVideoLibraryCarouselOpacity(outgoing, 0, 120, token)) return;
+  if (token !== videoLibraryCategoryTransitionToken) return;
+
+  videoLibraryState = { ...videoLibraryState, category, activeId };
+  await render({
+    suppressCategoryIndicatorMotion: true,
+    categoryTransitionToken: token,
+    categoryTransitionHeight: retainedHeight,
+  });
+  if (token !== videoLibraryCategoryTransitionToken) return;
+
+  const incoming = root.querySelector<HTMLElement>('.video-library__carousel-content');
+  if (!incoming) {
+    finishVideoLibraryCategoryTransition(token, activeId);
+    return;
+  }
+
+  incoming.style.height = `${retainedHeight}px`;
+  incoming.classList.add('video-library__carousel-content--category-switching');
+  if (!await animateVideoLibraryCarouselOpacity(incoming, 1, 180, token)) return;
+  if (token !== videoLibraryCategoryTransitionToken) return;
+
+  incoming.style.height = 'auto';
+  const naturalHeight = incoming.getBoundingClientRect().height;
+  incoming.style.height = `${retainedHeight}px`;
+  if (!await animateVideoLibraryCarouselHeight(incoming, retainedHeight, naturalHeight, token)) return;
+  finishVideoLibraryCategoryTransition(token, activeId);
+}
+
+async function animateVideoLibraryCarouselOpacity(
+  carousel: HTMLElement,
+  targetOpacity: 0 | 1,
+  duration: number,
+  token: number,
+): Promise<boolean> {
+  const currentOpacity = Number.parseFloat(window.getComputedStyle(carousel).opacity);
+  const startingOpacity = Number.isFinite(currentOpacity) ? currentOpacity : 1;
+
+  if (videoLibraryCategoryOpacityAnimation) {
+    const previousCarousel = videoLibraryCategoryOpacityElement;
+    if (previousCarousel) {
+      const previousOpacity = Number.parseFloat(window.getComputedStyle(previousCarousel).opacity);
+      previousCarousel.style.opacity = `${Number.isFinite(previousOpacity) ? previousOpacity : 1}`;
+    }
+    videoLibraryCategoryOpacityAnimation.cancel();
+  }
+
+  carousel.style.opacity = `${startingOpacity}`;
+  const animation = carousel.animate(
+    [{ opacity: startingOpacity }, { opacity: targetOpacity }],
+    { duration, easing: 'ease-in-out', fill: 'forwards' },
+  );
+  videoLibraryCategoryOpacityAnimation = animation;
+  videoLibraryCategoryOpacityElement = carousel;
+
+  try {
+    await animation.finished;
+  } catch {
+    return false;
+  }
+
+  if (token !== videoLibraryCategoryTransitionToken || videoLibraryCategoryOpacityAnimation !== animation) {
+    return false;
+  }
+
+  carousel.style.opacity = `${targetOpacity}`;
+  animation.cancel();
+  videoLibraryCategoryOpacityAnimation = null;
+  videoLibraryCategoryOpacityElement = null;
+  return true;
+}
+
+async function animateVideoLibraryCarouselHeight(
+  carousel: HTMLElement,
+  startingHeight: number,
+  targetHeight: number,
+  token: number,
+): Promise<boolean> {
+  if (Math.abs(targetHeight - startingHeight) < 1) return token === videoLibraryCategoryTransitionToken;
+
+  const animation = carousel.animate(
+    [{ height: `${startingHeight}px` }, { height: `${targetHeight}px` }],
+    { duration: 180, easing: 'ease-in-out', fill: 'forwards' },
+  );
+  videoLibraryCategoryHeightAnimation = animation;
+  videoLibraryCategoryHeightElement = carousel;
+
+  try {
+    await animation.finished;
+  } catch {
+    return false;
+  }
+
+  if (token !== videoLibraryCategoryTransitionToken || videoLibraryCategoryHeightAnimation !== animation) {
+    return false;
+  }
+
+  carousel.style.height = `${targetHeight}px`;
+  animation.cancel();
+  videoLibraryCategoryHeightAnimation = null;
+  videoLibraryCategoryHeightElement = null;
+  return true;
+}
+
+function cancelVideoLibraryCategoryHeightAnimation(): void {
+  if (!videoLibraryCategoryHeightAnimation) return;
+
+  const carousel = videoLibraryCategoryHeightElement;
+  if (carousel) carousel.style.height = `${carousel.getBoundingClientRect().height}px`;
+  videoLibraryCategoryHeightAnimation.cancel();
+  videoLibraryCategoryHeightAnimation = null;
+  videoLibraryCategoryHeightElement = null;
+}
+
+function finishVideoLibraryCategoryTransition(token: number, activeId: string | null): void {
+  if (token !== videoLibraryCategoryTransitionToken) return;
+
+  const carousel = root.querySelector<HTMLElement>('.video-library__carousel-content');
+  carousel?.classList.remove('video-library__carousel-content--category-switching');
+  carousel?.style.removeProperty('height');
+  carousel?.style.removeProperty('opacity');
+  videoLibraryPendingCategory = null;
+  videoLibraryCategoryTransitionRunning = false;
+  videoLibraryDisplayedId = activeId;
+}
+
+function cancelVideoLibraryCategoryTransition(): void {
+  videoLibraryCategoryTransitionToken += 1;
+  cancelVideoLibraryCategoryHeightAnimation();
+  videoLibraryPendingCategory = null;
+  videoLibraryCategoryTransitionRunning = false;
+  pendingVideoLibraryCategoryScrollLeft = null;
+
+  if (videoLibraryCategoryOpacityAnimation) {
+    const previousCarousel = videoLibraryCategoryOpacityElement;
+    if (previousCarousel) {
+      previousCarousel.style.opacity = '1';
+      previousCarousel.classList.remove('video-library__carousel-content--category-switching');
+      previousCarousel.style.removeProperty('height');
+    }
+    videoLibraryCategoryOpacityAnimation.cancel();
+    videoLibraryCategoryOpacityAnimation = null;
+    videoLibraryCategoryOpacityElement = null;
+  }
+
+  root.querySelectorAll<HTMLElement>('.video-library__carousel-content--category-switching').forEach((carousel) => {
+    carousel.classList.remove('video-library__carousel-content--category-switching');
+    carousel.style.removeProperty('opacity');
+    carousel.style.removeProperty('height');
+  });
+
+  const categoryButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-library-category]')];
+  const activeButton = categoryButtons.find((button) => button.dataset.libraryCategory === videoLibraryState.category);
+  const previousButton = categoryButtons.find((button) => button.getAttribute('aria-pressed') === 'true');
+  pendingVideoLibraryCategoryIndicatorStart = previousButton
+    ? { x: previousButton.offsetLeft, width: previousButton.offsetWidth }
+    : null;
+  categoryButtons.forEach((button) => {
+    const active = button === activeButton;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  updateVideoLibraryCategoryIndicator();
+}
+
 function selectVideoLibraryItem(
   items: ReturnType<typeof getVisibleVideoLibraryItems>,
   index: number,
-): boolean {
+): 'render' | 'queued' | 'none' {
   const item = items[index];
-  if (!item) return false;
+  if (!item) return 'none';
+  const baseIndex = getVideoLibraryNavigationBaseIndex(items);
+  if (items[baseIndex]?.id === item.id) return 'none';
+  const mode: VideoLibraryNavigationMode = Math.abs(index - baseIndex) > 1 ? 'jump' : 'card';
+  if (videoLibraryTransitionRunning) {
+    videoLibraryNavigationQueue.push({ targetId: item.id, mode });
+    return 'queued';
+  }
 
-  const currentIndex = Math.max(0, items.findIndex((candidate) => candidate.id === videoLibraryState.activeId));
-  if (index === currentIndex) return false;
+  beginVideoLibrarySelection(items, item.id, mode);
+  return 'render';
+}
+
+function getVideoLibraryNavigationBaseIndex(items: ReturnType<typeof getVisibleVideoLibraryItems>): number {
+  const queuedTarget = videoLibraryNavigationQueue[videoLibraryNavigationQueue.length - 1]?.targetId;
+  const baseId = queuedTarget ?? (videoLibraryTransitionRunning
+    ? videoLibraryTransitionTargetId
+    : videoLibraryState.activeId ?? videoLibraryDisplayedId);
+  const baseIndex = baseId ? items.findIndex((item) => item.id === baseId) : -1;
+  return baseIndex >= 0 ? baseIndex : 0;
+}
+
+function beginVideoLibrarySelection(
+  items: ReturnType<typeof getVisibleVideoLibraryItems>,
+  targetId: string,
+  mode: VideoLibraryNavigationMode,
+): void {
+  const sourceId = videoLibraryDisplayedId ?? videoLibraryState.activeId ?? items[0]?.id ?? null;
+  if (!sourceId || sourceId === targetId) return;
+  const transitionRetainedIds = new Set<string>();
+  if (mode === 'card') {
+    root.querySelectorAll<HTMLElement>('.video-library-card[data-library-id]').forEach((card) => {
+      const id = card.dataset.libraryId;
+      if (id) transitionRetainedIds.add(id);
+    });
+    transitionRetainedIds.add(sourceId);
+  }
+
+  videoLibraryTransitionToken += 1;
+  videoLibraryTransitionRunning = true;
+  videoLibraryTransitionTargetId = targetId;
+  pendingVideoLibraryNavigationRender = true;
 
   videoLibraryState = {
     ...videoLibraryState,
-    activeId: item.id,
-    motionDirection: index < currentIndex ? 'left' : 'right',
+    activeId: targetId,
+    transitionFromId: mode === 'card' ? sourceId : null,
+    transitionRetainedIds: [...transitionRetainedIds],
+    transitionMode: mode,
   };
-  return true;
+}
+
+function cancelVideoLibraryNavigation(): void {
+  videoLibraryTransitionToken += 1;
+  videoLibraryTransitionRunning = false;
+  videoLibraryTransitionTargetId = null;
+  pendingVideoLibraryNavigationRender = false;
+  videoLibraryNavigationQueue = [];
+  videoLibraryWheelDelta = 0;
+  videoLibraryWheelDirection = 0;
+  cancelVideoLibraryCardAnimations();
+  clearVideoLibraryTransitionLayerClasses();
+}
+
+function finishVideoLibraryCardTransition(
+  token: number,
+  targetId: string | null,
+  cleanupDelay: number,
+): void {
+  if (token !== videoLibraryTransitionToken || !videoLibraryTransitionRunning) return;
+  const completedId = targetId ?? videoLibraryState.activeId;
+  if (!completedId) {
+    cancelVideoLibraryNavigation();
+    return;
+  }
+
+  videoLibraryDisplayedId = completedId;
+  videoLibraryState = {
+    ...videoLibraryState,
+    activeId: completedId,
+    transitionFromId: null,
+    transitionRetainedIds: [],
+    transitionMode: 'none',
+  };
+
+  const finishCleanup = (): void => {
+    if (token !== videoLibraryTransitionToken || !videoLibraryTransitionRunning) return;
+    cancelVideoLibraryCardAnimations();
+    clearVideoLibraryTransitionLayerClasses();
+    pruneVideoLibraryTransitionCards();
+    videoLibraryTransitionRunning = false;
+    videoLibraryTransitionTargetId = null;
+    startNextVideoLibraryNavigation();
+  };
+
+  if (cleanupDelay > 0) window.setTimeout(finishCleanup, cleanupDelay);
+  else finishCleanup();
+}
+
+function startNextVideoLibraryNavigation(): void {
+  if (videoLibraryTransitionRunning || getCurrentRoute() !== 'video-library') return;
+  while (videoLibraryNavigationQueue.length > 0) {
+    const next = videoLibraryNavigationQueue.shift()!;
+    const items = getVisibleVideoLibraryItems();
+    if (!items.some((item) => item.id === next.targetId) || next.targetId === videoLibraryDisplayedId) continue;
+    beginVideoLibrarySelection(items, next.targetId, next.mode);
+    if (videoLibraryTransitionRunning) {
+      void render();
+      return;
+    }
+  }
+}
+
+function pruneVideoLibraryTransitionCards(): void {
+  if (getCurrentRoute() !== 'video-library') return;
+  const items = getVisibleVideoLibraryItems();
+  const activeIndex = Math.max(0, items.findIndex((item) => item.id === videoLibraryState.activeId));
+  const retainedIds = new Set(
+    items
+      .filter((_item, index) => Math.abs(index - activeIndex) <= 2)
+      .map((item) => item.id),
+  );
+  root.querySelectorAll<HTMLButtonElement>('.video-library-card[data-library-id]').forEach((card) => {
+    if (!retainedIds.has(card.dataset.libraryId ?? '')) card.remove();
+  });
+}
+
+function updateVideoLibraryCategoryIndicator(animate = true): void {
+  const categories = root.querySelector<HTMLElement>('[data-library-categories]');
+  const indicator = categories?.querySelector<HTMLElement>('[data-library-category-indicator]');
+  const active = categories?.querySelector<HTMLElement>('[data-library-category][aria-pressed="true"]');
+  if (!indicator || !active) {
+    pendingVideoLibraryCategoryIndicatorStart = null;
+    return;
+  }
+
+  const targetX = active.offsetLeft;
+  const targetWidth = active.offsetWidth;
+  const start = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? null
+    : pendingVideoLibraryCategoryIndicatorStart;
+  pendingVideoLibraryCategoryIndicatorStart = null;
+  if (!start || !animate) {
+    const previousTransition = indicator.style.transition;
+    indicator.style.transition = 'none';
+    indicator.style.width = `${targetWidth}px`;
+    indicator.style.transform = `translateX(${targetX}px)`;
+    void indicator.offsetWidth;
+    indicator.style.transition = previousTransition;
+    return;
+  }
+
+  indicator.style.transition = 'none';
+  indicator.style.width = `${start.width}px`;
+  indicator.style.transform = `translateX(${start.x}px)`;
+  void indicator.offsetWidth;
+  requestAnimationFrame(() => {
+    if (!indicator.isConnected) return;
+    indicator.style.transition = '';
+    indicator.style.width = `${targetWidth}px`;
+    indicator.style.transform = `translateX(${targetX}px)`;
+  });
 }
 
 async function syncRouteState(): Promise<void> {
