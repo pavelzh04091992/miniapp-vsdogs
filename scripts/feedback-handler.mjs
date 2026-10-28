@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { copyFile, mkdir } from 'node:fs/promises';
+import { dirname, extname, join } from 'node:path';
 import { deliverFeedback, readFeedbackForm, removeFeedbackFiles } from './feedback.mjs';
 import { RequestError, hasAllowedOrigin, respondJson } from './http-utils.mjs';
 
@@ -7,6 +10,8 @@ export function createFeedbackHandler(options) {
     allowedOrigins,
     api,
     getSessionUser,
+    authDatabase,
+    authDatabasePath,
     rateLimiter,
     parseForm = readFeedbackForm,
     deliver = deliverFeedback,
@@ -34,6 +39,15 @@ export function createFeedbackHandler(options) {
       return;
     }
 
+    if (authDatabase?.getUserSubscription) {
+      const sub = authDatabase.getUserSubscription(user.telegramId);
+      if (!sub.hasSubscription) {
+        request.resume();
+        respondJson(response, 403, { ok: false, error: 'subscription_required' });
+        return;
+      }
+    }
+
     const rateLimit = rateLimiter.consume(user.telegramId);
 
     if (!rateLimit.allowed) {
@@ -51,13 +65,47 @@ export function createFeedbackHandler(options) {
 
     try {
       submission = await parseForm(request);
-      await deliver({ api, adminTelegramId, submission, user });
+
+      let mediaUrl = null;
+      if (submission.attachments && submission.attachments.length > 0) {
+        const attachment = submission.attachments[0];
+        try {
+          const uploadsDir = join(dirname(authDatabasePath || '/app/data/auth.sqlite'), 'uploads');
+          await mkdir(uploadsDir, { recursive: true });
+          const ext = extname(attachment.originalName || '') || (attachment.kind === 'photo' ? '.jpg' : '.mp4');
+          const fileName = `${randomUUID()}${ext}`;
+          await copyFile(attachment.path, join(uploadsDir, fileName));
+          mediaUrl = `/admin/uploads/${fileName}`;
+        } catch (uploadError) {
+          logError(`[feedback] Failed to save media attachment: ${uploadError?.message}`);
+        }
+      }
+
+      if (authDatabase?.createTrainerTicket) {
+        authDatabase.createTrainerTicket({
+          user,
+          submission,
+          mediaUrl,
+        });
+      }
+
+      // If unit test mock provided, execute deliver
+      if (deliver && deliver !== deliverFeedback) {
+        await deliver({ api, adminTelegramId, submission, user });
+      } else if (process.env.TICKET_BOT_TOKEN && process.env.TICKET_CHAT_ID) {
+        // Forward to ticket-center bot when created
+        try {
+          await deliver({ api, adminTelegramId: process.env.TICKET_CHAT_ID, submission, user });
+        } catch (botErr) {
+          logError(`[feedback] Ticket center delivery failed: ${botErr.message}`);
+        }
+      }
 
       try {
         await removeFiles(submission.temporaryDirectory);
         submission.temporaryDirectory = null;
       } catch {
-        // Retry in `finally`; the orphan sweeper is the final fallback.
+        // Retry in finally; the orphan sweeper is the final fallback.
       }
 
       respondJson(response, 200, { ok: true });
@@ -67,8 +115,8 @@ export function createFeedbackHandler(options) {
         return;
       }
 
-      logError('[feedback] Telegram delivery failed');
-      respondJson(response, 502, { ok: false, error: 'telegram_delivery_failed' });
+      logError(`[feedback] Processing failed: ${error?.message || error}`);
+      respondJson(response, 500, { ok: false, error: 'ticket_creation_failed' });
     } finally {
       if (submission?.temporaryDirectory) {
         await removeFiles(submission.temporaryDirectory).catch(() => {

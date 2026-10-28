@@ -168,6 +168,31 @@ services:
     logging: *default-logging
     restart: unless-stopped
 
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    container_name: miniapp-admin-panel
+    restart: unless-stopped
+    volumes:
+      - "${DATA_PATH:-./data}:/data:rw"
+    environment:
+      - NODE_ENV=production
+      - ADMIN_PORT=3000
+      - DB_PATH=/data/auth.sqlite
+      - BOT_TOKEN=${BOT_TOKEN:-}
+      - TELEGRAM_EGRESS_HOST=telegram-egress
+    networks:
+      - proxy
+      - egress
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${PROXY_NETWORK_NAME:-miniapp-puppys_proxy}"
+      - "traefik.http.routers.admin.rule=Host(`admin.miniapp-vsdogs.ru`)"
+      - "traefik.http.routers.admin.entrypoints=websecure"
+      - "traefik.http.routers.admin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.admin.loadbalancer.server.port=3000"
+
 networks:
   backend:
     driver: bridge

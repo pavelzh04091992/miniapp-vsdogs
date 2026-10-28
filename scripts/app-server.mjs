@@ -169,10 +169,12 @@ async function queueServerRestart({ requestedBy }) {
 }
 
 const handleFeedback = createFeedbackHandler({
+  authDatabasePath,
   adminTelegramId,
   allowedOrigins,
   api: telegramApi,
   getSessionUser,
+  authDatabase,
   rateLimiter: feedbackRateLimiter,
 });
 
@@ -617,9 +619,21 @@ function handleMediaAuth(request, response) {
     return;
   }
 
-  if (!getSessionUser(request, { touch: false })) {
+  const user = getSessionUser(request, { touch: false });
+  if (!user) {
     respondJson(response, 401, { ok: false, error: 'not_authenticated' });
     return;
+  }
+
+  const originalUri = request.headers['x-original-uri'] || '';
+  const isPreviewAsset = /\.(?:webp|jpe?g|png|svg)$/i.test(originalUri);
+
+  if (!isPreviewAsset) {
+    const sub = authDatabase.getUserSubscription(user.telegramId);
+    if (!sub.hasSubscription) {
+      respondJson(response, 403, { ok: false, error: 'subscription_required' });
+      return;
+    }
   }
 
   writeResponseHead(response, 204, {
@@ -683,6 +697,7 @@ async function processSubscriptionLifecycle() {
 }
 
 function publicUser(user) {
+  const sub = authDatabase.getUserSubscription(user.telegramId);
   return {
     telegramId: user.telegramId,
     role: user.role,
@@ -691,6 +706,9 @@ function publicUser(user) {
     firstName: user.firstName,
     lastName: user.lastName,
     accessExpiresAt: user.accessExpiresAt,
+    hasSubscription: sub.hasSubscription,
+    tariffId: sub.tariffId,
+    tariffName: sub.tariffName,
   };
 }
 

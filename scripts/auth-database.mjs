@@ -56,6 +56,64 @@ export function createAuthDatabase(databasePath, options = {}) {
       return { state: getUserAccessState(user, now()), user };
     },
 
+    getUserSubscription(telegramId) {
+      const id = normalizeTelegramId(telegramId);
+      if (!id) return { hasSubscription: false, tariffId: 'free', tariffName: 'Базовый (Free)' };
+
+      const user = statements.getUser.get(id);
+      if (!user) return { hasSubscription: false, tariffId: 'free', tariffName: 'Базовый (Free)' };
+
+      if (statements.getActiveLicense) {
+        try {
+          const activeLic = statements.getActiveLicense.get(user.id);
+          if (activeLic && activeLic.tariff_id && activeLic.tariff_id !== 'free') {
+            if (activeLic.tariff_id === 'lifetime' || !activeLic.expires_at) {
+              return { hasSubscription: true, tariffId: 'lifetime', tariffName: activeLic.tariff_name || 'VIP Бессрочный' };
+            }
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const expStr = String(activeLic.expires_at).trim().slice(0, 10);
+            if (expStr >= todayStr) {
+              return { hasSubscription: true, tariffId: activeLic.tariff_id, tariffName: activeLic.tariff_name || activeLic.tariff_id };
+            }
+          }
+        } catch (err) {
+          console.error('[auth-database] getActiveLicense error:', err);
+        }
+      }
+
+      if (user.access_expires_at && user.access_expires_at > now()) {
+        return { hasSubscription: true, tariffId: 'paid', tariffName: 'Оплаченный доступ' };
+      }
+
+      return { hasSubscription: false, tariffId: 'free', tariffName: 'Базовый (Free)' };
+    },
+
+    createTrainerTicket({ user, submission, mediaUrl = null }) {
+      if (!statements.insertTrainerTicket) return null;
+      const id = normalizeTelegramId(user?.telegramId);
+      if (!id) {
+        throw new Error('Telegram ID is required to create a ticket');
+      }
+
+      const userRow = statements.getUser.get(id);
+      if (!userRow || !userRow.id) {
+        throw new Error('User not found for telegram_id: ' + user.telegramId);
+      }
+
+      let questionText = String(submission.question || '').trim();
+      if (submission.entryPoint === 'player' && submission.lessonTitle) {
+        questionText = '[Урок: ' + submission.lessonTitle + ']\n\n' + questionText;
+      }
+
+      const info = statements.insertTrainerTicket.run(
+        userRow.id,
+        questionText,
+        mediaUrl,
+      );
+
+      return info.lastInsertRowid;
+    },
+
     touchTelegramUser(profile) {
       const id = requireTelegramId(profile?.id);
       const timestamp = now();
@@ -842,6 +900,16 @@ function prepareStatements(database) {
         updated_at = excluded.updated_at
     `),
     getUser: database.prepare('SELECT * FROM users WHERE telegram_id = ?'),
+    getActiveLicense: Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='licenses'").get())
+      ? database.prepare(`
+          SELECT l.*, t.name as tariff_name
+          FROM licenses l
+          LEFT JOIN tariffs t ON t.id = l.tariff_id
+          WHERE l.user_id = ? AND l.status = 'active'
+          ORDER BY l.id DESC LIMIT 1
+        `)
+      : null,
+    insertTrainerTicket: Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_tickets'").get()) ? database.prepare("INSERT INTO trainer_tickets (user_id, question_text, media_url, status, created_at) VALUES (?, ?, ?, 'new', datetime('now', 'localtime'))") : null,
     touchUser: database.prepare(`
       UPDATE users SET username = ?, first_name = ?, last_name = ?, updated_at = ?, last_seen_at = ?
       WHERE telegram_id = ?
