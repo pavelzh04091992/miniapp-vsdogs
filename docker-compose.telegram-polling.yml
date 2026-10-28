@@ -1,0 +1,31 @@
+services:
+  telegram-poller:
+    build:
+      context: .
+      target: app
+    init: true
+    command: [node, scripts/telegram-poller.mjs]
+    environment:
+      BOT_TOKEN: "${BOT_TOKEN:?BOT_TOKEN is required}"
+      TELEGRAM_WEBHOOK_PATH: "${TELEGRAM_WEBHOOK_PATH:-/telegram/webhook}"
+      TELEGRAM_WEBHOOK_SECRET: "${TELEGRAM_WEBHOOK_SECRET:?TELEGRAM_WEBHOOK_SECRET is required}"
+      TELEGRAM_EGRESS_MODE: ssh-tunnel
+    depends_on:
+      app:
+        condition: service_healthy
+      telegram-egress:
+        condition: service_healthy
+    links:
+      - telegram-egress:api.telegram.org
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [backend, egress]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stop_grace_period: 35s
+    restart: unless-stopped

@@ -17,7 +17,7 @@ WORKDIR /app
 ENV NODE_ENV=production \
     APP_SERVER_PORT=8787
 
-COPY --chown=node:node scripts/app-server.mjs scripts/auth-database.mjs scripts/env.mjs scripts/feedback.mjs scripts/feedback-handler.mjs scripts/http-utils.mjs scripts/protected-routes.mjs scripts/rate-limit.mjs scripts/server-config.mjs scripts/set-webhook.mjs scripts/static-server.mjs scripts/telegram-api.mjs scripts/telegram-auth.mjs scripts/telegram-bot.mjs scripts/telegram-egress-check.mjs scripts/telegram-transport.mjs scripts/video-catalog.mjs ./scripts/
+COPY --chown=node:node scripts/app-server.mjs scripts/auth-database.mjs scripts/env.mjs scripts/feedback.mjs scripts/feedback-handler.mjs scripts/http-utils.mjs scripts/protected-routes.mjs scripts/rate-limit.mjs scripts/server-config.mjs scripts/set-webhook.mjs scripts/static-server.mjs scripts/telegram-api.mjs scripts/telegram-auth.mjs scripts/telegram-bot.mjs scripts/telegram-egress-check.mjs scripts/telegram-poller.mjs scripts/telegram-transport.mjs scripts/video-catalog.mjs ./scripts/
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
