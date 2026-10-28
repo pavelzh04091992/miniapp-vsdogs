@@ -1,14 +1,16 @@
 import { normalizeTelegramId } from './telegram-auth.mjs';
 import { createRateLimiter } from './rate-limit.mjs';
 import { createTelegramApi } from './telegram-api.mjs';
+import { DatabaseSync } from 'node:sqlite';
 
 export { createTelegramApi } from './telegram-api.mjs';
 
-const USER_PAGE_SIZE = 8;
-const APP_BUTTON_TEXT = 'PuppyApp 🐶';
-const BROWSER_BUTTON_TEXT = 'Браузер 🌐';
+const APP_BUTTON_TEXT = '🐶 Открыть видеоплатформу';
+const BROWSER_BUTTON_TEXT = '🌐 Смотреть с компьютера';
+const SUBSCRIPTION_BUTTON_TEXT = '💳 Моя подписка';
 
 export function createTelegramBot(options) {
+  let directDb = null;
   const {
     botToken,
     botUsername,
@@ -17,18 +19,15 @@ export function createTelegramBot(options) {
     adminTelegramId,
     database,
     fetchImpl = fetch,
-    inviteTtlSeconds = 86_400,
     magicLinkTtlSeconds = 600,
-    botStateTtlSeconds = 600,
     commandRateLimitMax = 40,
     commandRateLimitWindowMs = 60_000,
     telegramApiTimeoutMs = 10_000,
     subscriptionWarningSeconds = 3 * 86_400,
-    requestServerRestart = null,
     api: providedApi,
   } = options;
 
-  if (!botToken || !adminTelegramId) {
+  if (!botToken) {
     return {
       enabled: false,
       handleUpdate: async () => {},
@@ -40,6 +39,7 @@ export function createTelegramBot(options) {
     fetchImpl,
     timeoutMs: telegramApiTimeoutMs,
   });
+
   const commandRateLimiter = createRateLimiter({
     limit: commandRateLimitMax,
     windowMs: commandRateLimitWindowMs,
@@ -71,11 +71,19 @@ export function createTelegramBot(options) {
     },
 
     async processSubscriptionNotifications() {
+      if (!database || typeof database.claimDueSubscriptionNotifications !== 'function') {
+        return;
+      }
+
       const notifications = database.claimDueSubscriptionNotifications(subscriptionWarningSeconds);
 
       for (const notification of notifications) {
         try {
-          await sendSubscriptionNotification(notification);
+          const text = notification.kind === 'warning'
+            ? '⏳ <b>Напоминание о подписке</b>\n\nСрок действия вашей подписки на видеоплатформу «Высшей школы собак» завершается через 3 дня.\n\nДля продления доступа, пожалуйста, свяжитесь с вашим менеджером школы.'
+            : '⏳ <b>Срок подписки истёк</b>\n\nСрок действия вашей подписки на видеоплатформу «Высшей школы собак» подошёл к концу.\n\nДля продления доступа, пожалуйста, обратитесь к вашему менеджеру школы.';
+
+          await api.sendMessage(notification.telegramId, text, { parse_mode: 'HTML' });
           database.markSubscriptionNotificationDelivered(
             notification.telegramId,
             notification.accessExpiresAt,
@@ -83,940 +91,508 @@ export function createTelegramBot(options) {
           );
         } catch (error) {
           console.warn(
-            `[telegram-bot] subscription ${notification.kind} notification failed for ${notification.telegramId}: ${getErrorMessage(error)}`,
+            `[telegram-bot] subscription notification failed for ${notification.telegramId}: ${error.message}`,
           );
         }
       }
     },
   };
 
+  /**
+   * Обработка личных сообщений от пользователя
+   */
   async function handlePrivateMessage(message) {
     const sender = toProfile(message.from);
+    if (!sender) return;
 
-    if (!sender) {
+    const chatId = message.chat.id;
+
+    // 1. Получаем пользователя из базы данных
+    const user = getDbUser(sender.id);
+
+    // Проверка на блокировку
+    if (user && (user.is_blocked === 1 || user.status === 'blocked')) {
+      await api.sendMessage(
+        chatId,
+        '🚫 <b>Доступ заблокирован</b>\n\nВаш аккаунт временно отключен. Пожалуйста, обратитесь к администрации школы.',
+        { parse_mode: 'HTML', reply_markup: { remove_keyboard: true } },
+      );
       return;
     }
 
-    if (sender.id === adminTelegramId) {
-      database.ensureAdmin(sender.id);
+    // 2. Обработка получения контакта (номер телефона)
+    if (message.contact) {
+      await handleContact(chatId, sender, message.contact);
+      return;
     }
 
-    const command = parseCommand(message.text);
+    // 3. Если у пользователя ещё нет подтверждённого номера телефона — просим поделиться
+    if (!user || !user.phone || !user.phone.trim()) {
+      await requestPhone(chatId, sender);
+      return;
+    }
 
+    // Обновляем метку последней активности
+    touchUserActivity(sender);
+
+    const text = typeof message.text === 'string' ? message.text.trim() : '';
+    const command = parseCommand(text);
+
+    // 4. Команды и кнопки
     if (command?.name === 'start') {
-      await handleStart(message.chat.id, sender, command.argument);
+      await handleStart(chatId, sender, command.argument);
       return;
     }
 
-    const currentAccess = database.getUserAccess(sender.id);
-    const currentUser = currentAccess.user;
-
-    if (currentAccess.state !== 'active') {
-      await sendAccessStatus(message.chat.id, sender.id, currentAccess);
+    if (command?.name === 'help') {
+      await sendHelp(chatId);
       return;
     }
 
-    database.touchTelegramUser(sender);
-
-    if (message.text === BROWSER_BUTTON_TEXT) {
-      await sendBrowserLogin(message.chat.id, sender.id, message.message_id);
-      return;
-    }
-
-    if (message.text === APP_BUTTON_TEXT) {
-      await showMenu(message.chat.id, database.getUser(sender.id));
-      return;
-    }
-
-    if (currentUser.role === 'admin') {
-      const adminState = database.getBotState(sender.id, botStateTtlSeconds);
-
-      if (adminState === 'awaiting_grant_id') {
-        await handleGrantInput(message.chat.id, sender.id, message.text);
-        return;
-      }
-
-      const dateState = /^awaiting_(grant|expiry)_date:([1-9]\d{0,19})(?::(\d{1,6}))?$/.exec(adminState || '');
-
-      if (dateState) {
-        await handleSubscriptionDateInput(
-          message.chat.id,
-          sender.id,
-          dateState[1],
-          dateState[2],
-          Number(dateState[3] || 0),
-          message.text,
-        );
-        return;
-      }
-    }
-
-    await showMenu(message.chat.id, database.getUser(sender.id));
-  }
-
-  async function handleStart(chatId, sender, argument) {
-    let inviteAccepted = false;
-
-    if (argument?.startsWith('invite_')) {
-      const result = database.consumeInvite(argument.slice('invite_'.length), sender.id);
-
-      if (!result.ok) {
-        const text = result.reason === 'telegram_id_mismatch'
-          ? 'Это приглашение предназначено для другого Telegram-аккаунта.'
-          : 'Приглашение недействительно или уже истекло.';
-        await api.sendMessage(chatId, text);
-      } else {
-        inviteAccepted = true;
-      }
-    }
-
-    let access = database.getUserAccess(sender.id);
-    let user = access.user;
-
-    if (access.state !== 'active') {
-      await sendAccessStatus(chatId, sender.id, access);
-      return;
-    }
-
-    database.touchTelegramUser(sender);
-    user = database.getUser(sender.id);
-    database.clearBotState(sender.id);
-    await showMenu(chatId, user, inviteAccepted ? 'Доступ подтверждён.' : 'Добро пожаловать!');
-  }
-
-  async function handleGrantInput(chatId, actorId, text) {
-    const targetId = normalizeTelegramId(text);
-
-    if (!targetId) {
-      await sendTrackedMessage(chatId, actorId, 'admin_menu', 'Пришлите числовой Telegram ID или нажмите «Отмена».', {
-        reply_markup: cancelKeyboard(),
-      });
-      return;
-    }
-
-    if (targetId === adminTelegramId) {
-      database.clearBotState(actorId);
-      await sendTrackedMessage(chatId, actorId, 'admin_menu', 'Этот Telegram ID уже является администратором.', {
-        reply_markup: adminKeyboard(),
-      });
-      return;
-    }
-
-    database.setBotState(actorId, `awaiting_grant_term:${targetId}`);
-    await sendTrackedMessage(chatId, actorId, 'admin_menu', `Выберите срок доступа для ${targetId}.`, {
-      reply_markup: subscriptionTermKeyboard('grant', targetId),
-    });
-  }
-
-  async function handleSubscriptionDateInput(chatId, actorId, mode, targetId, offset, text) {
-    const expiresAt = parseMoscowEndOfDay(text);
-
-    if (!expiresAt || expiresAt <= Math.floor(Date.now() / 1000)) {
-      await sendTrackedMessage(
-        chatId,
-        actorId,
-        'admin_menu',
-        'Введите будущую дату в формате ДД.ММ.ГГГГ.',
-        { reply_markup: cancelKeyboard() },
-      );
-      return;
-    }
-
-    database.clearBotState(actorId);
-
-    if (mode === 'grant') {
-      await finalizeGrant(chatId, actorId, targetId, expiresAt);
-      return;
-    }
-
-    const changed = database.setUserAccessExpiry(targetId, expiresAt, actorId);
-    await notifySubscriptionChanged(targetId, changed);
-    await showUserCard(chatId, targetId, offset, `Срок установлен до ${formatSubscriptionDate(expiresAt)}.`);
-  }
-
-  async function finalizeGrant(chatId, actorId, targetId, accessExpiresAt) {
-    const user = database.grantUser(targetId, actorId, accessExpiresAt);
-    database.clearBotState(actorId);
-    let userWasNotified = false;
-
-    try {
-      await sendTrackedMessage(
-        targetId,
-        targetId,
-        'status',
-        buildActiveAccessMessage(user, 'Вам открыт доступ к PuppyApp.'),
-        { reply_markup: appInlineKeyboard() },
-      );
-      userWasNotified = true;
-      markShortSubscriptionWarningDelivered(user);
-    } catch (error) {
-      const invite = database.createInvite(targetId, actorId, inviteTtlSeconds);
-      const link = buildInviteLink(invite.token);
-      const suffix = link
-        ? `\n\nПользователь ещё не открыл бота. Передайте ему ссылку:\n${link}`
-        : '\n\nБот не смог написать пользователю. Настройте BOT_USERNAME, чтобы получать ссылки-приглашения.';
-
-      await sendTrackedMessage(
-        chatId,
-        actorId,
-        'admin_menu',
-        `Доступ для ${targetId} выдан ${formatAccessTerm(user)}.${suffix}`,
-        { reply_markup: adminKeyboard() },
-      );
-      console.warn(`[telegram-bot] could not notify user ${targetId}: ${getErrorMessage(error)}`);
-    }
-
-    if (userWasNotified) {
-      await sendTrackedMessage(
-        chatId,
-        actorId,
-        'admin_menu',
-        `Доступ для ${targetId} выдан ${formatAccessTerm(user)}, пользователь уведомлён.`,
-        { reply_markup: adminKeyboard() },
-      );
-    }
-  }
-
-  async function handleCallbackQuery(query) {
-    const sender = toProfile(query.from);
-
-    if (!sender) {
-      return;
-    }
-
-    await api.answerCallbackQuery(query.id).catch((error) => {
-      console.warn(`[telegram-bot] answerCallbackQuery failed: ${error.message}`);
-    });
-
-    if (query.message?.chat?.type !== 'private') {
-      return;
-    }
-
-    if (sender.id === adminTelegramId) {
-      database.ensureAdmin(sender.id);
-    }
-
-    const access = database.getUserAccess(sender.id);
-    const user = access.user;
-    const chatId = query.message?.chat?.id ?? sender.id;
-
-    if (access.state !== 'active') {
-      await sendAccessStatus(chatId, sender.id, access);
-      return;
-    }
-
-    database.touchTelegramUser(sender);
-    const action = String(query.data || '');
-
-    if (action === 'user:menu') {
-      database.clearBotState(sender.id);
-      await showMenu(chatId, database.getUser(sender.id));
-      return;
-    }
-
-    if (action === 'user:browser') {
+    if (text === BROWSER_BUTTON_TEXT || command?.name === 'browser' || command?.name === 'pc') {
       await sendBrowserLogin(chatId, sender.id);
       return;
     }
 
-    if (user.role !== 'admin') {
-      await api.sendMessage(chatId, 'Эта команда доступна только администратору.');
+    if (text === SUBSCRIPTION_BUTTON_TEXT || command?.name === 'sub' || command?.name === 'subscription') {
+      await sendSubscriptionStatus(chatId, sender.id);
       return;
     }
 
-    if (action === 'admin:add') {
-      database.setBotState(sender.id, 'awaiting_grant_id');
-      await sendTrackedMessage(chatId, sender.id, 'admin_menu', 'Отправьте числовой Telegram ID пользователя.', {
-        reply_markup: cancelKeyboard(),
-      });
+    if (text === APP_BUTTON_TEXT) {
+      await sendAppNotice(chatId);
       return;
     }
 
-    if (action === 'admin:cancel') {
-      database.clearBotState(sender.id);
-      await showMenu(chatId, database.getUser(sender.id), 'Действие отменено.');
+    // На любой другой текст показываем главное меню
+    await sendMainMenu(
+      chatId,
+      `Рады видеть вас, ${sender.firstName}! 🐶\n\nИспользуйте кнопки меню внизу для доступа к платформе:`,
+    );
+  }
+
+  /**
+   * Обработка Callback Query (нажатия на inline-кнопки)
+   */
+  async function handleCallbackQuery(query) {
+    const sender = toProfile(query.from);
+    if (!sender) return;
+
+    await api.answerCallbackQuery(query.id).catch(() => {});
+
+    const chatId = query.message?.chat?.id ?? sender.id;
+    const data = String(query.data || '');
+
+    if (data === 'user:browser') {
+      await sendBrowserLogin(chatId, sender.id);
       return;
     }
 
-    if (action === 'admin:servers:restart') {
-      if (typeof requestServerRestart !== 'function') {
-        await showMenu(chatId, database.getUser(sender.id), 'Перезагрузка серверов не настроена.');
+    if (data === 'user:sub') {
+      await sendSubscriptionStatus(chatId, sender.id);
+      return;
+    }
+
+    if (data === 'user:menu') {
+      await sendMainMenu(chatId);
+      return;
+    }
+  }
+
+  /**
+   * Запрос номера телефона через нативную кнопку Telegram
+   */
+  async function requestPhone(chatId, sender) {
+    const text =
+      `👋 <b>Добро пожаловать в «Высшую школу собак» Дарьи Сахаровой!</b>\n\n` +
+      `Для открытия доступа к платформе и связи с вашим личным кабинетом, пожалуйста, подтвердите свой номер телефона.\n\n` +
+      `👇 Нажмите кнопку <b>«📱 Поделиться номером телефона»</b> внизу экрана:`;
+
+    await api.sendMessage(chatId, text, {
+      parse_mode: 'HTML',
+      reply_markup: {
+        keyboard: [
+          [{ text: '📱 Поделиться номером телефона', request_contact: true }],
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    });
+  }
+
+  /**
+   * Сохранение полученного номера телефона
+   */
+  async function handleContact(chatId, sender, contact) {
+    let rawPhone = contact.phone_number || '';
+    let phone = rawPhone.replace(/[^\d+]/g, '');
+    if (phone && !phone.startsWith('+')) {
+      phone = '+' + phone;
+    }
+
+    saveUserPhone(sender, phone);
+
+    const text =
+      `✅ <b>Номер телефона подтверждён!</b>\n\n` +
+      `Добро пожаловать в обучающую видеоплатформу школы щенков Дарьи Сахаровой 🐶\n\n` +
+      `Все видеоматериалы и уроки доступны по кнопкам ниже:`;
+
+    await api.sendMessage(chatId, text, {
+      parse_mode: 'HTML',
+      reply_markup: mainReplyKeyboard(),
+    });
+  }
+
+  /**
+   * Команда /start
+   */
+  async function handleStart(chatId, sender, argument) {
+    if (argument?.startsWith('invite_') && database?.consumeInvite) {
+      database.consumeInvite(argument.slice('invite_'.length), sender.id);
+    }
+
+    const user = getDbUser(sender.id);
+    if (!user || !user.phone) {
+      await requestPhone(chatId, sender);
+      return;
+    }
+
+    await sendMainMenu(
+      chatId,
+      `👋 С возвращением, <b>${sender.firstName}</b>!\n\n` +
+      `Выберите нужный пункт меню для продолжения обучения:`,
+    );
+  }
+
+  /**
+   * Главное меню с нативной клавиатурой
+   */
+  async function sendMainMenu(chatId, messageText = null) {
+    const text = messageText || 'Главное меню видеоплатформы 🐶:';
+
+    await api.sendMessage(chatId, text, {
+      parse_mode: 'HTML',
+      reply_markup: mainReplyKeyboard(),
+    });
+  }
+
+  /**
+   * Структура главного Reply-меню (всегда видно под строкой ввода)
+   */
+  function mainReplyKeyboard() {
+    const keyboard = [];
+
+    if (miniAppUrl) {
+      keyboard.push([
+        { text: APP_BUTTON_TEXT, web_app: { url: miniAppUrl } },
+      ]);
+    }
+
+    keyboard.push([
+      { text: BROWSER_BUTTON_TEXT },
+      { text: SUBSCRIPTION_BUTTON_TEXT },
+    ]);
+
+    return {
+      keyboard,
+      resize_keyboard: true,
+    };
+  }
+
+  /**
+   * Уведомление при нажатии на кнопку приложения
+   */
+  async function sendAppNotice(chatId) {
+    if (!miniAppUrl) {
+      await api.sendMessage(chatId, 'Ссылка на видеоплатформу настраивается. Пожалуйста, попробуйте чуть позже.');
+      return;
+    }
+
+    await api.sendMessage(
+      chatId,
+      'Нажмите на кнопку ниже, чтобы открыть видеоплатформу внутри Telegram:',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🚀 Открыть PuppyApp 🐶', web_app: { url: miniAppUrl } }],
+          ],
+        },
+      },
+    );
+  }
+
+  /**
+   * Статус подписки (Read-Only: без тарифов, цен и кнопок оплаты)
+   */
+  async function sendSubscriptionStatus(chatId, telegramId) {
+    const user = getDbUser(telegramId);
+    if (!user) {
+      await api.sendMessage(chatId, 'Информация о пользователе не найдена. Нажмите /start для обновления.');
+      return;
+    }
+
+    const license = getDbLicense(user.id || user.rowid);
+
+    // 1. Активная платная лицензия
+    if (license && license.status === 'active' && license.tariff_id !== 'free') {
+      const tariffTitle = license.tariff_name || 'Обучающий курс';
+
+      if (license.tariff_id === 'lifetime' || !license.expires_at) {
+        await api.sendMessage(
+          chatId,
+          `🐶 <b>Ваша подписка:</b> ${escapeHtml(tariffTitle)}\n` +
+          `📅 <b>Срок действия:</b> Бессрочный доступ (VIP) ✨\n\n` +
+          `Статус: <b>Активен ✅</b>\n\n` +
+          `Приятного просмотра и продуктивных тренировок с хвостиком!`,
+          { parse_mode: 'HTML' },
+        );
         return;
       }
 
-      database.setBotState(sender.id, 'awaiting_servers_restart');
-      await sendTrackedMessage(
+      const daysLeft = calculateDaysLeft(license.expires_at);
+      const formattedDate = formatDateRu(license.expires_at);
+
+      let daysText = '';
+      if (daysLeft > 0) {
+        daysText = `(осталось ${daysLeft} ${pluralizeDays(daysLeft)})`;
+      } else if (daysLeft === 0) {
+        daysText = `(истекает сегодня)`;
+      } else {
+        daysText = `(срок истёк)`;
+      }
+
+      await api.sendMessage(
         chatId,
-        sender.id,
-        'admin_menu',
-        'Перезагрузить production-сервер и Telegram proxy? Приложение будет недоступно несколько минут.',
-        { reply_markup: restartConfirmationKeyboard() },
+        `🐶 <b>Ваша подписка:</b> ${escapeHtml(tariffTitle)}\n` +
+        `📅 <b>Срок действия:</b> до ${formattedDate} ${daysText}\n\n` +
+        `Статус: <b>Активен ✅</b>\n\n` +
+        `Приятного просмотра и продуктивных тренировок!`,
+        { parse_mode: 'HTML' },
       );
       return;
     }
 
-    if (action === 'admin:servers:restart:confirm') {
-      const state = database.getBotState(sender.id, botStateTtlSeconds);
+    // 2. Базовый / Бесплатный доступ или истёкшая подписка
+    const text =
+      `ℹ️ <b>Статус доступа: Базовый (Free)</b>\n\n` +
+      `В данный момент у вас нет активной платной подписки.\n\n` +
+      `По вопросам подключения тарифа или продления доступа, пожалуйста, напишите вашему менеджеру школы.`;
 
-      if (state !== 'awaiting_servers_restart' || typeof requestServerRestart !== 'function') {
-        await showMenu(chatId, database.getUser(sender.id), 'Подтверждение устарело.');
-        return;
-      }
-
-      database.clearBotState(sender.id);
-
-      try {
-        await requestServerRestart({ requestedBy: sender.id });
-        await api.sendMessage(
-          chatId,
-          'Команда принята. Сначала перезагрузится Telegram proxy, затем production-сервер. Обычно восстановление занимает 1–3 минуты.',
-        );
-      } catch (error) {
-        console.error(`[telegram-bot] server restart request failed: ${getErrorMessage(error)}`);
-        await showMenu(chatId, database.getUser(sender.id), 'Не удалось поставить перезагрузку в очередь.');
-      }
-      return;
-    }
-
-    const grantTermAction = /^admin:grant:(7|30|90|365|forever|date):([1-9]\d{0,19})$/.exec(action);
-
-    if (grantTermAction) {
-      const [, term, targetId] = grantTermAction;
-      const state = database.getBotState(sender.id, botStateTtlSeconds);
-
-      if (state !== `awaiting_grant_term:${targetId}`) {
-        await showMenu(chatId, database.getUser(sender.id), 'Выбор срока устарел. Начните выдачу доступа заново.');
-        return;
-      }
-
-      if (term === 'date') {
-        database.setBotState(sender.id, `awaiting_grant_date:${targetId}`);
-        await sendTrackedMessage(chatId, sender.id, 'admin_menu', 'Введите дату окончания в формате ДД.ММ.ГГГГ (по Москве).', {
-          reply_markup: cancelKeyboard(),
-        });
-        return;
-      }
-
-      const expiresAt = term === 'forever'
-        ? null
-        : Math.floor(Date.now() / 1000) + Number(term) * 86_400;
-      await finalizeGrant(chatId, sender.id, targetId, expiresAt);
-      return;
-    }
-
-    const userCardAction = /^admin:user:([1-9]\d{0,19})(?::(\d{1,6}))?$/.exec(action);
-
-    if (userCardAction) {
-      await showUserCard(chatId, userCardAction[1], Number(userCardAction[2] || 0));
-      return;
-    }
-
-    const extendAction = /^admin:extend:(7|30|90|365):([1-9]\d{0,19})(?::(\d{1,6}))?$/.exec(action);
-
-    if (extendAction) {
-      const [, days, targetId, offset = '0'] = extendAction;
-      const changed = database.extendUserAccess(targetId, Number(days), sender.id);
-      await notifySubscriptionChanged(targetId, changed);
-      await showUserCard(chatId, targetId, Number(offset), `Подписка продлена на ${days} дней.`);
-      return;
-    }
-
-    const expiryAction = /^admin:expiry:(forever|date):([1-9]\d{0,19})(?::(\d{1,6}))?$/.exec(action);
-
-    if (expiryAction) {
-      const [, operation, targetId, offset = '0'] = expiryAction;
-
-      if (operation === 'date') {
-        database.setBotState(sender.id, `awaiting_expiry_date:${targetId}:${offset}`);
-        await sendTrackedMessage(chatId, sender.id, 'admin_menu', 'Введите новую дату окончания в формате ДД.ММ.ГГГГ (по Москве).', {
-          reply_markup: cancelKeyboard(),
-        });
-        return;
-      }
-
-      const changed = database.setUserAccessExpiry(targetId, null, sender.id);
-      await notifySubscriptionChanged(targetId, changed);
-      await showUserCard(chatId, targetId, Number(offset), 'Доступ сделан бессрочным.');
-      return;
-    }
-
-    const listAction = /^admin:list(?::(\d{1,6}))?$/.exec(action);
-
-    if (listAction) {
-      await showUsers(chatId, Number(listAction[1] || 0));
-      return;
-    }
-
-    const statusAction = /^(admin):(revoke|activate):([1-9]\d{0,19})(?::(\d{1,6}))?$/.exec(action);
-
-    if (statusAction) {
-      const [, , operation, targetId, offset = '0'] = statusAction;
-      const status = operation === 'activate' ? 'active' : 'revoked';
-
-      try {
-        const changed = database.setUserStatus(targetId, status, sender.id);
-        await api.sendMessage(
-          chatId,
-          changed
-            ? `Доступ для ${targetId}: ${status === 'active' ? 'активен' : 'отозван'}.`
-            : `Пользователь ${targetId} не найден.`,
-        );
-
-        if (changed) {
-          await notifyAccessStatus(targetId, status);
-        }
-      } catch (error) {
-        await api.sendMessage(chatId, error.message);
-      }
-
-      await showUserCard(chatId, targetId, Number(offset));
-      return;
-    }
-
-    await showMenu(chatId, database.getUser(sender.id));
+    await api.sendMessage(chatId, text, { parse_mode: 'HTML' });
   }
 
-  async function showMenu(chatId, user, prefix = '') {
-    const isAdmin = user.role === 'admin';
-    const heading = `Статус доступа: активен ✅\n${formatAccessTerm(user)}${isAdmin ? '\nРоль: администратор.' : ''}`;
-    const text = prefix ? `${prefix}\n\n${heading}` : heading;
-
-    await sendTrackedMessage(chatId, user.telegramId, 'status', text, {
-      reply_markup: { remove_keyboard: true },
-    });
-
-    if (isAdmin) {
-      await sendTrackedMessage(chatId, user.telegramId, 'admin_menu', 'Управление доступами:', {
-        reply_markup: adminKeyboard(),
-      });
+  /**
+   * Генерация одноразовой ссылки (Magic Link) для входа с компьютера
+   */
+  async function sendBrowserLogin(chatId, telegramId) {
+    if (!database || typeof database.prepareMagicLinkDelivery !== 'function') {
+      await api.sendMessage(chatId, 'Вход через браузер временно недоступен.');
       return;
     }
-
-    await sendTrackedMessage(chatId, user.telegramId, 'status', 'Открыть приложение:', {
-      reply_markup: appInlineKeyboard(),
-    });
-  }
-
-  async function sendAccessStatus(chatId, telegramId, access) {
-    const user = access.user;
-    const statusText = {
-      revoked: 'Статус доступа: отозван ⛔',
-      blocked: 'Статус доступа: заблокирован 🚫',
-      expired: `Статус доступа: подписка закончилась ⏳\nДата окончания: ${formatSubscriptionDate(user?.accessExpiresAt)}`,
-    }[access.state] || 'Статус доступа: не выдан ⏳';
-
-    await sendTrackedMessage(chatId, telegramId, 'status', `${statusText}\n\nОбратитесь к администратору.`, {
-      reply_markup: { remove_keyboard: true },
-    });
-  }
-
-  async function sendBrowserLogin(chatId, telegramId, requestMessageId = null) {
-    if (requestMessageId) {
-      database.trackBotMessage(telegramId, chatId, requestMessageId, 'browser_request');
-    }
-
-    database.queueCurrentBotMessageForCleanup(telegramId, 'browser_link');
-    await cleanupTrackedMessages(telegramId, { throwOnFailure: true });
 
     const magicLink = database.prepareMagicLinkDelivery(telegramId, magicLinkTtlSeconds);
     const url = magicLink ? buildMagicLink(magicLink.token) : null;
 
     if (!magicLink || !url) {
-      if (magicLink) {
-        database.abortMagicLinkDelivery(magicLink.token);
-      }
-      await api.sendMessage(
-        chatId,
-        'Не удалось создать безопасную ссылку. Проверьте PUBLIC_BASE_URL или обратитесь к администратору.',
-      );
+      if (magicLink) database.abortMagicLinkDelivery(magicLink.token);
+      await api.sendMessage(chatId, 'Не удалось сформировать ссылку для входа. Обратитесь к менеджеру.');
       return;
     }
 
-    let sentMessage;
-
     try {
-      sentMessage = await api.sendMessage(
+      const sentMessage = await api.sendMessage(
         chatId,
-        `Одноразовая ссылка для входа в браузере действует ${formatTtl(magicLinkTtlSeconds)}.`,
+        `🌐 <b>Вход с компьютера без пароля</b>\n\n` +
+        `Ссылка действует ${formatTtl(magicLinkTtlSeconds)}:\n`,
         {
+          parse_mode: 'HTML',
           link_preview_options: { is_disabled: true },
           reply_markup: {
-            inline_keyboard: [[{ text: 'Открыть в браузере 🔗', url }]],
+            inline_keyboard: [[{ text: 'Открыть в браузере на ПК 🔗', url }]],
           },
         },
       );
-    } catch (error) {
-      database.abortMagicLinkDelivery(magicLink.token);
-      throw error;
-    }
 
-    const messageId = getSentMessageId(sentMessage);
-
-    if (!messageId) {
-      database.abortMagicLinkDelivery(magicLink.token);
-      throw new Error('Telegram did not return a message ID for the browser link');
-    }
-
-    try {
-      const finalized = database.finalizeMagicLinkDelivery(
-        magicLink.token,
-        telegramId,
-        chatId,
-        messageId,
-      );
-
-      if (finalized === null) {
-        throw new Error('Could not activate the delivered browser link');
+      const messageId = getSentMessageId(sentMessage);
+      if (messageId) {
+        database.finalizeMagicLinkDelivery(magicLink.token, telegramId, chatId, messageId);
       }
-    } catch (error) {
+    } catch (err) {
       database.abortMagicLinkDelivery(magicLink.token);
-      await api.deleteMessage(chatId, messageId).catch(() => {});
-      throw error;
-    }
-
-    await cleanupTrackedMessages(telegramId);
-  }
-
-  async function notifyAccessStatus(targetId, status) {
-    try {
-      if (status === 'active') {
-        const user = database.getUser(targetId);
-        await sendTrackedMessage(targetId, targetId, 'status', buildActiveAccessMessage(user, 'Доступ к PuppyApp восстановлен.'), {
-          reply_markup: appInlineKeyboard(),
-        });
-        return;
-      }
-
-      await sendTrackedMessage(targetId, targetId, 'status', 'Статус доступа: отозван ⛔', {
-        reply_markup: { remove_keyboard: true },
-      });
-    } catch (error) {
-      console.warn(`[telegram-bot] could not notify user ${targetId}: ${getErrorMessage(error)}`);
+      throw err;
     }
   }
 
-  async function showUsers(chatId, requestedOffset = 0) {
-    const offset = Math.max(0, Math.trunc(requestedOffset / USER_PAGE_SIZE) * USER_PAGE_SIZE);
-    const page = database.listManagedUsers(USER_PAGE_SIZE + 1, offset);
-    const hasNextPage = page.length > USER_PAGE_SIZE;
-    const users = page.slice(0, USER_PAGE_SIZE);
+  /**
+   * Справка /help
+   */
+  async function sendHelp(chatId) {
+    const text =
+      `🐶 <b>Онлайн-видеоплатформа «Высшей школы собак» Дарьи Сахаровой</b>\n\n` +
+      `• Нажмите <b>«${APP_BUTTON_TEXT}»</b>, чтобы смотреть уроки прямо внутри Telegram.\n` +
+      `• Нажмите <b>«${BROWSER_BUTTON_TEXT}»</b>, чтобы получить быструю одноразовую ссылку для просмотра на ноутбуке или компьютере.\n` +
+      `• Нажмите <b>«${SUBSCRIPTION_BUTTON_TEXT}»</b>, чтобы проверить срок действия вашего доступа.\n\n` +
+      `Все вопросы по оформлению, оплате и продлению подписки решаются напрямую через вашего менеджера школы.`;
 
-    if (users.length === 0) {
-      if (offset > 0) {
-        await showUsers(chatId, Math.max(0, offset - USER_PAGE_SIZE));
-        return;
-      }
-
-      await sendTrackedMessage(chatId, adminTelegramId, 'admin_menu', 'Пользователей пока нет.', {
-        reply_markup: adminKeyboard(),
-      });
-      return;
-    }
-
-    const statusIcon = { active: '✅', revoked: '⛔', blocked: '🚫', expired: '⌛' };
-    const lines = users.map((entry) => {
-      const identity = entry.username ? `@${entry.username}` : entry.firstName || 'без профиля';
-      const accessState = getDisplayAccessState(entry);
-      return `${statusIcon[accessState]} ${entry.telegramId} — ${identity}\n${formatAccessTerm(entry)}`;
-    });
-    const buttons = users.map((entry) => [{
-      text: `Управлять ${entry.telegramId}`,
-      callback_data: `admin:user:${entry.telegramId}:${offset}`,
-    }]);
-
-    const pagination = [];
-
-    if (offset > 0) {
-      pagination.push({
-        text: '← Назад',
-        callback_data: `admin:list:${Math.max(0, offset - USER_PAGE_SIZE)}`,
-      });
-    }
-
-    if (hasNextPage) {
-      pagination.push({
-        text: 'Дальше →',
-        callback_data: `admin:list:${offset + USER_PAGE_SIZE}`,
-      });
-    }
-
-    if (pagination.length > 0) {
-      buttons.push(pagination);
-    }
-
-    buttons.push([{ text: '➕ Добавить', callback_data: 'admin:add' }]);
-    buttons.push([{ text: '↩️ В меню', callback_data: 'user:menu' }]);
-    const pageNumber = Math.floor(offset / USER_PAGE_SIZE) + 1;
-    await sendTrackedMessage(chatId, adminTelegramId, 'admin_menu', `Пользователи · страница ${pageNumber}:\n\n${lines.join('\n')}`, {
-      reply_markup: { inline_keyboard: buttons },
-    });
+    await api.sendMessage(chatId, text, { parse_mode: 'HTML' });
   }
 
-  async function showUserCard(chatId, targetId, offset = 0, prefix = '') {
-    const user = database.getUser(targetId);
+  // ==========================================
+  // Вспомогательные методы работы с БД
+  // ==========================================
 
-    if (!user || user.role === 'admin') {
-      await showUsers(chatId, offset);
-      return;
+  function getDb() {
+    if (database?.rawDb && typeof database.rawDb.prepare === 'function') {
+      return database.rawDb;
     }
-
-    const identity = user.username
-      ? `@${user.username}`
-      : [user.firstName, user.lastName].filter(Boolean).join(' ') || 'профиль не заполнен';
-    const accessState = getDisplayAccessState(user);
-    const statusLabel = {
-      active: 'активен ✅',
-      expired: 'подписка закончилась ⌛',
-      revoked: 'отозван ⛔',
-      blocked: 'заблокирован 🚫',
-    }[accessState];
-    const lines = [
-      prefix,
-      `Пользователь ${user.telegramId}`,
-      identity,
-      `Статус: ${statusLabel}`,
-      formatAccessTerm(user),
-    ].filter(Boolean);
-    const buttons = [
-      [
-        { text: '+7 дней', callback_data: `admin:extend:7:${targetId}:${offset}` },
-        { text: '+30 дней', callback_data: `admin:extend:30:${targetId}:${offset}` },
-      ],
-      [
-        { text: '+90 дней', callback_data: `admin:extend:90:${targetId}:${offset}` },
-        { text: '+365 дней', callback_data: `admin:extend:365:${targetId}:${offset}` },
-      ],
-      [
-        { text: '📅 Указать дату', callback_data: `admin:expiry:date:${targetId}:${offset}` },
-        { text: '♾ Бессрочно', callback_data: `admin:expiry:forever:${targetId}:${offset}` },
-      ],
-      [{
-        text: user.status === 'active' ? '⛔ Отозвать доступ' : '✅ Восстановить доступ',
-        callback_data: `admin:${user.status === 'active' ? 'revoke' : 'activate'}:${targetId}:${offset}`,
-      }],
-      [{ text: '← К списку', callback_data: `admin:list:${offset}` }],
-    ];
-
-    await sendTrackedMessage(chatId, adminTelegramId, 'admin_menu', lines.join('\n'), {
-      reply_markup: { inline_keyboard: buttons },
-    });
-  }
-
-  async function notifySubscriptionChanged(targetId, user) {
-    if (!user) {
-      return;
+    if (database && typeof database.prepare === 'function') {
+      return database;
     }
-
-    try {
-      const message = user.status === 'active'
-        ? buildActiveAccessMessage(user, 'Срок доступа к PuppyApp обновлён. Для продолжения работы войдите заново, если предыдущая подписка уже закончилась.')
-        : `Срок подписки обновлён.\n${formatAccessTerm(user)}\n\nДоступ остаётся отозванным до отдельного восстановления администратором.`;
-      await sendTrackedMessage(
-        targetId,
-        targetId,
-        'status',
-        message,
-        { reply_markup: user.status === 'active' ? appInlineKeyboard() : { remove_keyboard: true } },
-      );
-      markShortSubscriptionWarningDelivered(user);
-    } catch (error) {
-      console.warn(`[telegram-bot] could not notify user ${targetId}: ${getErrorMessage(error)}`);
-    }
-  }
-
-  async function sendSubscriptionNotification(notification) {
-    if (notification.kind === 'warning') {
-      await sendTrackedMessage(
-        notification.telegramId,
-        notification.telegramId,
-        'status',
-        `Подписка на PuppyApp закончится ${formatSubscriptionDate(notification.accessExpiresAt)}.\n\nЧтобы продлить доступ, обратитесь к администратору.`,
-        { reply_markup: appInlineKeyboard() },
-      );
-      return;
-    }
-
-    await sendTrackedMessage(
-      notification.telegramId,
-      notification.telegramId,
-      'status',
-      `Подписка на PuppyApp закончилась ${formatSubscriptionDate(notification.accessExpiresAt)}.\n\nЧтобы продлить доступ, обратитесь к администратору.`,
-      { reply_markup: { remove_keyboard: true } },
-    );
-  }
-
-  function markShortSubscriptionWarningDelivered(user) {
-    const timestamp = Math.floor(Date.now() / 1000);
-
-    if (
-      user.accessExpiresAt !== null &&
-      user.accessExpiresAt > timestamp &&
-      user.accessExpiresAt - timestamp <= subscriptionWarningSeconds
-    ) {
-      database.markSubscriptionNotificationDelivered(user.telegramId, user.accessExpiresAt, 'warning');
-    }
-  }
-
-  async function sendTrackedMessage(chatId, telegramId, kind, text, extra = {}) {
-    const sentMessage = await api.sendMessage(chatId, text, extra);
-    const messageId = getSentMessageId(sentMessage);
-
-    if (!messageId) {
-      throw new Error(`Telegram did not return a message ID for ${kind}`);
-    }
-
-    try {
-      database.trackBotMessage(telegramId, chatId, messageId, kind, true);
-    } catch (error) {
-      await api.deleteMessage(chatId, messageId).catch(() => {});
-      throw error;
-    }
-
-    await cleanupTrackedMessages(telegramId);
-    return sentMessage;
-  }
-
-  async function cleanupTrackedMessages(telegramId, { throwOnFailure = false } = {}) {
-    const messages = database.listBotMessagesForCleanup(telegramId);
-    let firstFailure = null;
-
-    for (const message of messages) {
+    if (!directDb) {
       try {
-        await api.deleteMessage(message.chatId, message.messageId);
-        database.removeTrackedBotMessage(message.chatId, message.messageId);
-      } catch (error) {
-        if (isTerminalDeleteError(error)) {
-          database.removeTrackedBotMessage(message.chatId, message.messageId);
-          console.warn(
-            `[telegram-bot] stopped tracking stale ${message.kind} message Telegram cannot delete: ${getErrorMessage(error)}`,
-          );
-          continue;
-        }
-
-        firstFailure ??= error;
-        console.warn(
-          `[telegram-bot] could not delete stale ${message.kind} message: ${getErrorMessage(error)}`,
-        );
+        const dbPath = options.authDatabasePath || process.env.AUTH_DATABASE_PATH || '/app/data/auth.sqlite';
+        directDb = new DatabaseSync(dbPath);
+        directDb.exec('PRAGMA busy_timeout = 5000;');
+      } catch (err) {
+        console.error('[telegram-bot] Ошибка подключения к SQLite:', err.message);
       }
     }
-
-    if (throwOnFailure && firstFailure) {
-      throw firstFailure;
-    }
+    return directDb;
   }
 
-  function isTerminalDeleteError(error) {
-    if (error?.statusCode !== 400 || error?.method !== 'deleteMessage') {
-      return false;
+  function getDbUser(telegramId) {
+    const db = getDb();
+    if (!db || typeof db.prepare !== 'function') {
+      return database?.getUser ? database.getUser(telegramId) : null;
     }
 
-    return /message (?:to delete not found|can't be deleted(?: for everyone)?)/i.test(
-      getErrorMessage(error),
-    );
-  }
-
-  function adminKeyboard() {
-    const buttons = appInlineKeyboard().inline_keyboard;
-    buttons.push(
-      [{ text: '➕ Выдать доступ', callback_data: 'admin:add' }],
-      [{ text: '👥 Пользователи', callback_data: 'admin:list' }],
-    );
-
-    if (typeof requestServerRestart === 'function') {
-      buttons.push([{ text: '🔄 Перезагрузить серверы', callback_data: 'admin:servers:restart' }]);
-    }
-
-    return { inline_keyboard: buttons };
-  }
-
-  function restartConfirmationKeyboard() {
-    return { inline_keyboard: [
-      [{ text: '⚠️ Да, перезагрузить оба', callback_data: 'admin:servers:restart:confirm' }],
-      [{ text: 'Отмена', callback_data: 'admin:cancel' }],
-    ] };
-  }
-
-  function subscriptionTermKeyboard(mode, targetId) {
-    return { inline_keyboard: [
-      [
-        { text: '7 дней', callback_data: `admin:${mode}:7:${targetId}` },
-        { text: '30 дней', callback_data: `admin:${mode}:30:${targetId}` },
-      ],
-      [
-        { text: '90 дней', callback_data: `admin:${mode}:90:${targetId}` },
-        { text: '365 дней', callback_data: `admin:${mode}:365:${targetId}` },
-      ],
-      [
-        { text: '♾ Бессрочно', callback_data: `admin:${mode}:forever:${targetId}` },
-        { text: '📅 Указать дату', callback_data: `admin:${mode}:date:${targetId}` },
-      ],
-      [{ text: 'Отмена', callback_data: 'admin:cancel' }],
-    ] };
-  }
-
-  function appInlineKeyboard() {
-    const buttons = [];
-    const openButton = createOpenAppButton();
-
-    if (openButton) {
-      buttons.push([openButton]);
-    }
-
-    if (buildMagicLink('preview')) {
-      buttons.push([{ text: BROWSER_BUTTON_TEXT, callback_data: 'user:browser' }]);
-    }
-
-    return { inline_keyboard: buttons };
-  }
-
-  function createOpenAppButton() {
-    if (!miniAppUrl) {
-      return null;
-    }
-
-    return {
-      text: APP_BUTTON_TEXT,
-      web_app: { url: miniAppUrl },
-    };
-  }
-
-  function cancelKeyboard() {
-    return {
-      inline_keyboard: [[{ text: 'Отмена', callback_data: 'admin:cancel' }]],
-    };
-  }
-
-  function buildMagicLink(token) {
     try {
-      const url = new URL('/auth/magic', publicBaseUrl);
-
-      if (url.protocol !== 'https:') {
-        return null;
-      }
-
-      url.searchParams.set('token', token);
-      return url.toString();
+      return db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(String(telegramId));
     } catch {
       return null;
     }
   }
 
-  function buildInviteLink(token) {
-    const username = String(botUsername || '').replace(/^@/, '').trim();
-    return /^[A-Za-z\d_]{5,32}$/.test(username)
-      ? `https://t.me/${username}?start=invite_${token}`
-      : null;
+  function getDbLicense(userId) {
+    const db = getDb();
+    if (!db || typeof db.prepare !== 'function') return null;
+
+    try {
+      return db.prepare(`
+        SELECT l.*, t.name as tariff_name
+        FROM licenses l
+        LEFT JOIN tariffs t ON t.id = l.tariff_id
+        WHERE l.user_id = ? AND l.status = 'active'
+        ORDER BY l.id DESC LIMIT 1
+      `).get(userId);
+    } catch {
+      return null;
+    }
+  }
+
+  function saveUserPhone(sender, phone) {
+    const db = getDb();
+    if (!db || typeof db.prepare !== 'function') return;
+
+    try {
+      const existing = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(String(sender.id));
+      const nowIso = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const nowUnix = Math.floor(Date.now() / 1000);
+
+      if (existing) {
+        db.prepare(`
+          UPDATE users 
+          SET phone = ?,
+              first_name = COALESCE(?, first_name),
+              last_name = COALESCE(?, last_name),
+              username = COALESCE(?, username),
+              last_active_at = ?,
+              updated_at = ?
+          WHERE telegram_id = ?
+        `).run(phone, sender.firstName, sender.lastName, sender.username, nowIso, nowUnix, String(sender.id));
+      } else {
+        db.prepare(`
+          INSERT INTO users (
+            telegram_id, phone, username, first_name, last_name,
+            role, status, is_blocked, created_by, created_at, updated_at,
+            last_seen_at, last_active_at
+          ) VALUES (?, ?, ?, ?, ?, 'user', 'active', 0, 'bot', ?, ?, ?, ?)
+        `).run(
+          String(sender.id),
+          phone,
+          sender.username,
+          sender.firstName,
+          sender.lastName,
+          nowUnix,
+          nowUnix,
+          nowUnix,
+          nowIso,
+        );
+      }
+
+      // Проверяем, есть ли уже лицензия
+      const user = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(String(sender.id));
+      const userId = user?.id || user?.rowid;
+      if (userId) {
+        const hasLicense = db.prepare('SELECT id FROM licenses WHERE user_id = ? LIMIT 1').get(userId);
+        if (!hasLicense) {
+          db.prepare(`
+            INSERT INTO licenses (user_id, tariff_id, status, starts_at, expires_at, source, notes)
+            VALUES (?, 'free', 'active', date('now'), NULL, 'bot_registration', 'Регистрация через бота')
+          `).run(userId);
+        }
+      }
+    } catch (err) {
+      console.error('[telegram-bot] Ошибка сохранения пользователя/телефона:', err);
+    }
+  }
+
+  function touchUserActivity(sender) {
+    const db = getDb();
+    if (!db || typeof db.prepare !== 'function') return;
+
+    try {
+      const nowIso = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const nowUnix = Math.floor(Date.now() / 1000);
+
+      db.prepare(`
+        UPDATE users 
+        SET last_active_at = ?,
+            last_seen_at = ?,
+            first_name = COALESCE(?, first_name),
+            last_name = COALESCE(?, last_name),
+            username = COALESCE(?, username)
+        WHERE telegram_id = ?
+      `).run(nowIso, nowUnix, sender.firstName, sender.lastName, sender.username, String(sender.id));
+    } catch {}
+  }
+
+  function buildMagicLink(token) {
+    if (!publicBaseUrl) return null;
+    const base = publicBaseUrl.replace(/\/+$/, '');
+    return `${base}/auth/login?token=${encodeURIComponent(token)}`;
   }
 }
 
-export function formatTtl(ttlSeconds) {
-  const minutes = Math.max(1, Math.ceil(ttlSeconds / 60));
-  return `${minutes} ${pluralizeMinutes(minutes)}`;
-}
-
-export function parseMoscowEndOfDay(value) {
-  const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(value || '').trim());
-
-  if (!match) {
-    return null;
-  }
-
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-  const calendarDate = new Date(Date.UTC(year, month - 1, day));
-
-  if (
-    year < 2020 || year > 9999 ||
-    calendarDate.getUTCFullYear() !== year ||
-    calendarDate.getUTCMonth() !== month - 1 ||
-    calendarDate.getUTCDate() !== day
-  ) {
-    return null;
-  }
-
-  return Math.floor(Date.UTC(year, month - 1, day, 20, 59, 59) / 1000);
-}
-
-export function formatSubscriptionDate(timestamp) {
-  if (!Number.isSafeInteger(Number(timestamp))) {
-    return 'дата не указана';
-  }
-
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    timeZone: 'Europe/Moscow',
-  }).format(new Date(Number(timestamp) * 1000));
-}
-
-function formatAccessTerm(user) {
-  if (user?.role === 'admin' || user?.accessExpiresAt === null) {
-    return 'Срок: бессрочно';
-  }
-  if (!user?.accessExpiresAt) {
-    return 'Срок: не указан';
-  }
-  const prefix = user.accessExpiresAt <= Math.floor(Date.now() / 1000) ? 'Срок истёк' : 'Доступ до';
-  return `${prefix}: ${formatSubscriptionDate(user.accessExpiresAt)}`;
-}
-
-function buildActiveAccessMessage(user, detail) {
-  return `Статус доступа: активен ✅\n${formatAccessTerm(user)}\n\n${detail}`;
-}
-
-function getDisplayAccessState(user) {
-  if (user.status !== 'active') {
-    return user.status;
-  }
-  return user.role !== 'admin' &&
-    user.accessExpiresAt !== null &&
-    user.accessExpiresAt <= Math.floor(Date.now() / 1000)
-    ? 'expired'
-    : 'active';
-}
-
-function pluralizeMinutes(minutes) {
-  const lastTwoDigits = minutes % 100;
-
-  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
-    return 'минут';
-  }
-
-  const lastDigit = minutes % 10;
-
-  if (lastDigit === 1) {
-    return 'минута';
-  }
-
-  return lastDigit >= 2 && lastDigit <= 4 ? 'минуты' : 'минут';
-}
-
-function getSentMessageId(result) {
-  const messageId = Number(result?.message_id);
-  return Number.isSafeInteger(messageId) && messageId > 0 ? messageId : null;
-}
+// ==========================================
+// Утилиты форматирования
+// ==========================================
 
 function getPrivateSender(update) {
   if (update?.callback_query?.message?.chat?.type === 'private') {
     return toProfile(update.callback_query.from);
   }
-
   if (update?.message?.chat?.type === 'private') {
     return toProfile(update.message.from);
   }
-
   return null;
 }
 
 function toProfile(user) {
   const id = normalizeTelegramId(user?.id);
-
   if (!id || typeof user?.first_name !== 'string' || !user.first_name.trim()) {
     return null;
   }
-
   return {
     id,
     firstName: user.first_name.trim().slice(0, 128),
@@ -1026,23 +602,72 @@ function toProfile(user) {
 }
 
 function parseCommand(text) {
-  if (typeof text !== 'string') {
-    return null;
-  }
-
+  if (typeof text !== 'string') return null;
   const match = /^\/([a-z_]+)(?:@[a-z\d_]+)?(?:\s+(.+))?$/i.exec(text.trim());
   return match ? { name: match[1].toLowerCase(), argument: match[2]?.trim() || '' } : null;
 }
 
 function cleanOptional(value, maxLength) {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
+  if (typeof value !== 'string') return null;
   const cleaned = value.trim();
   return cleaned ? cleaned.slice(0, maxLength) : null;
 }
 
-function getErrorMessage(error) {
-  return error instanceof Error ? error.message : 'unknown error';
+function getSentMessageId(result) {
+  const messageId = Number(result?.message_id);
+  return Number.isSafeInteger(messageId) && messageId > 0 ? messageId : null;
+}
+
+export function formatTtl(ttlSeconds) {
+  const minutes = Math.max(1, Math.round(ttlSeconds / 60));
+  const lastTwoDigits = minutes % 100;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
+    return `${minutes} минут`;
+  }
+  const lastDigit = minutes % 10;
+  if (lastDigit === 1) {
+    return `${minutes} минуту`;
+  }
+  return lastDigit >= 2 && lastDigit <= 4 ? `${minutes} минуты` : `${minutes} минут`;
+}
+
+function calculateDaysLeft(dateStr) {
+  if (!dateStr) return 0;
+  const cleanStr = String(dateStr).trim().split(' ')[0].split('T')[0];
+  const parts = cleanStr.split('-');
+  if (parts.length !== 3) return 0;
+
+  const expDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const diffTime = expDate.getTime() - today.getTime();
+  return Math.round(diffTime / (1000 * 60 * 60 * 24));
+}
+
+function formatDateRu(dateStr) {
+  if (!dateStr) return '—';
+  const cleanStr = String(dateStr).trim().split(' ')[0].split('T')[0];
+  const parts = cleanStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}.${parts[1]}.${parts[0]}`;
+  }
+  return cleanStr;
+}
+
+function pluralizeDays(n) {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs >= 11 && abs <= 19) return 'дней';
+  if (last === 1) return 'день';
+  if (last >= 2 && last <= 4) return 'дня';
+  return 'дней';
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
