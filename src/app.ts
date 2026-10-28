@@ -70,13 +70,10 @@ export type PuppyTopicSlug =
   | 'fears-follows-tail'
   | 'care-claws'
   | 'care-paws'
-  | 'care-grooming'
   | 'fitness-bow'
-  | 'fitness-crawl'
   | 'fitness-bunny'
   | 'fitness-house'
   | 'fitness-paw'
-  | 'fitness-back'
   | 'fitness-wipe-muzzle'
   | 'fitness-spin'
   | 'fitness-left-right';
@@ -111,7 +108,6 @@ export type AdultLargeTopicSlug =
   | 'adult-large-new-places'
   | 'adult-large-claws'
   | 'adult-large-paws'
-  | 'adult-large-grooming'
   | 'adult-large-eight'
   | 'adult-large-go-around'
   | 'adult-large-wipe-muzzle'
@@ -215,7 +211,7 @@ const puppySituations: PuppySituation[] = [
         slug: 'walk-leash',
         title: 'Поводок',
         description: 'Амуниция, движение рядом и безопасные остановки на улице',
-        meta: '5 видео',
+        meta: '4 видео',
         imagePath: '/assets/icons/povodok.webp',
         lessons: [
           {
@@ -243,10 +239,6 @@ const puppySituations: PuppySituation[] = [
             },
           },
           {
-            title: 'Команда «рядом»',
-            description: 'Закладываем понятное положение рядом и первые шаги в спокойном темпе',
-          },
-          {
             title: '«Стоп» перед дорогой',
             description: 'Учим щенка останавливаться перед дорогой и не вылетать вперёд',
             coverPath: '/assets/covers/stop_dor.webp',
@@ -260,13 +252,9 @@ const puppySituations: PuppySituation[] = [
         slug: 'walk-food-pickup',
         title: 'Подбор еды',
         description: 'Профилактика подбора с земли и понятная работа через самоконтроль',
-        meta: '2 видео',
+        meta: '1 видео',
         imagePath: '/assets/icons/podbor_puppy.webp',
         lessons: [
-          {
-            title: 'Как отучить подбирать с земли?',
-            description: 'Показываем рабочую схему с переключением внимания и простыми упражнениями',
-          },
           {
             title: 'Намордник без драмы',
             description: 'Постепенно знакомим щенка с намордником без давления и лишнего стресса',
@@ -294,7 +282,7 @@ const puppySituations: PuppySituation[] = [
         slug: 'walk-ignore-triggers',
         title: 'Игнорирование раздражителей',
         description: 'Упражнения против отвлечений, выдержка и экологичный контакт на улице',
-        meta: '4 видео',
+        meta: '3 видео',
         imagePath: '/assets/icons/razdrazh_puppy.webp',
         lessons: [
           {
@@ -316,10 +304,6 @@ const puppySituations: PuppySituation[] = [
             video: {
               id: 'puppy-ignore-walk-games',
             },
-          },
-          {
-            title: 'Моя собака ко всем лезет',
-            description: 'Работаем с реакцией щенка на велосипеды, кошек, птиц и прохожих',
           },
         ],
       },
@@ -609,8 +593,8 @@ const puppySituations: PuppySituation[] = [
   {
     slug: 'care-without-fight',
     title: 'Уход без борьбы',
-    description: 'Гигиена, лапы и груминг через согласие, ритуалы и предсказуемость',
-    meta: '3 раздела',
+    description: 'Гигиена и уход через согласие, ритуалы и предсказуемость',
+    meta: '2 раздела',
     imagePath: '/assets/icons/puppy_hand.webp',
     category: 'home',
     topics: [
@@ -644,26 +628,13 @@ const puppySituations: PuppySituation[] = [
           },
         ],
       },
-      {
-        slug: 'care-grooming',
-        title: 'Груминг',
-        description: 'Как часто мыть, что использовать и как сделать уход понятнее для щенка',
-        meta: '1 видео',
-        imagePath: '/assets/icons/hair_puppy.webp',
-        lessons: [
-          {
-            title: 'Груминг: как часто мыть и что использовать',
-            description: 'Собираем базовый домашний уход без борьбы и лишнего стресса',
-          },
-        ],
-      },
     ],
   },
   {
     slug: 'fitness',
     title: 'Фитнес',
     description: 'Упражнения на координацию, контроль тела и контакт',
-    meta: '6 разделов',
+    meta: '7 разделов',
     imagePath: '/assets/icons/fitness.webp',
     category: 'commands',
     topics: [
@@ -720,19 +691,6 @@ const puppySituations: PuppySituation[] = [
         ],
       },
       {
-        slug: 'fitness-back',
-        title: '«Назад»',
-        description: 'Осознанное движение назад и более точная работа с телом',
-        meta: '1 видео',
-        imagePath: '/assets/icons/back_puppy.webp',
-        lessons: [
-          {
-            title: '«Назад»',
-            description: 'Учимся двигаться задним ходом через узкий коридор и наведение',
-          },
-        ],
-      },
-      {
         slug: 'fitness-wipe-muzzle',
         title: 'Поставь лапки или "тач"',
         description: 'Постановка передних лап на мишень через спокойную пошаговую работу',
@@ -780,19 +738,6 @@ const puppySituations: PuppySituation[] = [
           },
         ],
       },
-      {
-        slug: 'fitness-crawl',
-        title: 'Ползи',
-        description: 'Низкая позиция, координация и более внимательная работа с телом',
-        meta: '1 видео',
-        imagePath: '/assets/icons/polzi_puppy.webp.webp',
-        lessons: [
-          {
-            title: 'Ползи',
-            description: 'Учимся двигаться низко и мягко без лишнего перевозбуждения',
-          },
-        ],
-      },
     ],
   },
 ];
@@ -825,14 +770,13 @@ const adultLargeSituations: AdultLargeSituation[] = [
       {
         slug: 'adult-large-leash',
         title: 'Поводок',
-        description: 'Поводок, команда «рядом», остановки и усложнение в обычной жизни',
-        meta: '5 видео',
+        description: 'Поводок, остановки и усложнение в обычной жизни',
+        meta: '4 видео',
         imagePath: '/assets/icons/leash.webp',
         lessons: [
           { title: 'Как отучить тянуть поводок?', description: 'Разбираем причины натяжения поводка и собираем спокойную механику прогулки' },
           { title: 'Ошейник или шлейка?', description: 'Как подобрать амуницию под сценарии прогулки и особенности собаки', coverPath: '/assets/covers/ideal_prog.webp' },
           { title: 'Поводок или рулетка?', description: 'Сравниваем варианты амуниции и выбираем подходящий формат прогулки', coverPath: '/assets/covers/povod_rulet.webp' },
-          { title: 'Команда «рядом»', description: 'Собираем базовый навык движения рядом с человеком' },
           {
             title: '«Дорога» и «стоп»',
             description: 'Учимся останавливаться и безопасно проходить сложные участки маршрута',
@@ -869,13 +813,12 @@ const adultLargeSituations: AdultLargeSituation[] = [
         slug: 'adult-large-ignore-triggers',
         title: 'Игнорирование раздражителей',
         description: 'Протоколы внимания и самоконтроля на фоне сильных стимулов',
-        meta: '4 видео',
+        meta: '3 видео',
         imagePath: '/assets/icons/big_ignor.webp',
         lessons: [
           { title: 'Упражнение против отвлечений (1-2-3)', description: 'Возвращаем собаку в понятный ритм при сильных отвлечениях', coverPath: '/assets/covers/1-2-3.webp' },
           { title: 'Выдержка: не срываемся на всё подряд', description: 'Развиваем импульс-контроль на фоне раздражителей' },
           { title: 'Топ интересных игр на прогулке, или как наладить контакт', description: 'Подбираем игры, которые усиливают ценность человека на улице', coverPath: '/assets/covers/igri.webp' },
-          { title: 'Моя собака ко всем лезет', description: 'Работаем с сильным интересом к людям, животным и движущимся объектам' },
         ],
       },
     ],
@@ -990,8 +933,8 @@ const adultLargeSituations: AdultLargeSituation[] = [
   {
     slug: 'adult-large-care-without-fight',
     title: 'Уход без борьбы',
-    description: 'Когти, лапы и груминг через предсказуемость и согласие',
-    meta: '3 раздела',
+    description: 'Когти и лапы через предсказуемость и согласие',
+    meta: '2 раздела',
     imagePath: '/assets/icons/big_bath.webp',
     topics: [
       { slug: 'adult-large-claws', title: 'Когти', description: 'Спокойный и предсказуемый уход за когтями', meta: '1 видео', imagePath: '/assets/icons/big_kogot.webp', lessons: [
@@ -1006,9 +949,6 @@ const adultLargeSituations: AdultLargeSituation[] = [
             id: 'adult-large-care-paws',
           },
         },
-      ]},
-      { slug: 'adult-large-grooming', title: 'Груминг', description: 'Понятный и спокойный сценарий домашнего ухода', meta: '1 видео', imagePath: '/assets/icons/big_grum.webp', lessons: [
-        { title: 'Груминг', description: 'Выстраиваем комфортный бытовой ритм ухода' },
       ]},
     ],
   },
@@ -1026,7 +966,7 @@ const adultLargeSituations: AdultLargeSituation[] = [
         { title: 'Обойди', description: 'Собираем понятное движение вокруг человека или предмета' },
       ]},
       { slug: 'adult-large-wipe-muzzle', title: 'Вытри морду', description: 'Полезный бытовой навык через работу с мишенью', meta: '1 видео', imagePath: '/assets/icons/big_lapananose.webp', lessons: [
-        { title: 'Вытри морду', description: 'Формируем аккуратное касание мордой подготовленной поверхности' },
+        { title: 'Вытри морду', description: 'Формируем спокойную постановку передних лап и закрепляем команду «Тач»' },
       ]},
       { slug: 'adult-large-jump-over-leg', title: 'Прыг', description: 'Аккуратный прыжок с контролем импульса и траектории', meta: '1 видео', imagePath: '/assets/icons/big_jump.webp', lessons: [
         { title: 'Прыг', description: 'Учимся безопасному прыжку через понятную и короткую механику' },
@@ -1529,7 +1469,6 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'walk-leash', lessonTitle: 'Ошейник или шлейка?', descriptionId: '21' },
   { topicSlug: 'walk-leash', lessonTitle: 'Как отучить тянуть поводок?', descriptionId: '01' },
   { topicSlug: 'walk-leash', lessonTitle: 'Поводок или рулетка?', descriptionId: '05' },
-  { topicSlug: 'walk-leash', lessonTitle: 'Команда «рядом»', descriptionId: '23' },
   { topicSlug: 'walk-leash', lessonTitle: '«Стоп» перед дорогой', descriptionId: '06' },
   { topicSlug: 'walk-food-pickup', lessonTitle: 'Намордник без драмы', descriptionId: '04' },
   { topicSlug: 'walk-recall', lessonTitle: 'Команда «Ко мне!» и «кличка»', descriptionId: '09' },
@@ -1537,7 +1476,6 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'walk-ignore-triggers', lessonTitle: 'Упражнение против отвлечений (1-2-3)', descriptionId: '10' },
   { topicSlug: 'walk-ignore-triggers', lessonTitle: 'Выдержка: не срываемся на всё подряд', descriptionId: '11' },
   { topicSlug: 'walk-ignore-triggers', lessonTitle: 'Топ интересных игр на прогулке, или как наладить контакт', descriptionId: '12' },
-  { topicSlug: 'walk-ignore-triggers', lessonTitle: 'Моя собака ко всем лезет', descriptionId: '13' },
   { topicSlug: 'home-barking', lessonTitle: 'Команда «тише»', descriptionId: '36' },
   { topicSlug: 'home-barking', lessonTitle: 'Приучаем к звукам дома', descriptionId: '37' },
   { topicSlug: 'home-loneliness', lessonTitle: 'Убираем страх и повышаем уверенность в себе', descriptionId: '15' },
@@ -1572,7 +1510,6 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'adult-large-leash', lessonTitle: 'Как отучить тянуть поводок?', descriptionId: '22' },
   { topicSlug: 'adult-large-leash', lessonTitle: 'Ошейник или шлейка?', descriptionId: '21' },
   { topicSlug: 'adult-large-leash', lessonTitle: 'Поводок или рулетка?', descriptionId: '23' },
-  { topicSlug: 'adult-large-leash', lessonTitle: 'Команда «рядом»', descriptionId: '23' },
   { topicSlug: 'adult-large-leash', lessonTitle: '«Дорога» и «стоп»', descriptionId: '24' },
   { topicSlug: 'adult-large-food-pickup', lessonTitle: 'Импульс-контроль + Выдержка', descriptionId: '07' },
   { topicSlug: 'adult-large-food-pickup', lessonTitle: 'Намордник без драмы', descriptionId: '04' },
@@ -1581,7 +1518,6 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'adult-large-ignore-triggers', lessonTitle: 'Упражнение против отвлечений (1-2-3)', descriptionId: '25' },
   { topicSlug: 'adult-large-ignore-triggers', lessonTitle: 'Выдержка: не срываемся на всё подряд', descriptionId: '26' },
   { topicSlug: 'adult-large-ignore-triggers', lessonTitle: 'Топ интересных игр на прогулке, или как наладить контакт', descriptionId: '27' },
-  { topicSlug: 'adult-large-ignore-triggers', lessonTitle: 'Моя собака ко всем лезет', descriptionId: '28' },
   { topicSlug: 'adult-large-barking', lessonTitle: 'Команда «тише»', descriptionId: '36' },
   { topicSlug: 'adult-large-barking', lessonTitle: 'Приучаем к звукам: домофон и хлопки', descriptionId: '37' },
   { topicSlug: 'adult-large-loneliness', lessonTitle: 'Убираем страх и повышаем уверенность в себе', descriptionId: '15' },
@@ -1608,6 +1544,7 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'adult-large-paws', lessonTitle: 'Лапы', descriptionId: '44' },
   { topicSlug: 'adult-large-eight', lessonTitle: 'Восемь', descriptionId: '45' },
   { topicSlug: 'adult-large-go-around', lessonTitle: 'Обойди', descriptionId: '46' },
+  { topicSlug: 'adult-large-wipe-muzzle', lessonTitle: 'Вытри морду', descriptionId: '54' },
   { topicSlug: 'adult-large-bow', lessonTitle: 'Поклон', descriptionId: '47' },
 ];
 
@@ -1869,7 +1806,7 @@ function createVideoLibraryItems(): VideoLibraryItem[] {
       durationLabel: '',
       category: 'tricks',
       route: `dog-skills-video:${lesson.id}`,
-      available: false,
+      available: Boolean(lesson.mediaId && lesson.sourceType),
       searchText: `${lesson.title} ${lesson.cardDescription} ${getVideoLibraryCategoryLabel('tricks')}`.toLocaleLowerCase(),
     };
 
@@ -2056,6 +1993,133 @@ export function createAppMarkup(
   return createHomeMarkup();
 }
 
+const APP_ICON_ASSET_PATHS = [
+  '/assets/nav-home.svg',
+  '/assets/nav-lessons.svg',
+  '/assets/nav-chat.svg',
+  '/assets/nav-user.svg',
+  '/assets/useful-heart.svg',
+  '/assets/useful-home.svg',
+  '/assets/useful-leash.svg',
+  '/assets/useful-warning.svg',
+  '/assets/icons/agress_puppy.webp',
+  '/assets/icons/alarm.webp',
+  '/assets/icons/arrow-right.svg',
+  '/assets/icons/ask_kinolog.webp',
+  '/assets/icons/back_puppy.webp',
+  '/assets/icons/big_agress.webp',
+  '/assets/icons/big_bark.webp',
+  '/assets/icons/big_bath.webp',
+  '/assets/icons/big_car.webp',
+  '/assets/icons/big_fear.webp',
+  '/assets/icons/big_fitness.webp',
+  '/assets/icons/big_grum.webp',
+  '/assets/icons/big_headphones.webp',
+  '/assets/icons/big_hvost.webp',
+  '/assets/icons/big_ignor.webp',
+  '/assets/icons/big_jump.webp',
+  '/assets/icons/big_kogot.webp',
+  '/assets/icons/big_kreslo.webp',
+  '/assets/icons/big_lai.webp',
+  '/assets/icons/big_lapananose.webp',
+  '/assets/icons/big_lapi.webp',
+  '/assets/icons/big_lift.webp',
+  '/assets/icons/big_oboidi.webp',
+  '/assets/icons/big_ohran.webp',
+  '/assets/icons/big_please.webp',
+  '/assets/icons/big_podbor_edi.webp',
+  '/assets/icons/big_podziv.webp',
+  '/assets/icons/big_poklon.webp',
+  '/assets/icons/big_prig.webp',
+  '/assets/icons/big_sidit.webp',
+  '/assets/icons/big_toilet.webp',
+  '/assets/icons/big_velo.webp',
+  '/assets/icons/big_vosem.webp',
+  '/assets/icons/big_vozbud.webp',
+  '/assets/icons/bunny_puppy.webp',
+  '/assets/icons/car_puppy.webp',
+  '/assets/icons/clock.svg',
+  '/assets/icons/comp_big_check.webp',
+  '/assets/icons/comp_big_time.webp',
+  '/assets/icons/comp_lil_check.webp',
+  '/assets/icons/comp_lil_time.webp',
+  '/assets/icons/comp_middle_check.webp',
+  '/assets/icons/comp_middle_time.webp',
+  '/assets/icons/course.webp',
+  '/assets/icons/earphones_puppy.webp',
+  '/assets/icons/fitness.webp',
+  '/assets/icons/gantel.webp',
+  '/assets/icons/hair_puppy.webp',
+  '/assets/icons/home_puppy.webp',
+  '/assets/icons/home.webp',
+  '/assets/icons/jump_puppy.webp',
+  '/assets/icons/krutvert_puppy.webp',
+  '/assets/icons/kus_puppy.webp',
+  '/assets/icons/lai_puppy.webp',
+  '/assets/icons/lapa__puppy.webp',
+  '/assets/icons/lay_puppy.webp',
+  '/assets/icons/leash.webp',
+  '/assets/icons/levopravo_puppy.webp',
+  '/assets/icons/lightbulb.svg',
+  '/assets/icons/lonely_puppy.webp',
+  '/assets/icons/message.svg',
+  '/assets/icons/nails_puppy.webp',
+  '/assets/icons/ohrana_puppy.webp',
+  '/assets/icons/order_puppy.webp',
+  '/assets/icons/paperclip.svg',
+  '/assets/icons/please_puppy.webp',
+  '/assets/icons/podbor_puppy.webp',
+  '/assets/icons/poklon__puppy.webp.webp',
+  '/assets/icons/polzi_puppy.webp.webp',
+  '/assets/icons/povodok.webp',
+  '/assets/icons/puppy_hand.webp',
+  '/assets/icons/puppy-podziv.webp',
+  '/assets/icons/razdrazh_puppy.webp',
+  '/assets/icons/ruletka.webp',
+  '/assets/icons/sad_puppy.webp',
+  '/assets/icons/video-library-shuffle.svg',
+  '/assets/icons/search-library.webp',
+  '/assets/icons/seasons.webp',
+  '/assets/icons/stair_puppy.webp',
+  '/assets/icons/tail_puppy.webp',
+  '/assets/icons/tap_puppy.webp',
+  '/assets/icons/thought_puppy.webp',
+  '/assets/icons/toilet_puppy.webp',
+  '/assets/icons/vandal_puppy.webp',
+  '/assets/icons/voprox_puppy.webp',
+];
+
+const APP_EMOJI_ASSET_PATHS = [
+  '/assets/emoji/bed.svg',
+  '/assets/emoji/bone.svg',
+  '/assets/emoji/bowl-with-spoon.svg',
+  '/assets/emoji/check-mark-button.svg',
+  '/assets/emoji/cross-mark.svg',
+  '/assets/emoji/dog-face.svg',
+  '/assets/emoji/dog.svg',
+  '/assets/emoji/door.svg',
+  '/assets/emoji/eyes.svg',
+  '/assets/emoji/grinning-face-sweat.svg',
+  '/assets/emoji/heart-suit.svg',
+  '/assets/emoji/herb.svg',
+  '/assets/emoji/house.svg',
+  '/assets/emoji/key.svg',
+  '/assets/emoji/light-bulb.svg',
+  '/assets/emoji/man-running.svg',
+  '/assets/emoji/paws.svg',
+  '/assets/emoji/poodle.svg',
+  '/assets/emoji/puzzle-piece.svg',
+  '/assets/emoji/raised-back-of-hand.svg',
+  '/assets/emoji/sleeping-face.svg',
+  '/assets/emoji/small-blue-diamond.svg',
+  '/assets/emoji/smiling-face.svg',
+  '/assets/emoji/speech-balloon.svg',
+  '/assets/emoji/thinking-face.svg',
+  '/assets/emoji/walking.svg',
+  '/assets/emoji/warning.svg',
+  '/assets/emoji/white-heart.svg',
+].map(getEmojiAssetUrl);
+
 export function getAllAppAssetPaths(): string[] {
   const paths = [
     '/assets/logo-dog.svg',
@@ -2088,6 +2152,14 @@ export function getAllAppAssetPaths(): string[] {
     '/assets/icons/comp_middle_check.webp',
     '/assets/icons/comp_big_check.webp',
   ].map(resolveCardImagePath);
+
+  paths.push(...APP_ICON_ASSET_PATHS);
+  paths.push(...APP_EMOJI_ASSET_PATHS);
+  paths.push(...seasonThemes.flatMap(({ heroImagePath, iconImagePath }) => [
+    heroImagePath,
+    iconImagePath,
+  ]));
+  paths.push('/assets/images/seasons/walks-icon.webp');
 
   [...puppySituations, ...adultLargeSituations].forEach((situation) => {
     paths.push(resolveCardImagePath(situation.imagePath));
@@ -2353,12 +2425,19 @@ const videoLibraryCategories: readonly { id: VideoLibraryFilter; label: string }
 ];
 
 function createVideoLibraryMarkup(state: VideoLibraryState): string {
+  const allVideos = getVideoLibraryItems();
+  const directionCount = new Set(allVideos.map((video) => video.category ?? 'uncategorized')).size;
   const query = state.query.trim().toLocaleLowerCase();
-  const filtered = getVideoLibraryItems().filter((video) =>
+  const filtered = allVideos.filter((video) =>
     (state.category === 'all' || video.category === state.category) &&
     (!query || video.searchText.includes(query)),
   );
+  const hasAvailableVideos = filtered.some((video) => video.available);
   const activeIndex = Math.max(0, filtered.findIndex((video) => video.id === state.activeId));
+  const progressCurrent = filtered.length > 0 ? activeIndex + 1 : 0;
+  const progressPercent = filtered.length > 1
+    ? (activeIndex / (filtered.length - 1)) * 100
+    : filtered.length === 1 ? 100 : 0;
   const transitionFromIndex = state.transitionMode === 'card' && state.transitionFromId
     ? filtered.findIndex((video) => video.id === state.transitionFromId)
     : -1;
@@ -2393,7 +2472,7 @@ function createVideoLibraryMarkup(state: VideoLibraryState): string {
     `;
   }).join('');
   const carouselMarkup = filtered.length === 0
-    ? `<div class="video-library__empty" role="status"><h2>${query ? 'Ничего не найдено' : 'Здесь скоро появятся видео!'}</h2><p>${query ? 'Попробуйте изменить запрос или выбрать другую категорию.' : 'Мы готовим новые материалы для этой категории.'}</p>${query ? '<button type="button" data-library-reset>Сбросить фильтры</button>' : ''}</div>`
+    ? `<div class="video-library__empty" role="status"><h2>${query ? 'Ничего не найдено' : 'Здесь скоро появятся видео!'}</h2><p>${query ? 'Измените запрос или выберите другую категорию.' : 'Мы готовим новые материалы для этой категории.'}</p>${query ? '<button type="button" data-library-reset>Сбросить фильтры</button>' : ''}</div>`
     : state.mode === 'wheel'
       ? `
         <div class="video-library__carousel-stage">
@@ -2403,11 +2482,21 @@ function createVideoLibraryMarkup(state: VideoLibraryState): string {
             </div>
           </div>
         </div>
-        <div class="video-library__position" aria-live="polite">
-          <span>${String(activeIndex + 1).padStart(2, '0')}</span><span aria-hidden="true">/</span><span>${String(filtered.length).padStart(2, '0')}</span>
-        </div>
+
       `
       : `<div class="video-library__list">${filtered.map((video) => createVideoLibraryListCard(video)).join('')}</div>`;
+  const carouselProgressMarkup = state.mode === 'wheel'
+    ? `
+        <div class="video-library__carousel-progress">
+          <div class="video-library__position" aria-live="polite">
+            <span>${String(progressCurrent).padStart(2, '0')}</span><span aria-hidden="true">/</span><span>${String(filtered.length).padStart(2, '0')}</span>
+          </div>
+          <div class="video-library__progress-track" role="progressbar" aria-label="Положение в подборке" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progressPercent)}" aria-valuetext="${progressCurrent} из ${filtered.length} видео">
+            <span class="video-library__progress-fill" data-library-progress-fill style="width:${progressPercent.toFixed(2)}%"></span>
+          </div>
+        </div>
+      `
+    : '';
 
   return `
     <div class="app-shell app-shell--video-library">
@@ -2425,9 +2514,11 @@ function createVideoLibraryMarkup(state: VideoLibraryState): string {
               ${state.query ? '<button type="button" data-library-clear-search aria-label="Очистить поиск">×</button>' : ''}
             </label>
           ` : ''}
-          <p class="video-library__intro">Выбирайте видео и открывайте новые навыки вместе с питомцем.</p>
           <div class="video-library__toolbar">
-            <span class="video-library__toolbar-title">Видео для вас</span>
+            <div class="video-library__toolbar-copy">
+              <h2 class="video-library__toolbar-title">Видео для вас</h2>
+              <p class="video-library__toolbar-statistics">${allVideos.length} видео <span aria-hidden="true">·</span> ${directionCount} направлений</p>
+            </div>
             <div class="video-library__toolbar-actions">
               <div class="video-library__view-switch" role="group" aria-label="Режим просмотра">
                 <button type="button" data-library-mode="wheel" aria-label="Режим карусели" aria-pressed="${state.mode === 'wheel'}">◉</button>
@@ -2438,11 +2529,27 @@ function createVideoLibraryMarkup(state: VideoLibraryState): string {
         <div class="video-library__carousel-content${state.mode === 'wheel' ? ' video-library__carousel-content--wheel' : ''}" style="view-transition-name:${state.transitionMode === 'jump' ? 'video-library-carousel' : 'none'}">
             ${carouselMarkup}
           </div>
-          ${state.mode === 'wheel' ? `
-            <div class="video-library__categories-heading"><h2>Выберите категорию</h2></div>
-            <div class="video-library__categories" data-library-categories role="group" aria-label="Категории видео"><span class="video-library__category-indicator" data-library-category-indicator aria-hidden="true"></span>${categoryMarkup}</div>
-          ` : `<div class="video-library__categories video-library__categories--list" data-library-categories role="group" aria-label="Категории видео"><span class="video-library__category-indicator" data-library-category-indicator aria-hidden="true"></span>${categoryMarkup}</div>`}
-        </div>
+          ${carouselProgressMarkup}
+          <div class="video-library__categories-heading"><h2>Выберите категорию</h2></div>
+          <div class="video-library__categories" data-library-categories role="group" aria-label="Категории видео"><span class="video-library__category-indicator" data-library-category-indicator aria-hidden="true"></span>${categoryMarkup}</div>
+          <button
+            class="video-library__surprise"
+            type="button"
+            data-library-surprise${hasAvailableVideos ? '' : ' disabled'}
+            aria-disabled="${!hasAvailableVideos}"
+            aria-label="Удиви меня! Найдём случайное видео для вас и питомца"
+          >
+            <span class="video-library__surprise-copy">
+              <span class="video-library__surprise-title">Удиви меня!</span>
+              <span class="video-library__surprise-description">Найдём случайное видео для вас и питомца</span>
+            </span>
+            <img
+              class="video-library__surprise-icon"
+              src="/assets/icons/video-library-shuffle.svg"
+              alt=""
+              aria-hidden="true"
+            />
+          </button>        </div>
       </main>
       ${createBottomNav('lessons')}
     </div>
@@ -2633,6 +2740,21 @@ function createSeasonalVideoCardMarkup(
   const route: AppRoute = `lesson-video:${video.id}`;
   const variantClass = `seasonal-video-card--${variant}`;
   const posterPath = `/media/${encodeURIComponent(video.mediaId)}/poster.webp`;
+  const featuredOverlayMarkup = variant === 'featured'
+    ? `
+        <span class="seasonal-video-card__poster-fallback" aria-hidden="true">
+          ${createPlayIconMarkup('seasonal-video-card__fallback-icon')}
+        </span>
+        <span class="seasonal-video-card__shade" aria-hidden="true"></span>
+        <span class="seasonal-video-card__category">${escapeHtml(video.category)}</span>
+        <span class="seasonal-video-card__play" aria-hidden="true">
+          ${createPlayIconMarkup('seasonal-video-card__play-icon')}
+        </span>
+      `
+    : '';
+  const listArrowMarkup = variant === 'list'
+    ? `<span class="seasonal-video-card__arrow" aria-hidden="true">${createArrowIconMarkup('seasonal-video-card__arrow-icon')}</span>`
+    : '';
 
   return `
     <button
@@ -2643,26 +2765,24 @@ function createSeasonalVideoCardMarkup(
     >
       <span class="seasonal-video-card__media">
         <img
+          class="seasonal-video-card__poster-backdrop"
+          src="${posterPath}"
+          alt=""
+          aria-hidden="true"
+          data-seasonal-backdrop
+        />
+        <img
           class="seasonal-video-card__poster"
           src="${posterPath}"
           alt=""
           data-seasonal-poster
         />
-        <span class="seasonal-video-card__poster-fallback" aria-hidden="true">
-          ${createPlayIconMarkup('seasonal-video-card__fallback-icon')}
-        </span>
-        <span class="seasonal-video-card__shade" aria-hidden="true"></span>
-        <span class="seasonal-video-card__category">${escapeHtml(video.category)}</span>
-        <span class="seasonal-video-card__play" aria-hidden="true">
-          ${createPlayIconMarkup('seasonal-video-card__play-icon')}
-        </span>
+        ${featuredOverlayMarkup}
         <span class="seasonal-video-card__duration">${escapeHtml(video.duration)}</span>
       </span>
       <span class="seasonal-video-card__body">
         <strong class="seasonal-video-card__title">${escapeHtml(video.title)}</strong>
-        ${variant === 'list'
-          ? '<span class="seasonal-video-card__arrow" aria-hidden="true"><span class="program-card__arrow-icon"></span></span>'
-          : ''}
+        ${listArrowMarkup}
       </span>
     </button>
   `;
@@ -2681,18 +2801,20 @@ function createSeasonalVideoListMarkup(season: SeasonId, section: SeasonalSectio
       <main class="screen-content seasonal-list-screen">
         <div class="content-frame">
           <section class="seasonal-list" aria-labelledby="seasonal-list-title">
-            <div class="seasonal-list__heading">
-              ${createSeasonalSectionIconMarkup(section)}
-              <div>
-                <p>${escapeHtml(theme.label)}</p>
-                <h2 id="seasonal-list-title">${escapeHtml(sectionDefinition?.title ?? 'Видео')}</h2>
+            <div class="seasonal-list__content">
+              <div class="seasonal-list__heading">
+                ${createSeasonalSectionIconMarkup(section)}
+                <div>
+                  <p>${escapeHtml(theme.label)}</p>
+                  <h2 id="seasonal-list-title">${escapeHtml(sectionDefinition?.title ?? 'Видео')}</h2>
+                </div>
               </div>
+              ${videos.length > 0
+                ? `<div class="seasonal-video-list">${videos
+                    .map((video) => createSeasonalVideoCardMarkup(video, 'list'))
+                    .join('')}</div>`
+                : createSeasonalEmptyStateMarkup(theme.label)}
             </div>
-            ${videos.length > 0
-              ? `<div class="seasonal-video-list">${videos
-                  .map((video) => createSeasonalVideoCardMarkup(video, 'list'))
-                  .join('')}</div>`
-              : createSeasonalEmptyStateMarkup(theme.label)}
           </section>
         </div>
       </main>
@@ -4271,17 +4393,28 @@ function createNavTab(
   feedbackEntryPoint?: 'chat-nav',
 ): string {
   const activeClass = isActive ? ' bottom-nav__tab--active' : '';
+  const lessonNavAttributes = iconName === 'lessons'
+    ? ' data-lessons-nav aria-expanded="false"'
+    : '';
   const attrs = route
     ? `data-route="${route}"`
     : feedbackEntryPoint
       ? `data-feedback-open data-feedback-entry="${feedbackEntryPoint}"`
       : `data-feedback="${escapeHtml(feedback ?? `Раздел "${label}" пока в разработке`)}"`;
   const feedbackClass = route || feedbackEntryPoint ? '' : ' js-feedback';
+  const iconMarkup = iconName === 'lessons'
+    ? `
+      <span class="bottom-nav__icon bottom-nav__icon--lessons" aria-hidden="true">
+        <span class="bottom-nav__symbol bottom-nav__symbol--book"></span>
+        <span class="bottom-nav__symbol bottom-nav__symbol--paw"></span>
+      </span>
+    `
+    : `<span class="bottom-nav__icon bottom-nav__icon--${iconName}" aria-hidden="true"></span>`;
 
   return `
-    <button class="bottom-nav__tab${feedbackClass}${activeClass}" type="button" ${attrs}>
+    <button class="bottom-nav__tab${feedbackClass}${activeClass}" type="button" ${attrs}${lessonNavAttributes}>
       <span class="bottom-nav__content">
-        <span class="bottom-nav__icon bottom-nav__icon--${iconName}" aria-hidden="true"></span>
+        ${iconMarkup}
         <span class="bottom-nav__label">${label}</span>
       </span>
     </button>
