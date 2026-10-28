@@ -63,6 +63,10 @@ export function createAuthDatabase(databasePath, options = {}) {
       const user = statements.getUser.get(id);
       if (!user) return { hasSubscription: false, tariffId: 'free', tariffName: 'Базовый (Free)' };
 
+      if (user.role === 'admin' && user.status === 'active') {
+        return { hasSubscription: true, tariffId: 'admin', tariffName: 'Администратор' };
+      }
+
       if (statements.getActiveLicense) {
         try {
           const activeLic = statements.getActiveLicense.get(user.id);
