@@ -37,6 +37,13 @@ const emojiAssetUrls: Readonly<Record<string, string>> = {
   '🤚': '/assets/emoji/raised-back-of-hand.svg',
 };
 
+// Bump this when an emoji SVG changes so immutable browser cache entries can be refreshed.
+const emojiAssetVersion = '1';
+
+export function getEmojiAssetUrl(assetUrl: string): string {
+  return `${assetUrl}?v=${emojiAssetVersion}`;
+}
+
 const emojiPattern = new RegExp(
   Object.keys(emojiAssetUrls)
     .sort((left, right) => right.length - left.length)
@@ -62,7 +69,7 @@ export function renderEmojiText(value: string): string {
     const assetUrl = emojiAssetUrls[emoji];
 
     if (assetUrl) {
-      markup += `<img class="app-emoji" src="${assetUrl}" alt="${escapeEmojiText(emoji)}" draggable="false" />`;
+      markup += `<img class="app-emoji" src="${getEmojiAssetUrl(assetUrl)}" alt="${escapeEmojiText(emoji)}" draggable="false" />`;
     } else {
       markup += escapeEmojiText(emoji);
     }

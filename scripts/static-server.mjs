@@ -141,6 +141,10 @@ function isSpaRoute(pathname) {
 }
 
 function getCacheControl(filePath) {
+  if (filePath.includes(`${sep}assets${sep}emoji${sep}`)) {
+    return 'private, max-age=31536000, immutable';
+  }
+
   if (filePath.includes(`${sep}assets${sep}`) || filePath.includes(`${sep}private${sep}`)) {
     return 'private, no-cache';
   }

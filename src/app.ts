@@ -1,5 +1,5 @@
 import { SituationSlug, SituationVideo } from './lib/videos';
-import { renderEmojiText } from './lib/emoji';
+import { getEmojiAssetUrl, renderEmojiText } from './lib/emoji';
 import { formatLessonFeedbackCopy } from './lib/feedback-copy';
 import localVideoCatalog from './local-video-catalog.json';
 import lessonFeedbackPrompts from './lesson-feedback-prompts.json';
@@ -3098,7 +3098,7 @@ function createLessonFeedbackMarkup(prompt: string, lessonId: string, lessonTitl
         data-feedback-lesson-id="${escapeHtml(lessonId)}"
         data-feedback-lesson-title="${escapeHtml(lessonTitle)}"
       >
-        <img class="lesson-feedback-cta__message-icon" src="/assets/emoji/speech-balloon.svg" alt="" aria-hidden="true" />
+        <img class="lesson-feedback-cta__message-icon" src="${getEmojiAssetUrl('/assets/emoji/speech-balloon.svg')}" alt="" aria-hidden="true" />
         <span>Спросить у кинолога</span>
         <span class="lesson-feedback-cta__arrow" aria-hidden="true"></span>
       </button>
@@ -3209,7 +3209,7 @@ function createLessonDescriptionSectionMarkup(section: LessonDescriptionSection)
   const headingIcon = section.tone === 'mistakes'
     ? ''
     : isGettingStartedSection
-      ? '<img class="lesson-description__heading-emoji" src="/assets/emoji/light-bulb.svg" alt="" aria-hidden="true" />'
+      ? `<img class="lesson-description__heading-emoji" src="${getEmojiAssetUrl('/assets/emoji/light-bulb.svg')}" alt="" aria-hidden="true" />`
       : section.tone === 'note'
         ? createLessonDescriptionIcon('note')
         : '';
@@ -3483,7 +3483,7 @@ function createLessonDescriptionBlockMarkup(
   if (block.type === 'callout') {
     const calloutIcon = block.icon === 'message'
       ? createLessonDescriptionIcon('message')
-      : `<img class="lesson-description__callout-emoji" src="/assets/emoji/${block.icon === 'tip' ? 'light-bulb' : 'warning'}.svg" alt="" aria-hidden="true" />`;
+      : `<img class="lesson-description__callout-emoji" src="${getEmojiAssetUrl(`/assets/emoji/${block.icon === 'tip' ? 'light-bulb' : 'warning'}.svg`)}" alt="" aria-hidden="true" />`;
 
     return `
       <aside class="lesson-description__callout">
@@ -3507,7 +3507,7 @@ function createLessonDescriptionBlockMarkup(
 
 function createLessonDescriptionIcon(icon: LessonDescriptionIcon): string {
   if (icon === 'note') {
-    return '<img class="lesson-description__icon lesson-description__icon--note" src="/assets/emoji/light-bulb.svg" alt="" aria-hidden="true" />';
+    return `<img class="lesson-description__icon lesson-description__icon--note" src="${getEmojiAssetUrl('/assets/emoji/light-bulb.svg')}" alt="" aria-hidden="true" />`;
   }
 
   const iconPaths: Record<Exclude<LessonDescriptionIcon, 'note'>, string> = {
