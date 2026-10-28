@@ -5986,6 +5986,11 @@ img {
   opacity: 0.88;
 }
 
+.bottom-nav__tab[data-lessons-nav]:not(.bottom-nav__tab--lesson-program-menu-open):active {
+  transform: none;
+  opacity: 1;
+}
+
 .hero-card__cta:active,
 .useful-card:active,
 .program-card:active,

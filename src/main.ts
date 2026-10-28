@@ -120,6 +120,7 @@ let lessonProgramMenuOpen = false;
 let lessonProgramMenuClosing: Promise<void> | null = null;
 let lessonProgramMenuResizeObserver: ResizeObserver | null = null;
 let lessonProgramMenuInertElements: HTMLElement[] = [];
+let lessonNavBookFeedbackAnimation: Animation | null = null;
 
 if (webApp) {
   document.documentElement.dataset.launchContext = 'telegram';
@@ -243,10 +244,10 @@ document.addEventListener('click', (event) => {
   const lessonsNavButton = target.closest<HTMLButtonElement>('[data-lessons-nav]');
   if (lessonsNavButton) {
     event.preventDefault();
-    if (lessonProgramMenuClosing) return;
     const currentRoute = getCurrentRoute();
 
     if (currentRoute === 'home') {
+      if (lessonProgramMenuClosing) return;
       if (lessonProgramMenuOpen) {
         if (target.closest('.bottom-nav__lessons-paw')) chooseLessonProgram('dog-skills');
         else closeLessonProgramMenu();
@@ -256,12 +257,7 @@ document.addEventListener('click', (event) => {
       return;
     }
 
-    closeLessonProgramMenu();
-    const destination = lessonsNavButton.dataset.route as LessonProgramRoute | undefined;
-    if (destination && isLessonProgramRoute(destination) && destination !== currentRoute) {
-      pendingTransitionDirection = getRouteTransitionDirection(currentRoute, destination);
-      navigateTo(destination);
-    }
+    animateLessonNavBook(lessonsNavButton);
     return;
   }
 
@@ -831,6 +827,47 @@ function waitForMilliseconds(duration: number): Promise<void> {
 
 function isLessonProgramRoute(route: string): route is LessonProgramRoute {
   return route === 'puppies' || route === 'adult-large' || route === 'dog-skills';
+}
+
+function animateLessonNavBook(button: HTMLButtonElement): void {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const book = button.querySelector<HTMLElement>('.bottom-nav__lessons-book');
+  if (!book) return;
+
+  lessonNavBookFeedbackAnimation?.cancel();
+  const animation = book.animate(
+    [
+      {
+        transform: 'translate(-50%, -50%) scale(1)',
+        offset: 0,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      },
+      {
+        transform: 'translate(-50%, -50%) scale(1.1)',
+        offset: 0.22,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+      },
+      {
+        transform: 'translate(-50%, -50%) scale(0.97)',
+        offset: 0.66,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      },
+      { transform: 'translate(-50%, -50%) scale(1)', offset: 1 },
+    ],
+    {
+      duration: 250,
+      easing: 'linear',
+    },
+  );
+
+  lessonNavBookFeedbackAnimation = animation;
+  animation.onfinish = () => {
+    if (lessonNavBookFeedbackAnimation === animation) lessonNavBookFeedbackAnimation = null;
+  };
+  animation.oncancel = () => {
+    if (lessonNavBookFeedbackAnimation === animation) lessonNavBookFeedbackAnimation = null;
+  };
 }
 
 function openLessonProgramMenu(trigger: HTMLButtonElement): void {
