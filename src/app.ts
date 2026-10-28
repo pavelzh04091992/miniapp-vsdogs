@@ -1974,7 +1974,16 @@ export function createAppMarkup(
   }
 
   if (dogSkillsLesson) {
-    return createDogSkillsLessonMarkup(dogSkillsLesson);
+    return createLessonPlayerMarkup({
+      id: `dog-skills-${dogSkillsLesson.id}`,
+      mediaId: dogSkillsLesson.mediaId,
+      title: dogSkillsLesson.title,
+      description: dogSkillsLesson.description,
+      sourceType: dogSkillsLesson.sourceType,
+      backRoute: 'dog-skills',
+      coverPath: dogSkillsLesson.coverPath,
+      summary: dogSkillsLesson.cardDescription,
+    }, activeSeason);
   }
 
   if (route === 'complex') {
@@ -2799,7 +2808,6 @@ function createDogSkillsCardMarkup(lesson: DogSkillsLesson, index: number): stri
         <span class="dog-skills-card__index" aria-hidden="true">${sequenceNumber}</span>
         <span class="dog-skills-card__media">
           <img src="${escapeHtml(lesson.coverPath)}" alt="" loading="lazy" aria-hidden="true" />
-          <span class="dog-skills-card__status">Видео скоро</span>
         </span>
       </span>
       <span class="dog-skills-card__body">
@@ -2810,35 +2818,6 @@ function createDogSkillsCardMarkup(lesson: DogSkillsLesson, index: number): stri
         <span class="program-card__arrow-icon"></span>
       </span>
     </button>
-  `;
-}
-
-function createDogSkillsLessonMarkup(lesson: DogSkillsLesson): string {
-  return `
-    <div class="app-shell app-shell--dog-skills-detail">
-      ${createSubpageHeaderMarkup(lesson.title, 'dog-skills')}
-
-      <main class="screen-content">
-        <div class="content-frame content-frame--player">
-          <section class="section-block section-block--detail-first">
-            <div class="lesson-player-card dog-skills-detail">
-              <div class="dog-skills-detail__cover">
-                <img src="${escapeHtml(lesson.coverPath)}" alt="" aria-hidden="true" />
-                <span class="dog-skills-detail__status">Видео скоро будет подключено</span>
-              </div>
-
-              <div class="lesson-player-card__divider" aria-hidden="true">
-                <span class="lesson-player-card__divider-dog"></span>
-              </div>
-
-              ${createLessonDescriptionMarkup(lesson.description, `dog-skills-${lesson.id}`, lesson.title)}
-            </div>
-          </section>
-        </div>
-      </main>
-
-      ${createBottomNav('lessons')}
-    </div>
   `;
 }
 
@@ -3149,7 +3128,11 @@ function createLessonPlayerMarkup(video: LessonVideoEntry, activeSeason: SeasonI
     ? activeSeason
     : video.seasons?.[0];
   const seasonalTheme = playerSeason ? getSeasonTheme(playerSeason) : null;
-  const shellClassName = seasonalTheme ? 'app-shell app-shell--seasonal-player' : 'app-shell';
+  const shellClassName = seasonalTheme
+    ? 'app-shell app-shell--seasonal-player'
+    : video.id.startsWith('dog-skills-')
+      ? 'app-shell app-shell--dog-skills-detail'
+      : 'app-shell';
   const seasonThemeAttribute = seasonalTheme
     ? ` data-season-theme="${escapeHtml(seasonalTheme.id)}"`
     : '';

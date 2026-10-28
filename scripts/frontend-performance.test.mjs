@@ -162,17 +162,19 @@ test('adds the dog skills program, four planned cards, descriptions, and destina
   assert.match(appSource, /route === 'dog-skills'[\s\S]*?createDogSkillsMarkup\(\)/u);
   assert.match(appSource, /dogSkillsLessons\.map\(createDogSkillsCardMarkup\)/u);
   assert.match(appSource, /function createDogSkillsCardMarkup\(lesson: DogSkillsLesson, index: number\)[\s\S]*?String\(index \+ 1\)\.padStart\(2, '0'\)[\s\S]*?dog-skills-card__index/u);
-  assert.match(appSource, /function createDogSkillsLessonMarkup\(lesson: DogSkillsLesson\)/u);
-  assert.match(appSource, /Видео скоро будет подключено/u);
+  assert.match(appSource, /dogSkillsLesson\.mediaId[\s\S]*?dogSkillsLesson\.sourceType[\s\S]*?backRoute: 'dog-skills'/u);
+  assert.match(appSource, /video\.id\.startsWith\('dog-skills-'\)[\s\S]*?app-shell--dog-skills-detail/u);
+  assert.doesNotMatch(appSource, /Видео скоро/u);
   assert.match(appSource, /puppy-hero puppy-hero--dog-skills[\s\S]*?dog-skills-hero-title[\s\S]*?\/assets\/images\/programs\/dog-skills\.webp/u);
   assert.match(appSource, /getAllAppAssetPaths[\s\S]*?'\/assets\/images\/programs\/dog-skills\.webp'/u);
   assert.match(mainSource, /hash === 'dog-skills'/u);
   assert.match(mainSource, /hash\.startsWith\('dog-skills-video:'\)[\s\S]*?isDogSkillsLessonRoute\(route\)/u);
-  assert.match(styles, /\.program-card--skills\s*\{[\s\S]*?grid-column: 1 \/ -1;[\s\S]*?height: clamp\(150px, calc\(124px \+ 8vw\), 172px\);[\s\S]*?linear-gradient\(105deg, #fafffc 0%, #d8f7ed 100%\)/u);
-  assert.match(styles, /\.program-grid > \.program-card--skills \.program-card__media img\s*\{[\s\S]*?right: clamp\(30px, calc\(23px \+ 2vw\), 40px\);[\s\S]*?height: clamp\(118px, calc\(91px \+ 8vw\), 154px\);[\s\S]*?object-fit: contain/u);
+  assert.match(styles, /\.program-card--skills\s*\{[\s\S]*?grid-column: 1 \/ -1;[\s\S]*?height: 163px;[\s\S]*?linear-gradient\(105deg, #fafffc 0%, #d8f7ed 100%\)/u);
+  assert.match(styles, /\.program-grid > \.program-card--skills \.program-card__media\s*\{[\s\S]*?left: calc\(46% \+ 12px\);[\s\S]*?right: calc\(var\(--skills-arrow-size\) \+ 12px\)/u);
+  assert.match(styles, /\.program-grid > \.program-card--skills \.program-card__media img\s*\{[\s\S]*?position: static;[\s\S]*?height: 138px;[\s\S]*?object-fit: contain/u);
   assert.match(styles, /\.program-grid > \.program-card--skills \.program-card__copy\s*\{[\s\S]*?max-width: 48%;[\s\S]*?gap: 7px/u);
   assert.match(styles, /\.program-grid > \.program-card--skills \.program-card__arrow\s*\{[\s\S]*?position: absolute;[\s\S]*?top: 0;[\s\S]*?right: 0;[\s\S]*?width: var\(--skills-arrow-size\)/u);
-  assert.match(styles, /@media \(max-width: 485px\)\s*\{[\s\S]*?\.program-grid > \.program-card--skills \.program-card__media\s*\{[\s\S]*?left: calc\(48% \+ 12px\);[\s\S]*?right: calc\(var\(--skills-arrow-size\) \+ 12px\);[\s\S]*?justify-content: center;[\s\S]*?\.program-grid > \.program-card--skills \.program-card__media img\s*\{[\s\S]*?position: static/u);
+  assert.match(styles, /@media \(max-width: 485px\)\s*\{[\s\S]*?\.program-card--skills\s*\{[\s\S]*?height: clamp\(150px, calc\(124px \+ 8vw\), 163px\);[\s\S]*?\.program-grid > \.program-card--skills \.program-card__media img\s*\{[\s\S]*?height: clamp\(124px, calc\(96\.8px \+ 8\.5vw\), 138px\)/u);
   assert.doesNotMatch(styles, /\.program-grid > \.program-card--skills[\s\S]{0,180}?height: 168px/u);
   assert.match(styles, /\.puppy-hero--dog-skills\s*\{[\s\S]*?linear-gradient\(135deg, #dff8ef 0%, #b8ecd9 54%, #82d5ba 100%\)/u);
   assert.match(styles, /\.puppy-hero__image--dog-skills\s*\{[\s\S]*?object-fit: contain/u);
@@ -186,7 +188,11 @@ test('adds the dog skills program, four planned cards, descriptions, and destina
 
   const lessonIds = [...contentSource.matchAll(/^\s+id: '([^']+)'/gmu)].map((match) => match[1]);
   assert.deepEqual(lessonIds, ['turn-off-light', 'high-ten', 'thimbles', 'obstacle-course']);
-  assert.doesNotMatch(contentSource, /\b(?:mediaId|sourceType|videoPath)\b/u);
+  assert.deepEqual(
+    [...contentSource.matchAll(/^\s+mediaId: '([^']+)'/gmu)].map((match) => match[1]),
+    ['turn-off-light', 'high-ten', 'napertstki', 'obstacle-course'],
+  );
+  assert.equal([...contentSource.matchAll(/^\s+sourceType: 'hls'/gmu)].length, 4);
   assert.match(contentSource, /🐾 Этапы обучения/u);
   assert.match(contentSource, /🎯 Правила челленджа/u);
   assert.match(contentSource, /🐾 Какие элементы можно использовать/u);
