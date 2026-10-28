@@ -1998,6 +1998,9 @@ const APP_ICON_ASSET_PATHS = [
   '/assets/nav-lessons.svg',
   '/assets/nav-chat.svg',
   '/assets/nav-user.svg',
+  '/assets/images/programs/program-menu-puppies.webp',
+  '/assets/images/programs/program-menu-adults.webp',
+  '/assets/images/programs/program-menu-dog-skills.webp',
   '/assets/useful-heart.svg',
   '/assets/useful-home.svg',
   '/assets/useful-leash.svg',
@@ -4405,8 +4408,10 @@ function createNavTab(
   const iconMarkup = iconName === 'lessons'
     ? `
       <span class="bottom-nav__icon bottom-nav__icon--lessons" aria-hidden="true">
-        <span class="bottom-nav__symbol bottom-nav__symbol--book"></span>
-        <span class="bottom-nav__symbol bottom-nav__symbol--paw"></span>
+        <span class="bottom-nav__lessons-book"></span>
+        <span class="bottom-nav__lessons-paw">
+          <img src="/assets/images/programs/program-menu-dog-skills.webp" alt="" aria-hidden="true" />
+        </span>
       </span>
     `
     : `<span class="bottom-nav__icon bottom-nav__icon--${iconName}" aria-hidden="true"></span>`;

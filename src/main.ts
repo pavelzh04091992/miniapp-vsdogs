@@ -113,9 +113,8 @@ type PageTransitionDirection = 'forward' | 'back' | 'fade';
 type LessonProgramRoute = Extract<AppRoute, 'puppies' | 'adult-large' | 'dog-skills'>;
 
 let selectedLessonProgram: LessonProgramRoute | null = null;
-let lessonsMenuOpen = false;
-let lessonsMenuAnimationToken = 0;
-let lessonsMenuResizeObserver: ResizeObserver | null = null;
+let lessonProgramMenuOpen = false;
+let lessonProgramMenuResizeObserver: ResizeObserver | null = null;
 
 if (webApp) {
   document.documentElement.dataset.launchContext = 'telegram';
@@ -131,8 +130,8 @@ setupFeedbackFlow(root, webApp);
 webApp?.BackButton?.onClick(() => {
   if (welcomeVideoModalOpen) {
     closeWelcomeVideoModal();
-  } else if (lessonsMenuOpen) {
-    void closeLessonsMenu();
+  } else if (lessonProgramMenuOpen) {
+    closeLessonProgramMenu();
   }
 });
 window.addEventListener('hashchange', () => {
@@ -151,8 +150,8 @@ window.addEventListener('popstate', (event) => {
     return;
   }
 
-  if (lessonsMenuOpen) {
-    void closeLessonsMenu({ immediate: true });
+  if (lessonProgramMenuOpen) {
+    closeLessonProgramMenu();
   }
 
   void syncRouteState();
@@ -160,9 +159,9 @@ window.addEventListener('popstate', (event) => {
 window.addEventListener('resize', () => {
   updateBottomNavIndicatorPosition();
   schedulePlayerHeaderTitleFit();
-  updateLessonsMenuPosition();
+  updateLessonProgramMenuPosition();
 });
-webApp?.onEvent?.('viewportChanged', updateLessonsMenuPosition);
+webApp?.onEvent?.('viewportChanged', updateLessonProgramMenuPosition);
 
 document.addEventListener('keydown', (event) => {
   if (welcomeVideoModalOpen && event.key === 'Escape') {
@@ -172,11 +171,11 @@ document.addEventListener('keydown', (event) => {
   }
 
   if (
-    lessonsMenuOpen &&
+    lessonProgramMenuOpen &&
     (event.key === 'Escape' || (event.key === 'Backspace' && !isEditableElement(event.target)))
   ) {
     event.preventDefault();
-    void closeLessonsMenu();
+    closeLessonProgramMenu();
     return;
   }
 
@@ -226,12 +225,12 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  const lessonChoice = target.closest<HTMLButtonElement>('[data-lesson-program]');
-  if (lessonChoice) {
+  const lessonProgramChoice = target.closest<HTMLButtonElement>('[data-lesson-program]');
+  if (lessonProgramChoice) {
     event.preventDefault();
-    if (lessonsMenuOpen) {
-      const route = lessonChoice.dataset.lessonProgram as LessonProgramRoute | undefined;
-      if (route && isLessonProgramRoute(route)) void chooseLessonProgram(route);
+    const route = lessonProgramChoice.dataset.lessonProgram as LessonProgramRoute | undefined;
+    if (lessonProgramMenuOpen && route && isLessonProgramRoute(route)) {
+      chooseLessonProgram(route);
     }
     return;
   }
@@ -240,16 +239,18 @@ document.addEventListener('click', (event) => {
   if (lessonsNavButton) {
     event.preventDefault();
     const currentRoute = getCurrentRoute();
+
     if (currentRoute === 'home') {
-      if (lessonsMenuOpen) {
-        void chooseLessonProgram('dog-skills');
+      if (lessonProgramMenuOpen) {
+        if (target.closest('.bottom-nav__lessons-paw')) chooseLessonProgram('dog-skills');
+        else closeLessonProgramMenu();
       } else {
-        openLessonsMenu(lessonsNavButton);
+        openLessonProgramMenu(lessonsNavButton);
       }
       return;
     }
 
-    if (lessonsMenuOpen) void closeLessonsMenu({ immediate: true });
+    closeLessonProgramMenu();
     const destination = selectedLessonProgram ?? 'puppies';
     if (destination !== currentRoute) {
       pendingTransitionDirection = getRouteTransitionDirection(currentRoute, destination);
@@ -258,27 +259,18 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  if (target.closest('[data-lessons-menu-backdrop]')) {
+  if (target.closest('[data-lesson-program-menu-backdrop]')) {
     event.preventDefault();
-    if (lessonsMenuOpen) void closeLessonsMenu();
-    else finalizeLessonsMenuClose();
+    closeLessonProgramMenu();
     return;
   }
 
   if (
-    (lessonsMenuOpen || root.querySelector('#lessons-triangle-menu')) &&
-    !target.closest('#lessons-triangle-menu') &&
+    lessonProgramMenuOpen &&
+    !target.closest('#lesson-program-menu') &&
     !target.closest('[data-lessons-nav]')
   ) {
-    if (!lessonsMenuOpen) {
-      finalizeLessonsMenuClose();
-      if (!target.closest('.bottom-nav__tab')) return;
-    } else if (target.closest('.bottom-nav__tab')) {
-      void closeLessonsMenu({ immediate: true });
-    } else {
-      void closeLessonsMenu();
-      return;
-    }
+    closeLessonProgramMenu();
   }
 
   const surpriseButton = target.closest<HTMLButtonElement>('[data-library-surprise]');
@@ -835,220 +827,95 @@ function isLessonProgramRoute(route: string): route is LessonProgramRoute {
   return route === 'puppies' || route === 'adult-large' || route === 'dog-skills';
 }
 
-function openLessonsMenu(trigger: HTMLButtonElement): void {
-  if (getCurrentRoute() !== 'home') return;
+function openLessonProgramMenu(trigger: HTMLButtonElement): void {
+  if (getCurrentRoute() !== 'home' || lessonProgramMenuOpen) return;
 
   const nav = trigger.closest<HTMLElement>('.bottom-nav');
   if (!nav) return;
 
-  if (lessonsMenuOpen) return;
-  finalizeLessonsMenuClose();
-
-  const menuToken = ++lessonsMenuAnimationToken;
-  lessonsMenuOpen = true;
-  syncLessonsNavigationState();
-  trigger.classList.add('bottom-nav__tab--lessons-menu-open', 'bottom-nav__tab--lessons-menu-pressing');
+  lessonProgramMenuOpen = true;
+  trigger.classList.add('bottom-nav__tab--lesson-program-menu-open');
   trigger.setAttribute('aria-expanded', 'true');
-  trigger.setAttribute('aria-controls', 'lessons-triangle-menu');
-  nav.classList.add('bottom-nav--lessons-menu-open');
+  trigger.setAttribute('aria-controls', 'lesson-program-menu');
+  nav.classList.add('bottom-nav--lesson-program-menu-open');
 
   const menu = document.createElement('div');
-  menu.id = 'lessons-triangle-menu';
-  menu.className = 'lessons-menu';
+  menu.id = 'lesson-program-menu';
+  menu.className = 'lesson-program-menu';
   menu.setAttribute('role', 'menu');
   menu.setAttribute('aria-label', 'Выберите программу обучения');
-  menu.setAttribute('aria-hidden', 'true');
-  menu.inert = true;
   menu.innerHTML = `
-    <svg class="lessons-menu__surface" viewBox="0 0 290 190" aria-hidden="true" focusable="false">
-      <path d="M145 82C160 82 178 78 188 68C198 58 200 8 221 8C243 8 259 25 259 45C259 64 252 82 237 91C215 102 182 120 164 120C164 138 164 151 172 158C180 166 183 178 183 190C183 211 166 228 145 228C124 228 107 211 107 190C107 178 110 166 118 158C126 151 126 138 126 120C108 120 75 102 53 91C38 82 31 64 31 45C31 25 47 8 69 8C90 8 92 58 102 68C112 78 130 82 145 82Z"/>
-    </svg>
-    <button class="lessons-menu__choice lessons-menu__choice--puppies${selectedLessonProgram === 'puppies' ? ' is-selected' : ''}" type="button" role="menuitem" data-lesson-program="puppies" aria-label="Щенки" aria-pressed="${selectedLessonProgram === 'puppies'}">
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M6.8 8.2C5.1 7.3 3.8 5.1 4 3.4c.1-1.4 1.5-1.5 2.5-.7l3.2 2.2a8.5 8.5 0 0 1 4.6 0l3.2-2.2c1-.8 2.4-.7 2.5.7.2 1.7-1.1 3.9-2.8 4.8"/>
-        <path d="M7 7.8a7.3 7.3 0 0 0-2 5.2c0 3.8 2.9 6.7 7 6.7s7-2.9 7-6.7a7.3 7.3 0 0 0-2-5.2"/>
-        <path d="M8.7 11.3h.1m6.4 0h.1M9.5 15c.7.8 1.5 1.2 2.5 1.2s1.8-.4 2.5-1.2M10.3 13.5h3.4l-1.7 1.6-1.7-1.6Z"/>
-      </svg>
+    <button class="lesson-program-menu__choice lesson-program-menu__choice--puppies" type="button" role="menuitem" data-lesson-program="puppies" aria-label="Щенки">
+      <img src="/assets/images/programs/program-menu-puppies.webp" alt="" aria-hidden="true" />
     </button>
-    <button class="lessons-menu__choice lessons-menu__choice--adults${selectedLessonProgram === 'adult-large' ? ' is-selected' : ''}" type="button" role="menuitem" data-lesson-program="adult-large" aria-label="Взрослые" aria-pressed="${selectedLessonProgram === 'adult-large'}">
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M6.5 8.2 4.5 3.1c-.3-.8.2-1.3.9-.8L10 5.2a8.5 8.5 0 0 1 4 0l4.6-2.9c.7-.5 1.2 0 .9.8l-2 5.1"/>
-        <path d="M7 7.7a7.3 7.3 0 0 0-1.8 5c0 4 2.8 6.9 6.8 6.9s6.8-2.9 6.8-6.9a7.3 7.3 0 0 0-1.8-5"/>
-        <path d="M8.5 11.4h.1m6.8 0h.1M9.7 15.1c.6.6 1.4.9 2.3.9s1.7-.3 2.3-.9M10.2 13.6h3.6l-1.8 1.5-1.8-1.5Z"/>
-      </svg>
+    <button class="lesson-program-menu__choice lesson-program-menu__choice--adults" type="button" role="menuitem" data-lesson-program="adult-large" aria-label="Взрослые">
+      <img src="/assets/images/programs/program-menu-adults.webp" alt="" aria-hidden="true" />
     </button>
   `;
 
   const backdrop = document.createElement('button');
   backdrop.type = 'button';
-  backdrop.className = 'lessons-menu-backdrop';
+  backdrop.className = 'lesson-program-menu-backdrop';
   backdrop.setAttribute('aria-label', 'Закрыть выбор программы');
-  backdrop.setAttribute('data-lessons-menu-backdrop', '');
+  backdrop.setAttribute('data-lesson-program-menu-backdrop', '');
 
-  nav.append(menu);
-  root.append(backdrop);
-  updateLessonsMenuPosition();
+  root.append(backdrop, menu);
+  updateLessonProgramMenuPosition();
 
-  lessonsMenuResizeObserver = new ResizeObserver(updateLessonsMenuPosition);
-  lessonsMenuResizeObserver.observe(root);
-  lessonsMenuResizeObserver.observe(nav);
+  lessonProgramMenuResizeObserver = new ResizeObserver(updateLessonProgramMenuPosition);
+  lessonProgramMenuResizeObserver.observe(root);
+  lessonProgramMenuResizeObserver.observe(nav);
   webApp?.BackButton?.show();
-
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const beginExpansion = (): void => {
-    if (!lessonsMenuOpen || menuToken !== lessonsMenuAnimationToken) return;
-    menu.classList.add('lessons-menu--open');
-    menu.setAttribute('aria-hidden', 'false');
-    menu.inert = false;
-    backdrop.classList.add('lessons-menu-backdrop--open');
-  };
-
-  if (reducedMotion) {
-    beginExpansion();
-    trigger.classList.remove('bottom-nav__tab--lessons-menu-pressing');
-  } else {
-    window.setTimeout(() => {
-      if (menuToken !== lessonsMenuAnimationToken) return;
-      trigger.classList.remove('bottom-nav__tab--lessons-menu-pressing');
-      window.requestAnimationFrame(beginExpansion);
-    }, 70);
-  }
 }
 
-async function chooseLessonProgram(route: LessonProgramRoute): Promise<void> {
-  if (!lessonsMenuOpen || getCurrentRoute() !== 'home') return;
+function chooseLessonProgram(route: LessonProgramRoute): void {
+  if (!lessonProgramMenuOpen || getCurrentRoute() !== 'home') return;
 
   selectedLessonProgram = route;
-  syncLessonsNavigationState();
-  const closed = await closeLessonsMenu();
-  if (!closed || getCurrentRoute() !== 'home') return;
-
+  closeLessonProgramMenu();
   pendingTransitionDirection = getRouteTransitionDirection('home', route);
   navigateTo(route);
 }
 
-function closeLessonsMenu(options: { immediate?: boolean } = {}): Promise<boolean> {
-  if (!lessonsMenuOpen) {
-    if (options.immediate && root.querySelector('#lessons-triangle-menu')) {
-      lessonsMenuAnimationToken += 1;
-      finalizeLessonsMenuClose();
-      return Promise.resolve(true);
-    }
-    return Promise.resolve(false);
-  }
+function closeLessonProgramMenu(): void {
+  const menu = root.querySelector<HTMLElement>('#lesson-program-menu');
+  const backdrop = root.querySelector<HTMLElement>('[data-lesson-program-menu-backdrop]');
+  if (!lessonProgramMenuOpen && !menu && !backdrop) return;
 
-  lessonsMenuOpen = false;
-  const menuToken = ++lessonsMenuAnimationToken;
-  const menu = root.querySelector<HTMLElement>('#lessons-triangle-menu');
-  const backdrop = root.querySelector<HTMLElement>('[data-lessons-menu-backdrop]');
-  const trigger = root.querySelector<HTMLButtonElement>('[data-lessons-nav]');
-
-  menu?.classList.remove('lessons-menu--open');
-  menu?.classList.add('lessons-menu--closing');
-  trigger?.classList.add('bottom-nav__tab--lessons-menu-closing');
-  if (menu) {
-    menu.inert = true;
-    menu.setAttribute('aria-hidden', 'true');
-  }
-  backdrop?.classList.remove('lessons-menu-backdrop--open');
-  trigger?.setAttribute('aria-expanded', 'false');
-
-  if (options.immediate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    finalizeLessonsMenuClose();
-    return Promise.resolve(true);
-  }
-
-  window.setTimeout(() => {
-    if (menuToken !== lessonsMenuAnimationToken || lessonsMenuOpen) return;
-    root.querySelector<HTMLButtonElement>('[data-lessons-nav]')?.classList.remove('bottom-nav__tab--lessons-menu-open');
-  }, 180);
-
-  return waitForMilliseconds(240).then(() => {
-    if (menuToken !== lessonsMenuAnimationToken) return false;
-    finalizeLessonsMenuClose();
-    return true;
-  });
-}
-
-function finalizeLessonsMenuClose(): void {
-  lessonsMenuResizeObserver?.disconnect();
-  lessonsMenuResizeObserver = null;
-  root.querySelector<HTMLElement>('#lessons-triangle-menu')?.remove();
-  root.querySelector<HTMLElement>('[data-lessons-menu-backdrop]')?.remove();
+  lessonProgramMenuOpen = false;
+  lessonProgramMenuResizeObserver?.disconnect();
+  lessonProgramMenuResizeObserver = null;
+  menu?.remove();
+  backdrop?.remove();
 
   const nav = root.querySelector<HTMLElement>('.bottom-nav');
   const trigger = nav?.querySelector<HTMLButtonElement>('[data-lessons-nav]');
-  nav?.classList.remove('bottom-nav--lessons-menu-open');
-  trigger?.classList.remove(
-    'bottom-nav__tab--lessons-menu-open',
-    'bottom-nav__tab--lessons-menu-pressing',
-    'bottom-nav__tab--lessons-menu-closing',
-  );
+  nav?.classList.remove('bottom-nav--lesson-program-menu-open');
+  trigger?.classList.remove('bottom-nav__tab--lesson-program-menu-open');
   trigger?.removeAttribute('aria-controls');
   trigger?.setAttribute('aria-expanded', 'false');
-  trigger?.style.removeProperty('--lessons-menu-scale');
   webApp?.BackButton?.hide();
-  syncLessonsNavigationState();
 }
 
-function syncLessonsNavigationState(): void {
-  const trigger = root.querySelector<HTMLButtonElement>('[data-lessons-nav]');
-  if (!trigger) return;
+function updateLessonProgramMenuPosition(): void {
+  if (!lessonProgramMenuOpen) return;
 
-  if (getCurrentRoute() === 'home') trigger.setAttribute('aria-haspopup', 'menu');
-  else trigger.removeAttribute('aria-haspopup');
-  trigger.classList.toggle('bottom-nav__tab--lesson-program-selected', selectedLessonProgram === 'dog-skills');
-  if (selectedLessonProgram) trigger.dataset.lessonSelectedProgram = selectedLessonProgram;
-  else delete trigger.dataset.lessonSelectedProgram;
-}
-
-function updateLessonsMenuPosition(): void {
-  if (!lessonsMenuOpen) return;
-
-  const menu = root.querySelector<HTMLElement>('#lessons-triangle-menu');
-  const backdrop = root.querySelector<HTMLElement>('[data-lessons-menu-backdrop]');
+  const menu = root.querySelector<HTMLElement>('#lesson-program-menu');
+  const backdrop = root.querySelector<HTMLElement>('[data-lesson-program-menu-backdrop]');
   const nav = root.querySelector<HTMLElement>('.bottom-nav');
-  const trigger = root.querySelector<HTMLButtonElement>('[data-lessons-nav]');
-  const icon = trigger?.querySelector<HTMLElement>('.bottom-nav__icon--lessons');
-  if (!menu || !backdrop || !nav || !trigger || !icon) return;
+  const icon = root.querySelector<HTMLElement>('[data-lessons-nav] .bottom-nav__icon--lessons');
+  if (!menu || !backdrop || !nav || !icon) return;
 
   const appRect = root.getBoundingClientRect();
-  const navRect = nav.getBoundingClientRect();
   const iconRect = icon.getBoundingClientRect();
-  if (appRect.width <= 0 || iconRect.width <= 0 || iconRect.height <= 0) return;
-
   const anchorX = iconRect.left + iconRect.width / 2 - appRect.left;
-  const anchorY = iconRect.top + iconRect.height / 2 - navRect.top;
-  const availableHalfWidth = Math.min(anchorX - 8, appRect.width - anchorX - 8);
-  const scale = Math.min(1, Math.max(0.75, availableHalfWidth / 145));
-  const width = 290 * scale;
-  const height = 190 * scale;
-  const navLeft = navRect.left - appRect.left;
+  const anchorY = iconRect.top + iconRect.height / 2 - appRect.top;
+  const buttonSize = 52;
+  const buttonGap = 13;
+  const menuHeight = buttonSize * 2 + buttonGap;
 
-  menu.style.left = `${anchorX - width / 2 - navLeft}px`;
-  menu.style.top = `${anchorY - height}px`;
-  menu.style.width = `${width}px`;
-  menu.style.height = `${height}px`;
-  menu.style.setProperty('--lessons-menu-scale', `${scale}`);
-  trigger.style.setProperty('--lessons-menu-scale', `${scale}`);
-
-  const baseNodeSize = Number.parseFloat(
-    window.getComputedStyle(document.documentElement).getPropertyValue('--lessons-menu-node-size'),
-  ) || 50;
-  const nodeSize = baseNodeSize * scale;
-  menu.querySelectorAll<HTMLButtonElement>('.lessons-menu__choice').forEach((choice) => {
-    const isPuppies = choice.dataset.lessonProgram === 'puppies';
-    const centerX = (isPuppies ? 69 : 221) * scale;
-    const centerY = 45 * scale;
-    choice.style.width = `${nodeSize}px`;
-    choice.style.height = `${nodeSize}px`;
-    choice.style.left = `${centerX - nodeSize / 2}px`;
-    choice.style.top = `${centerY - nodeSize / 2}px`;
-    choice.style.setProperty('--lessons-menu-origin-x', `${145 * scale - centerX}px`);
-    choice.style.setProperty('--lessons-menu-origin-y', `${190 * scale - centerY}px`);
-  });
-
-  backdrop.style.height = `${Math.max(0, navRect.top - appRect.top)}px`;
+  menu.style.left = `${anchorX - buttonSize / 2}px`;
+  menu.style.top = `${anchorY - buttonSize / 2 - buttonGap - menuHeight}px`;
 }
 
 function openWelcomeVideoModal(opener: HTMLButtonElement): void {
@@ -1169,8 +1036,8 @@ async function render(options: {
 } = {}): Promise<void> {
   const sequence = ++renderSequence;
   const route = getCurrentRoute();
-  if (route !== 'home' && (lessonsMenuOpen || root.querySelector('#lessons-triangle-menu'))) {
-    void closeLessonsMenu({ immediate: true });
+  if (lessonProgramMenuOpen || root.querySelector('#lesson-program-menu')) {
+    closeLessonProgramMenu();
   }
   if (videoLibrarySurpriseRunning && route !== 'video-library') {
     cancelVideoLibrarySurprise();
@@ -1234,7 +1101,6 @@ async function render(options: {
     }
 
     updateBottomNavIndicatorPosition();
-    syncLessonsNavigationState();
     updateVideoLibraryCategoryIndicator(!options.suppressCategoryIndicatorMotion);
     if (route === 'video-library' && enteringVideoLibrary) {
       const categories = root.querySelector<HTMLElement>('[data-library-categories]');

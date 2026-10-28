@@ -25,7 +25,6 @@
   --tab-bar-height: 56px;
   --header-logo-size: clamp(42px, 11vw, 50px);
   --header-control-size: clamp(40px, 10.5vw, 44px);
-  --lessons-menu-node-size: 50px;
   --header-title-size: clamp(18px, 4.6vw, 22px);
   --player-title-size: clamp(17px, 4.6vw, 22px);
   --content-top-gap: clamp(12px, 3.8vw, 18px);
@@ -5420,9 +5419,8 @@ img {
   z-index: 30;
 }
 
-.bottom-nav--lessons-menu-open {
+.bottom-nav--lesson-program-menu-open {
   z-index: 40;
-  background: rgba(255, 255, 255, 0.99);
 }
 
 .bottom-nav__inner {
@@ -5466,31 +5464,6 @@ img {
     color 295ms ease;
 }
 
-.bottom-nav__tab--lessons-menu-open {
-  z-index: 3;
-  color: #1ca987;
-}
-
-.bottom-nav__tab--lessons-menu-open .bottom-nav__label {
-  color: #1ca987;
-  font-weight: 700;
-}
-
-.bottom-nav__tab--lessons-menu-closing {
-  z-index: 3;
-  transition-duration: 60ms;
-}
-
-.bottom-nav__tab--lessons-menu-closing .bottom-nav__symbol,
-.bottom-nav__tab--lessons-menu-closing .bottom-nav__icon--lessons::before {
-  transition-duration: 60ms;
-}
-
-.bottom-nav__tab--lesson-program-selected .bottom-nav__icon--lessons::before {
-  border-color: #94dfc8;
-  box-shadow: 0 0 0 2px rgba(28, 169, 135, 0.12), 0 4px 12px rgba(28, 169, 135, 0.12);
-}
-
 .bottom-nav__content {
   display: grid;
   justify-items: center;
@@ -5525,72 +5498,66 @@ img {
   mask-image: none;
 }
 
-.bottom-nav__symbol {
+.bottom-nav__lessons-book,
+.bottom-nav__lessons-paw {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+}
+
+.bottom-nav__lessons-book {
   width: 22px;
   height: 22px;
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  background: currentColor;
+  background-color: currentColor;
+  transform: translate(-50%, -50%);
+  -webkit-mask-image: url('/assets/nav-lessons.svg');
+  mask-image: url('/assets/nav-lessons.svg');
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
   mask-position: center;
   -webkit-mask-size: contain;
   mask-size: contain;
-  transition: opacity 110ms ease, transform 140ms ease;
 }
 
-.bottom-nav__symbol--book {
-  -webkit-mask-image: url('/assets/nav-lessons.svg');
-  mask-image: url('/assets/nav-lessons.svg');
-}
-
-.bottom-nav__symbol--paw {
-  width: calc(26px * var(--lessons-menu-scale, 1));
-  height: calc(26px * var(--lessons-menu-scale, 1));
-  background: #1ca987;
-  opacity: 0;
-  transform: scale(0.72);
-  -webkit-mask-image: url('/assets/nav-paw.svg');
-  mask-image: url('/assets/nav-paw.svg');
-}
-
-.bottom-nav__icon--lessons::before {
-  content: '';
-  width: calc(var(--lessons-menu-node-size) * var(--lessons-menu-scale, 1));
-  height: calc(var(--lessons-menu-node-size) * var(--lessons-menu-scale, 1));
-  position: absolute;
-  z-index: 0;
-  top: 50%;
-  left: 50%;
-  border: 1px solid #c8ede1;
+.bottom-nav__lessons-paw {
+  width: 52px;
+  height: 52px;
+  border: 2px solid #ffffff;
   border-radius: 50%;
+  display: none;
+  place-items: center;
   background: #d5f7ea;
-  box-shadow: 0 5px 14px rgba(28, 169, 135, 0.12);
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(0.72);
-  transition: opacity 110ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease;
-  pointer-events: none;
+  color: #169a78;
+  box-shadow: 0 4px 16px rgba(8, 38, 87, 0.12);
+  transform: translate(-50%, -50%);
 }
 
-.bottom-nav__tab--lessons-menu-open .bottom-nav__icon--lessons::before {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
+.bottom-nav__lessons-paw img {
+  width: 38px;
+  height: 38px;
+  display: block;
+  object-fit: contain;
 }
 
-.bottom-nav__tab--lessons-menu-open .bottom-nav__symbol--book {
-  opacity: 0;
-  transform: scale(0.72);
+.bottom-nav__tab--lesson-program-menu-open {
+  z-index: 3;
+  color: #169a78;
 }
 
-.bottom-nav__tab--lessons-menu-open .bottom-nav__symbol--paw {
-  opacity: 1;
-  transform: scale(1);
+.bottom-nav__tab--lesson-program-menu-open .bottom-nav__lessons-book {
+  display: none;
 }
 
-.bottom-nav__tab--lessons-menu-pressing .bottom-nav__icon {
-  animation: lessons-menu-trigger-press 90ms ease-out both;
+.bottom-nav__tab--lesson-program-menu-open .bottom-nav__lessons-paw {
+  display: grid;
+}
+
+.bottom-nav__tab--lesson-program-menu-open .bottom-nav__label {
+  position: relative;
+  z-index: 4;
+  color: #169a78;
+  font-weight: 700;
 }
 
 .bottom-nav__icon--chat {
@@ -5598,142 +5565,58 @@ img {
   mask-image: url('/assets/nav-chat.svg');
 }
 
-.lessons-menu-backdrop {
+.lesson-program-menu {
+  width: 52px;
+  height: 117px;
   position: absolute;
-  z-index: 25;
-  top: 0;
-  left: 0;
-  width: 100%;
+  z-index: 36;
+  display: grid;
+  grid-template-rows: repeat(2, 52px);
+  gap: 13px;
+}
+
+.lesson-program-menu__choice {
+  width: 52px;
+  height: 52px;
   padding: 0;
-  border: 0;
-  background: rgba(8, 38, 87, 0.2);
-  backdrop-filter: blur(2px);
-  opacity: 0;
-  transition: opacity 220ms ease;
-  cursor: pointer;
-}
-
-.lessons-menu-backdrop--open {
-  opacity: 1;
-}
-
-.lessons-menu {
-  position: absolute;
-  z-index: 1;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.lessons-menu__surface {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  inset: 0;
-  overflow: visible;
-  filter: drop-shadow(0 12px 32px rgba(8, 38, 87, 0.12));
-  opacity: 0;
-  transform: scale(0.16);
-  transform-origin: 50% 100%;
-  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms ease;
-  pointer-events: auto;
-}
-
-.lessons-menu__surface path {
-  fill: #fff;
-  stroke: #edf3f8;
-  stroke-width: 1.5;
-  stroke-linejoin: round;
-}
-
-.lessons-menu__choice {
-  position: absolute;
-  z-index: 2;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
   display: grid;
   place-items: center;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: 50%;
-  box-shadow: 0 5px 16px rgba(8, 38, 87, 0.1);
-  opacity: 0;
-  transform: translate(var(--lessons-menu-origin-x), var(--lessons-menu-origin-y)) scale(0.72);
-  transition:
-    transform 270ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 140ms ease;
-  pointer-events: auto;
+  box-shadow: 0 4px 16px rgba(8, 38, 87, 0.12);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-.lessons-menu__choice--puppies {
-  color: #2869b2;
+.lesson-program-menu__choice--puppies {
   background: #e5f2ff;
 }
 
-.lessons-menu__choice--adults {
-  color: #b64d73;
+.lesson-program-menu__choice--adults {
   background: #ffe8f0;
 }
 
-.lessons-menu__choice svg {
-  width: calc(27px * var(--lessons-menu-scale, 1));
-  height: calc(27px * var(--lessons-menu-scale, 1));
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.lesson-program-menu__choice img {
+  width: 38px;
+  height: 38px;
+  display: block;
+  object-fit: contain;
 }
 
-.lessons-menu__choice.is-selected {
-  outline: 2px solid rgba(28, 169, 135, 0.55);
-  outline-offset: 2px;
-}
-
-.lessons-menu--open .lessons-menu__surface {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.lessons-menu--open .lessons-menu__choice {
-  opacity: 1;
-  transform: translate(0, 0) scale(1);
-}
-
-.lessons-menu--closing .lessons-menu__surface,
-.lessons-menu--closing .lessons-menu__choice {
-  transition-duration: 200ms;
-}
-
-.lessons-menu__choice:active {
-  transform: translate(0, 0) scale(0.94);
-}
-
-.lessons-menu__choice:focus-visible {
-  outline: 3px solid rgba(28, 169, 135, 0.42);
+.lesson-program-menu__choice:focus-visible,
+.bottom-nav__tab--lesson-program-menu-open:focus-visible {
+  outline: 3px solid rgba(28, 169, 135, 0.38);
   outline-offset: 3px;
 }
 
-@media (max-width: 359px) {
-  :root {
-    --lessons-menu-node-size: 46px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lessons-menu-backdrop,
-  .lessons-menu__surface,
-  .lessons-menu__choice,
-  .bottom-nav__symbol,
-  .bottom-nav__icon--lessons::before {
-    transition-duration: 0.01ms;
-    animation-duration: 0.01ms;
-  }
-}
-
-@keyframes lessons-menu-trigger-press {
-  0% { transform: translateY(1px) scale(1); }
-  55% { transform: translateY(1px) scale(0.92); }
-  100% { transform: translateY(1px) scale(1); }
+.lesson-program-menu-backdrop {
+  position: absolute;
+  z-index: 35;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: rgba(8, 38, 87, 0.18);
+  cursor: default;
 }
 
 .bottom-nav__label {

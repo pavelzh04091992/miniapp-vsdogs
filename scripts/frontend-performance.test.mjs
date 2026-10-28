@@ -41,6 +41,36 @@ test('tracks stable Telegram viewport dimensions so transient browser UI does no
   assert.match(telegramSource, /onEvent\?:/);
 });
 
+test('opens a simple vertical program picker from the Lessons bottom navigation', async () => {
+  const [appSource, mainSource, styles] = await Promise.all([
+    readFile(new URL('../src/app.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/main.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
+  ]);
+  const navStart = appSource.indexOf('function createBottomNav');
+  const navEnd = appSource.indexOf('function escapeHtml', navStart);
+  const navSource = appSource.slice(navStart, navEnd);
+
+  assert.match(navSource, /createNavTab\('Уроки', 'lessons', activeTab === 'lessons', 'puppies'\)/u);
+  assert.match(navSource, /data-lessons-nav aria-expanded="false"/u);
+  assert.match(navSource, /bottom-nav__lessons-book[\s\S]*?bottom-nav__lessons-paw/u);
+  assert.match(navSource, /program-menu-dog-skills\.webp/u);
+  assert.match(mainSource, /data-lesson-program="puppies"[\s\S]*?data-lesson-program="adult-large"/u);
+  assert.match(mainSource, /program-menu-puppies\.webp[\s\S]*?program-menu-adults\.webp/u);
+  assert.equal((mainSource.match(/data-lesson-program=/gu) ?? []).length, 2);
+  assert.match(mainSource, /if \(target\.closest\('\.bottom-nav__lessons-paw'\)\) chooseLessonProgram\('dog-skills'\);[\s\S]*?else closeLessonProgramMenu\(\)/u);
+  assert.match(mainSource, /const destination = selectedLessonProgram \?\? 'puppies'/u);
+  assert.match(mainSource, /root\.append\(backdrop, menu\)/u);
+  assert.match(mainSource, /const anchorY = iconRect\.top \+ iconRect\.height \/ 2 - appRect\.top[\s\S]*?buttonSize = 52[\s\S]*?buttonGap = 13/u);
+  assert.match(styles, /\.bottom-nav__lessons-paw\s*\{[\s\S]*?width: 52px;[\s\S]*?height: 52px;/u);
+  assert.match(styles, /\.lesson-program-menu\s*\{[\s\S]*?width: 52px;[\s\S]*?height: 117px;[\s\S]*?gap: 13px;/u);
+  assert.match(styles, /\.lesson-program-menu__choice\s*\{[\s\S]*?width: 52px;[\s\S]*?height: 52px;/u);
+  assert.match(styles, /\.lesson-program-menu__choice img\s*\{[\s\S]*?object-fit: contain;/u);
+  assert.match(styles, /\.lesson-program-menu-backdrop\s*\{[\s\S]*?background: rgba\(8, 38, 87, 0\.18\)/u);
+  assert.doesNotMatch(mainSource, /lessons-triangle-menu|lessons-menu__surface|viewBox="0 0 290 190"/u);
+  assert.doesNotMatch(styles, /lessons-menu__surface|lessons-menu-trigger-press/u);
+});
+
 test('keeps optimized artwork within the application asset budget', async () => {
   const assetsRoot = new URL('../public/assets/', import.meta.url);
   const files = await walk(assetsRoot);
