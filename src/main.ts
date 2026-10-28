@@ -64,6 +64,8 @@ let videoLibraryProgressUpdateToken = 0;
 let videoLibrarySurpriseRunning = false;
 let videoLibrarySurpriseToken = 0;
 let videoLibrarySurpriseButton: HTMLButtonElement | null = null;
+let videoLibrarySurpriseSnapshot: HTMLElement | null = null;
+let videoLibrarySurpriseAnimations: Animation[] = [];
 let videoLibraryPendingCategory: VideoLibraryFilter | null = null;
 let videoLibraryCategoryTransitionToken = 0;
 let videoLibraryCategoryTransitionRunning = false;
@@ -111,10 +113,13 @@ const ASSET_PRELOAD_TIMEOUT_MS = 15_000;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
 type LessonProgramRoute = Extract<AppRoute, 'puppies' | 'adult-large' | 'dog-skills'>;
+type LessonProgramMenuVisualSelection = 'puppy' | 'adult' | 'skills';
 
-let selectedLessonProgram: LessonProgramRoute | null = null;
+let lastMenuVisualSelection: LessonProgramMenuVisualSelection | null = null;
 let lessonProgramMenuOpen = false;
+let lessonProgramMenuClosing: Promise<void> | null = null;
 let lessonProgramMenuResizeObserver: ResizeObserver | null = null;
+let lessonProgramMenuInertElements: HTMLElement[] = [];
 
 if (webApp) {
   document.documentElement.dataset.launchContext = 'telegram';
@@ -238,6 +243,7 @@ document.addEventListener('click', (event) => {
   const lessonsNavButton = target.closest<HTMLButtonElement>('[data-lessons-nav]');
   if (lessonsNavButton) {
     event.preventDefault();
+    if (lessonProgramMenuClosing) return;
     const currentRoute = getCurrentRoute();
 
     if (currentRoute === 'home') {
@@ -251,8 +257,8 @@ document.addEventListener('click', (event) => {
     }
 
     closeLessonProgramMenu();
-    const destination = selectedLessonProgram ?? 'puppies';
-    if (destination !== currentRoute) {
+    const destination = lessonsNavButton.dataset.route as LessonProgramRoute | undefined;
+    if (destination && isLessonProgramRoute(destination) && destination !== currentRoute) {
       pendingTransitionDirection = getRouteTransitionDirection(currentRoute, destination);
       navigateTo(destination);
     }
@@ -834,7 +840,17 @@ function openLessonProgramMenu(trigger: HTMLButtonElement): void {
   if (!nav) return;
 
   lessonProgramMenuOpen = true;
+  lessonProgramMenuInertElements = Array.from(
+    root.querySelectorAll<HTMLElement>('.app-shell > .home-header, .app-shell > .screen-content'),
+  ).filter((element) => !element.inert);
+  lessonProgramMenuInertElements.forEach((element) => {
+    element.inert = true;
+  });
   trigger.classList.add('bottom-nav__tab--lesson-program-menu-open');
+  trigger.classList.toggle(
+    'bottom-nav__tab--lesson-program-last-selected',
+    lastMenuVisualSelection === 'skills',
+  );
   trigger.setAttribute('aria-expanded', 'true');
   trigger.setAttribute('aria-controls', 'lesson-program-menu');
   nav.classList.add('bottom-nav--lesson-program-menu-open');
@@ -852,6 +868,11 @@ function openLessonProgramMenu(trigger: HTMLButtonElement): void {
       <img src="/assets/images/programs/program-menu-adults.webp" alt="" aria-hidden="true" />
     </button>
   `;
+  if (lastMenuVisualSelection === 'puppy' || lastMenuVisualSelection === 'adult') {
+    const visualChoiceRoute = lastMenuVisualSelection === 'puppy' ? 'puppies' : 'adult-large';
+    menu.querySelector(`[data-lesson-program="${visualChoiceRoute}"]`)
+      ?.classList.add('lesson-program-menu__choice--last-selected');
+  }
 
   const backdrop = document.createElement('button');
   backdrop.type = 'button';
@@ -869,22 +890,78 @@ function openLessonProgramMenu(trigger: HTMLButtonElement): void {
 }
 
 function chooseLessonProgram(route: LessonProgramRoute): void {
-  if (!lessonProgramMenuOpen || getCurrentRoute() !== 'home') return;
+  if (!lessonProgramMenuOpen || lessonProgramMenuClosing || getCurrentRoute() !== 'home') return;
 
-  selectedLessonProgram = route;
-  closeLessonProgramMenu();
-  pendingTransitionDirection = getRouteTransitionDirection('home', route);
-  navigateTo(route);
+  lastMenuVisualSelection = route === 'puppies'
+    ? 'puppy'
+    : route === 'adult-large'
+      ? 'adult'
+      : 'skills';
+  const selectedChoice = root.querySelector<HTMLElement>(
+    `#lesson-program-menu [data-lesson-program="${route}"]`,
+  );
+  selectedChoice?.classList.add('lesson-program-menu__choice--selected');
+  root.querySelector('[data-lessons-nav]')
+    ?.classList.add('bottom-nav__tab--lesson-program-choice-selected');
+
+  void closeLessonProgramMenu({ quick: true }).then(() => {
+    if (getCurrentRoute() !== 'home') return;
+    pendingTransitionDirection = getRouteTransitionDirection('home', route);
+    navigateTo(route);
+  });
 }
 
-function closeLessonProgramMenu(): void {
-  const menu = root.querySelector<HTMLElement>('#lesson-program-menu');
-  const backdrop = root.querySelector<HTMLElement>('[data-lesson-program-menu-backdrop]');
-  if (!lessonProgramMenuOpen && !menu && !backdrop) return;
+function closeLessonProgramMenu(options: { quick?: boolean } = {}): Promise<void> {
+  if (lessonProgramMenuClosing) return lessonProgramMenuClosing;
 
+  const menu = root.querySelector<HTMLElement>('#lesson-program-menu');
+  const backdrop = root.querySelector<HTMLButtonElement>('[data-lesson-program-menu-backdrop]');
+  if (!lessonProgramMenuOpen && !menu && !backdrop) return Promise.resolve();
+
+  if (!menu || !backdrop) {
+    finishLessonProgramMenuClose(menu, backdrop);
+    return Promise.resolve();
+  }
+
+  menu.classList.add(options.quick ? 'lesson-program-menu--closing-quick' : 'lesson-program-menu--closing');
+  backdrop.classList.add(options.quick ? 'lesson-program-menu-backdrop--closing-quick' : 'lesson-program-menu-backdrop--closing');
+  menu.querySelectorAll<HTMLButtonElement>('button').forEach((choice) => {
+    choice.disabled = true;
+  });
+
+  const nav = root.querySelector<HTMLElement>('.bottom-nav');
+  const trigger = nav?.querySelector<HTMLButtonElement>('[data-lessons-nav]');
+  trigger?.classList.add('bottom-nav__tab--lesson-program-menu-closing');
+  if (options.quick) trigger?.classList.add('bottom-nav__tab--lesson-program-menu-closing-quick');
+
+  const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? 90
+    : options.quick
+      ? 140
+      : 260;
+
+  lessonProgramMenuClosing = new Promise((resolve) => {
+    window.setTimeout(() => {
+      finishLessonProgramMenuClose(menu, backdrop);
+      lessonProgramMenuClosing = null;
+      resolve();
+    }, duration);
+  });
+
+  return lessonProgramMenuClosing;
+}
+
+function finishLessonProgramMenuClose(
+  menu: HTMLElement | null,
+  backdrop: HTMLElement | null,
+): void {
   lessonProgramMenuOpen = false;
   lessonProgramMenuResizeObserver?.disconnect();
   lessonProgramMenuResizeObserver = null;
+  lessonProgramMenuInertElements.forEach((element) => {
+    if (element.isConnected) element.inert = false;
+  });
+  lessonProgramMenuInertElements = [];
   menu?.remove();
   backdrop?.remove();
 
@@ -892,6 +969,10 @@ function closeLessonProgramMenu(): void {
   const trigger = nav?.querySelector<HTMLButtonElement>('[data-lessons-nav]');
   nav?.classList.remove('bottom-nav--lesson-program-menu-open');
   trigger?.classList.remove('bottom-nav__tab--lesson-program-menu-open');
+  trigger?.classList.remove('bottom-nav__tab--lesson-program-menu-closing');
+  trigger?.classList.remove('bottom-nav__tab--lesson-program-menu-closing-quick');
+  trigger?.classList.remove('bottom-nav__tab--lesson-program-choice-selected');
+  trigger?.classList.remove('bottom-nav__tab--lesson-program-last-selected');
   trigger?.removeAttribute('aria-controls');
   trigger?.setAttribute('aria-expanded', 'false');
   webApp?.BackButton?.hide();
@@ -911,7 +992,7 @@ function updateLessonProgramMenuPosition(): void {
   const anchorX = iconRect.left + iconRect.width / 2 - appRect.left;
   const anchorY = iconRect.top + iconRect.height / 2 - appRect.top;
   const buttonSize = 52;
-  const buttonGap = 13;
+  const buttonGap = 12;
   const menuHeight = buttonSize * 2 + buttonGap;
 
   menu.style.left = `${anchorX - buttonSize / 2}px`;
@@ -2047,40 +2128,28 @@ async function runVideoLibrarySurprise(): Promise<void> {
   videoLibrarySurpriseButton?.classList.add('is-pressing');
 
   const pressDuration = reducedMotion ? 0 : 100;
-  const outgoingCarousel = root.querySelector<HTMLElement>('.video-library__carousel-content');
-  const outgoingSnapshot = !reducedMotion && outgoingCarousel
-    ? outgoingCarousel.cloneNode(true) as HTMLElement
-    : null;
-
-  if (outgoingSnapshot) {
-    outgoingSnapshot.classList.remove(
-      'video-library__carousel-content--category-switching',
-      'video-library__carousel-content--incoming',
-      'video-library__carousel-content--outgoing',
-    );
-    outgoingSnapshot.classList.add('video-library__carousel-content--surprise-outgoing');
-    outgoingSnapshot.style.removeProperty('height');
-    outgoingSnapshot.style.removeProperty('opacity');
-    outgoingSnapshot.style.setProperty('view-transition-name', 'none');
-    outgoingSnapshot.setAttribute('aria-hidden', 'true');
-    outgoingSnapshot.inert = true;
-    outgoingSnapshot.querySelectorAll<HTMLElement>('*').forEach((element) => {
-      element.style.setProperty('view-transition-name', 'none');
-    });
-  }
-
-  const activeWheel = root.querySelector<HTMLElement>('[data-library-wheel]');
-  activeWheel?.classList.remove('is-dragging');
-  activeWheel?.style.setProperty('--wheel-drag-x', '0px');
-  videoLibraryPointerStart = null;
-
-  if (videoLibraryTransitionRunning) {
-    cancelVideoLibraryNavigation();
-  }
 
   try {
     if (pressDuration > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, pressDuration));
     if (token !== videoLibrarySurpriseToken || !videoLibrarySurpriseRunning) return;
+
+    const outgoingCarousel = root.querySelector<HTMLElement>('.video-library__carousel-content');
+    const outgoingSnapshot = !reducedMotion && outgoingCarousel
+      ? createVideoLibrarySurpriseSnapshot(outgoingCarousel)
+      : null;
+    if (outgoingSnapshot) {
+      videoLibrarySurpriseSnapshot = outgoingSnapshot;
+      document.body.append(outgoingSnapshot);
+    }
+
+    const activeWheel = root.querySelector<HTMLElement>('[data-library-wheel]');
+    activeWheel?.classList.remove('is-dragging');
+    activeWheel?.style.setProperty('--wheel-drag-x', '0px');
+    videoLibraryPointerStart = null;
+
+    if (videoLibraryTransitionRunning) {
+      cancelVideoLibraryNavigation();
+    }
 
     videoLibraryState = {
       ...videoLibraryState,
@@ -2100,11 +2169,18 @@ async function runVideoLibrarySurprise(): Promise<void> {
 
     const incomingCarousel = root.querySelector<HTMLElement>('.video-library__carousel-content');
     if (incomingCarousel && outgoingSnapshot) {
-      outgoingSnapshot.addEventListener('animationend', (event) => {
-        if (event.target === outgoingSnapshot) outgoingSnapshot.remove();
-      }, { once: true });
-      incomingCarousel.append(outgoingSnapshot);
-      window.setTimeout(() => outgoingSnapshot.remove(), 260);
+      const outgoingAnimation = outgoingSnapshot.animate(
+        [{ opacity: 1 }, { opacity: 0 }],
+        { duration: 200, easing: 'ease-in-out', fill: 'both' },
+      );
+      const incomingAnimation = incomingCarousel.animate(
+        [{ opacity: 0 }, { opacity: 1 }],
+        { duration: 200, easing: 'ease-in-out', fill: 'both' },
+      );
+      videoLibrarySurpriseAnimations = [outgoingAnimation, incomingAnimation];
+      await Promise.all(videoLibrarySurpriseAnimations.map((animation) => animation.finished.catch(() => undefined)));
+      if (token !== videoLibrarySurpriseToken || !videoLibrarySurpriseRunning) return;
+      clearVideoLibrarySurpriseTransition();
     }
 
     const animationDuration = reducedMotion ? 0 : 700;
@@ -2113,6 +2189,72 @@ async function runVideoLibrarySurprise(): Promise<void> {
   } finally {
     if (token === videoLibrarySurpriseToken) finishVideoLibrarySurprise(token);
   }
+}
+
+function createVideoLibrarySurpriseSnapshot(carousel: HTMLElement): HTMLElement | null {
+  const rect = carousel.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+
+  const snapshot = carousel.cloneNode(true) as HTMLElement;
+  const carouselStyle = window.getComputedStyle(carousel);
+  snapshot.classList.remove(
+    'video-library__carousel-content--category-switching',
+    'video-library__carousel-content--incoming',
+    'video-library__carousel-content--outgoing',
+    'video-library__carousel-content--surprise-outgoing',
+  );
+  snapshot.setAttribute('aria-hidden', 'true');
+  snapshot.inert = true;
+  snapshot.style.position = 'fixed';
+  snapshot.style.inset = 'auto';
+  snapshot.style.left = `${rect.left}px`;
+  snapshot.style.top = `${rect.top}px`;
+  snapshot.style.width = `${rect.width}px`;
+  snapshot.style.height = `${rect.height}px`;
+  snapshot.style.margin = '0';
+  snapshot.style.zIndex = '1000';
+  snapshot.style.pointerEvents = 'none';
+  snapshot.style.overflow = 'visible';
+  snapshot.style.opacity = '1';
+  snapshot.style.setProperty('view-transition-name', 'none');
+
+  for (const property of ['--video-library-card-width', '--video-library-card-height']) {
+    const value = carouselStyle.getPropertyValue(property).trim();
+    if (value) snapshot.style.setProperty(property, value);
+  }
+
+  const cardFrames = new Map(
+    [...carousel.querySelectorAll<HTMLElement>('.video-library-card[data-library-id]')].map((card) => {
+      const frame = window.getComputedStyle(card);
+      return [card.dataset.libraryId ?? '', {
+        transform: frame.transform,
+        translate: frame.translate,
+        opacity: frame.opacity,
+        zIndex: frame.zIndex,
+      }] as const;
+    }),
+  );
+  snapshot.querySelectorAll<HTMLElement>('.video-library-card[data-library-id]').forEach((card) => {
+    const frame = cardFrames.get(card.dataset.libraryId ?? '');
+    if (!frame) return;
+    card.style.transform = frame.transform;
+    card.style.setProperty('translate', frame.translate);
+    card.style.opacity = frame.opacity;
+    card.style.zIndex = frame.zIndex;
+    card.style.setProperty('view-transition-name', 'none');
+  });
+  snapshot.querySelectorAll<HTMLElement>('*').forEach((element) => {
+    element.style.setProperty('view-transition-name', 'none');
+  });
+
+  return snapshot;
+}
+
+function clearVideoLibrarySurpriseTransition(): void {
+  videoLibrarySurpriseAnimations.forEach((animation) => animation.cancel());
+  videoLibrarySurpriseAnimations = [];
+  videoLibrarySurpriseSnapshot?.remove();
+  videoLibrarySurpriseSnapshot = null;
 }
 
 function setVideoLibrarySurpriseButtonState(button: HTMLButtonElement | null, locked: boolean): void {
@@ -2126,6 +2268,7 @@ function setVideoLibrarySurpriseButtonState(button: HTMLButtonElement | null, lo
 
 function finishVideoLibrarySurprise(token: number): void {
   if (token !== videoLibrarySurpriseToken) return;
+  clearVideoLibrarySurpriseTransition();
   videoLibrarySurpriseRunning = false;
   videoLibrarySurpriseButton?.classList.remove('is-pressing', 'is-picking');
   const button = root.querySelector<HTMLButtonElement>('[data-library-surprise]');
@@ -2135,10 +2278,10 @@ function finishVideoLibrarySurprise(token: number): void {
 
 function cancelVideoLibrarySurprise(): void {
   videoLibrarySurpriseToken += 1;
+  clearVideoLibrarySurpriseTransition();
   videoLibrarySurpriseRunning = false;
   videoLibrarySurpriseButton?.classList.remove('is-pressing', 'is-picking');
   videoLibrarySurpriseButton = null;
-  root.querySelectorAll('.video-library__carousel-content--surprise-outgoing').forEach((element) => element.remove());
 }
 
 async function transitionVideoLibraryCategory(category: VideoLibraryFilter): Promise<void> {

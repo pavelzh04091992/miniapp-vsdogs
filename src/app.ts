@@ -4397,7 +4397,7 @@ function createNavTab(
 ): string {
   const activeClass = isActive ? ' bottom-nav__tab--active' : '';
   const lessonNavAttributes = iconName === 'lessons'
-    ? ' data-lessons-nav aria-expanded="false"'
+    ? ' data-lessons-nav aria-label="Уроки" aria-expanded="false"'
     : '';
   const attrs = route
     ? `data-route="${route}"`
