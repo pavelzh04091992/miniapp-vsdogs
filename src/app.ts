@@ -67,7 +67,6 @@ export type PuppyTopicSlug =
   | 'fears-cars'
   | 'fears-new-places'
   | 'fears-place-command'
-  | 'fears-space-organization'
   | 'fears-follows-tail'
   | 'care-claws'
   | 'care-paws'
@@ -364,7 +363,7 @@ const puppySituations: PuppySituation[] = [
           },
           {
             title: 'Правильная организация пространства',
-            description: 'Собираем дома зону, в которой щенку проще расслабиться и восстановиться',
+            description: 'Подстраиваем домашнюю среду так, чтобы тревожности было меньше',
           },
           {
             title: 'Учим постепенно оставаться одному',
@@ -589,19 +588,6 @@ const puppySituations: PuppySituation[] = [
             video: {
               id: 'puppy-fears-place',
             },
-          },
-        ],
-      },
-      {
-        slug: 'fears-space-organization',
-        title: 'Щенок дома',
-        description: 'Домашняя среда, в которой щенку проще успокаиваться и чувствовать себя безопасно',
-        meta: '1 видео',
-        imagePath: '/assets/icons/order_puppy.webp',
-        lessons: [
-          {
-            title: 'Щенок дома',
-            description: 'Подстраиваем домашнюю среду так, чтобы тревожности было меньше',
           },
         ],
       },
@@ -1157,9 +1143,9 @@ const plannedLessonVideos = [
     'map-puppy-fears-stairs-lift',
   ],
   [
-    'fears-space-organization',
-    'Щенок дома',
-    'map-puppy-fears-space',
+    'home-loneliness',
+    'Правильная организация пространства',
+    'map-puppy-loneliness-space',
   ],
   [
     'care-claws',
@@ -1381,7 +1367,7 @@ const plannedLessonCovers = [
     '/assets/covers/puppy-fears-sounds.webp',
   ],
   ['fears-new-places', 'Страх лестницы и лифта', '/assets/covers/puppy-stairs-lift.webp'],
-  ['fears-space-organization', 'Щенок дома', '/assets/covers/puppy-home.webp'],
+  ['home-loneliness', 'Правильная организация пространства', '/assets/covers/puppy-home.webp'],
   [
     'fears-follows-tail',
     'Ходит хвостиком + Как минимизировать тревожность?',
@@ -1574,7 +1560,6 @@ const lessonDescriptionAssignments: Array<{
   { topicSlug: 'fears-cars', lessonTitle: 'Приучаем постепенно к машине', descriptionId: '16' },
   { topicSlug: 'fears-new-places', lessonTitle: 'Страх лестницы и лифта', descriptionId: '17' },
   { topicSlug: 'fears-place-command', lessonTitle: 'Команда «место»', descriptionId: '19' },
-  { topicSlug: 'fears-space-organization', lessonTitle: 'Щенок дома', descriptionId: '02' },
   { topicSlug: 'fears-follows-tail', lessonTitle: 'Ходит хвостиком + Как минимизировать тревожность?', descriptionId: '20' },
   { topicSlug: 'care-claws', lessonTitle: 'Когти: анатомия когтя и стрижка', descriptionId: '43' },
   { topicSlug: 'care-paws', lessonTitle: 'Лапы', descriptionId: '44' },
