@@ -84,7 +84,7 @@ test('seasonal navigation uses the existing player and supports list return rout
   assert.match(appSource, /\| 'seasonal'/u);
   assert.match(appSource, /`seasonal-list:\$\{SeasonId\}:\$\{SeasonalSection\}`/u);
   assert.match(appSource, /createUsefulCard\([^\n]+useful-card--seasonal', 'seasonal'\)/u);
-  assert.match(appSource, /createLessonPlayerMarkup\(lessonVideo\)/u);
+  assert.match(appSource, /createLessonPlayerMarkup\(lessonVideo, activeSeason\)/u);
   assert.match(mainSource, /let activeSeason: SeasonId = readStoredSeason\(\)/u);
   assert.match(mainSource, /window\.sessionStorage\.setItem\(ACTIVE_SEASON_STORAGE_KEY, season\)/u);
   assert.match(mainSource, /async function switchSeason\(nextSeason: SeasonId\)/u);
@@ -142,6 +142,44 @@ test('seasonal cards show duration only on the preview badge', async () => {
   assert.doesNotMatch(cardSource, /seasonal-video-card__meta/u);
   assert.equal((cardSource.match(/video\.duration/gu) ?? []).length, 1);
   assert.equal((cardSource.match(/video\.category/gu) ?? []).length, 1);
+});
+
+test('seasonal overview keeps bento cards while all-video routes use the horizontal list', async () => {
+  const [appSource, css] = await Promise.all([
+    readFile(new URL('../src/app.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
+  ]);
+
+  assert.equal((appSource.match(/class="seasonal-bento"/gu) ?? []).length, 1);
+  assert.equal((appSource.match(/class="seasonal-video-list"/gu) ?? []).length, 1);
+  assert.match(appSource, /createSeasonalVideoCardMarkup\(video, index === 0 \? 'featured' : 'compact'\)/u);
+  assert.match(appSource, /createSeasonalVideoCardMarkup\(video, 'list'\)/u);
+  assert.doesNotMatch(appSource, /seasonal-list__grid/u);
+  assert.match(css, /\.seasonal-bento\s*\{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/u);
+  assert.match(css, /\.seasonal-video-list\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\);[\s\S]*?gap: 12px;/u);
+  assert.match(css, /\.seasonal-video-card--list\s*\{[\s\S]*?width: 100%;[\s\S]*?min-height: 104px;[\s\S]*?grid-template-columns: 120px minmax\(0, 1fr\);/u);
+  assert.match(css, /\.seasonal-video-card--list \.seasonal-video-card__media\s*\{[\s\S]*?width: 120px;[\s\S]*?min-height: 102px;/u);
+  assert.match(css, /\.seasonal-video-card--list \.seasonal-video-card__title\s*\{[\s\S]*?font-size: clamp\(14px, 1\.9vw, 15px\);[\s\S]*?font-weight: 700;/u);
+  assert.match(css, /grid-template-columns: clamp\(96px, 31vw, 104px\) minmax\(0, 1fr\)/u);
+  assert.doesNotMatch(css, /seasonal-list__grid/u);
+  assert.doesNotMatch(css, /\.seasonal-video-card__title\s*\{[^}]*-webkit-line-clamp/gu);
+});
+
+test('seasonal players apply their season accent only to structured descriptions', async () => {
+  const [appSource, css] = await Promise.all([
+    readFile(new URL('../src/app.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(appSource, /seasons: video\.seasons/u);
+  assert.match(appSource, /video\.seasons\?\.includes\(activeSeason\)/u);
+  assert.match(appSource, /app-shell app-shell--seasonal-player/u);
+  assert.match(appSource, /data-season-theme="\$\{escapeHtml\(seasonalTheme\.id\)\}"/u);
+  assert.match(css, /\.app-shell--seasonal-player \.lesson-player-card__description/u);
+  assert.match(css, /\.app-shell--seasonal-player \.lesson-description__step-number[\s\S]*?color: var\(--season-accent\)/u);
+  assert.match(css, /\.app-shell--seasonal-player \.lesson-description__callout-icon[\s\S]*?var\(--season-accent\)/u);
+  assert.match(css, /\.app-shell--seasonal-player \.lesson-description__section--note/u);
+  assert.doesNotMatch(css, /\.app-shell--seasonal-player \.lesson-description__section--mistakes/u);
 });
 
 test('every season keeps the collection CTA and empty states have no play glyph', async () => {
@@ -229,8 +267,7 @@ test('seasonal shadow gutters preserve card and switcher elevation', async () =>
   const css = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
 
   assert.match(css, /\.season-switcher\s*\{[\s\S]*?margin: 16px -10px -12px;[\s\S]*?padding: 0 10px 12px;/u);
-  assert.match(css, /\.seasonal-bento\s*\{[\s\S]*?margin: 0 -10px -12px;[\s\S]*?padding: 0 10px 12px;/u);
-  assert.match(css, /\.seasonal-list__grid\s*\{[\s\S]*?margin: 0 -10px -12px;[\s\S]*?padding: 0 10px 12px;/u);
+  assert.match(css, /\.seasonal-bento,[\s\S]*?margin: 0 -10px -12px;[\s\S]*?padding: 0 10px 12px;/u);
 });
 
 test('empty seasonal state stays compact and groups its copy centrally', async () => {

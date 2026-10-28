@@ -1675,6 +1675,7 @@ interface LessonVideoEntry {
   description?: string;
   sourceType: LessonVideoSource;
   backRoute: AppRoute;
+  seasons?: readonly SeasonId[];
 }
 
 const lessonVideosById = new Map<string, LessonVideoEntry>();
@@ -1778,6 +1779,7 @@ seasonalVideos.forEach((video) => {
     description: video.description,
     sourceType: 'hls',
     backRoute: 'seasonal',
+    seasons: video.seasons,
   });
 });
 
@@ -1798,7 +1800,7 @@ export function createAppMarkup(
   const lessonVideo = getLessonVideoFromRoute(route);
 
   if (lessonVideo) {
-    return createLessonPlayerMarkup(lessonVideo);
+    return createLessonPlayerMarkup(lessonVideo, activeSeason);
   }
 
   if (route === 'complex') {
@@ -2281,6 +2283,9 @@ function createSeasonalVideoCardMarkup(
       </span>
       <span class="seasonal-video-card__body">
         <strong class="seasonal-video-card__title">${escapeHtml(video.title)}</strong>
+        ${variant === 'list'
+          ? '<span class="seasonal-video-card__arrow" aria-hidden="true"><span class="program-card__arrow-icon"></span></span>'
+          : ''}
       </span>
     </button>
   `;
@@ -2307,7 +2312,7 @@ function createSeasonalVideoListMarkup(season: SeasonId, section: SeasonalSectio
               </div>
             </div>
             ${videos.length > 0
-              ? `<div class="seasonal-list__grid">${videos
+              ? `<div class="seasonal-video-list">${videos
                   .map((video) => createSeasonalVideoCardMarkup(video, 'list'))
                   .join('')}</div>`
               : createSeasonalEmptyStateMarkup(theme.label)}
@@ -2660,7 +2665,15 @@ function createTopicLessonsMarkup(slug: PuppyTopicSlug, videosState: SituationVi
   `;
 }
 
-function createLessonPlayerMarkup(video: LessonVideoEntry): string {
+function createLessonPlayerMarkup(video: LessonVideoEntry, activeSeason: SeasonId): string {
+  const playerSeason = video.seasons?.includes(activeSeason)
+    ? activeSeason
+    : video.seasons?.[0];
+  const seasonalTheme = playerSeason ? getSeasonTheme(playerSeason) : null;
+  const shellClassName = seasonalTheme ? 'app-shell app-shell--seasonal-player' : 'app-shell';
+  const seasonThemeAttribute = seasonalTheme
+    ? ` data-season-theme="${escapeHtml(seasonalTheme.id)}"`
+    : '';
   const escapedTitle = escapeHtml(video.title);
   const titleMarkup = createPlayerTitleMarkup(video.title);
   const descriptionMarkup = video.description
@@ -2670,7 +2683,7 @@ function createLessonPlayerMarkup(video: LessonVideoEntry): string {
   const escapedSourceType = escapeHtml(video.sourceType ?? 'hls');
 
   return `
-    <div class="app-shell">
+    <div class="${shellClassName}"${seasonThemeAttribute}>
       <header class="subpage-header">
         <div class="content-frame">
           <div class="subpage-header__inner subpage-header__inner--player">
