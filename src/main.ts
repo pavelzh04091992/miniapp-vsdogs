@@ -860,6 +860,10 @@ function getCurrentRoute(): AppRoute {
     }
   }
 
+  if (hash === 'dog-skills') {
+    return 'dog-skills';
+  }
+
   if (hash === 'fitness') {
     return 'fitness';
   }

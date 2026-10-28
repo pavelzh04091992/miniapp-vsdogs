@@ -124,6 +124,7 @@ export type AppRoute =
   | 'complex-levels:self-check'
   | 'puppies'
   | 'adult-large'
+  | 'dog-skills'
   | `lesson-video:${string}`
   | `puppy-situation:${PuppySituationSlug}`
   | `puppy-topic:${PuppyTopicSlug}`
@@ -1819,6 +1820,10 @@ export function createAppMarkup(
     }
   }
 
+  if (route === 'dog-skills') {
+    return createDogSkillsMarkup();
+  }
+
   if (route === 'fitness') {
     return createFitnessMarkup();
   }
@@ -2100,6 +2105,14 @@ function createHomeMarkup(): string {
                 'program-card--rose',
                 { feedback: 'Раздел "Собаки из приюта" пока в разработке' },
               )}
+              ${createProgramCard(
+                'Пёс умеет',
+                'Пёс умеет',
+                'Команды, трюки и полезные навыки',
+                undefined,
+                'program-card--skills',
+                { route: 'dog-skills' },
+              )}
             </div>
           </section>
         </div>
@@ -2361,6 +2374,25 @@ function createArrowIconMarkup(className: string): string {
 export function isSeasonalVideoRoute(route: AppRoute): boolean {
   return route.startsWith('lesson-video:')
     && getSeasonalVideo(route.slice('lesson-video:'.length)) !== null;
+}
+
+function createDogSkillsMarkup(): string {
+  return `
+    <div class="app-shell">
+      ${createSubpageHeaderMarkup('Пёс умеет', 'home')}
+
+      <main class="screen-content">
+        <div class="content-frame">
+          <section class="seasonal-empty dog-skills-empty" aria-labelledby="dog-skills-empty-title">
+            <h2 id="dog-skills-empty-title">Раздел готовится к запуску</h2>
+            <p>Материалы программы появятся здесь.</p>
+          </section>
+        </div>
+      </main>
+
+      ${createBottomNav('lessons')}
+    </div>
+  `;
 }
 
 function createPuppiesMarkup(activeFilter: PuppyFilter): string {
@@ -2887,7 +2919,7 @@ function createLessonFeedbackMarkup(prompt: string, lessonId: string, lessonTitl
         data-feedback-lesson-id="${escapeHtml(lessonId)}"
         data-feedback-lesson-title="${escapeHtml(lessonTitle)}"
       >
-        <span class="lesson-feedback-cta__message-icon" aria-hidden="true"></span>
+        <img class="lesson-feedback-cta__message-icon" src="/assets/emoji/speech-balloon.svg" alt="" aria-hidden="true" />
         <span>Спросить у кинолога</span>
         <span class="lesson-feedback-cta__arrow" aria-hidden="true"></span>
       </button>
@@ -3317,7 +3349,7 @@ function createVideoCard(video: SituationVideo): string {
       <span class="video-card__body">
         <span class="video-card__label">${escapeHtml(video.label)}</span>
         <span class="video-card__title">${escapeHtml(video.title)}</span>
-        <span class="video-card__description">${escapeHtml(video.description)}</span>
+        <span class="video-card__description">${renderEmojiText(video.description)}</span>
         <span class="video-card__meta">${escapeHtml(video.durationLabel)} · ${escapeHtml(video.sourceLabel)}</span>
       </span>
 
@@ -3507,7 +3539,7 @@ function createProgramCard(
   _title: string,
   titleMarkup: string,
   description: string,
-  imagePath: string,
+  imagePath: string | undefined,
   cardClass: string,
   action: { route?: AppRoute; feedback?: string },
 ): string {
@@ -3517,6 +3549,12 @@ function createProgramCard(
   const extraAttrs = action.route
     ? `data-route="${action.route}"`
     : `data-feedback="${escapeHtml(action.feedback ?? '')}"`;
+  const mediaMarkup = imagePath
+    ? `
+      <span class="program-card__media">
+        <img src="${imagePath}" alt="" aria-hidden="true" />
+      </span>`
+    : '';
 
   return `
     <button
@@ -3524,9 +3562,7 @@ function createProgramCard(
       type="button"
       ${extraAttrs}
     >
-      <span class="program-card__media">
-        <img src="${imagePath}" alt="" aria-hidden="true" />
-      </span>
+      ${mediaMarkup}
       <span class="program-card__body">
         <span class="program-card__copy">
           <span class="program-card__title">${titleMarkup}</span>

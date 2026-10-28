@@ -1,35 +1,49 @@
-import crossEmojiUrl from '@twemoji/svg/274c.svg?url';
-import heartEmojiUrl from '@twemoji/svg/2764.svg?url';
-import herbEmojiUrl from '@twemoji/svg/1f33f.svg?url';
-import runnerEmojiUrl from '@twemoji/svg/1f3c3-200d-2640-fe0f.svg?url';
-import dogEmojiUrl from '@twemoji/svg/1f415.svg?url';
-import dogFaceEmojiUrl from '@twemoji/svg/1f436.svg?url';
-import pawsEmojiUrl from '@twemoji/svg/1f43e.svg?url';
-import eyesEmojiUrl from '@twemoji/svg/1f440.svg?url';
-import messageEmojiUrl from '@twemoji/svg/1f4ac.svg?url';
-import sweatSmileEmojiUrl from '@twemoji/svg/1f605.svg?url';
-import smileEmojiUrl from '@twemoji/svg/1f60a.svg?url';
-import thinkingEmojiUrl from '@twemoji/svg/1f914.svg?url';
-import raisedHandEmojiUrl from '@twemoji/svg/1f91a.svg?url';
-
 const emojiAssetUrls: Readonly<Record<string, string>> = {
-  '❌': crossEmojiUrl,
-  '❤': heartEmojiUrl,
-  '❤️': heartEmojiUrl,
-  '🌿': herbEmojiUrl,
-  '🏃‍♀️': runnerEmojiUrl,
-  '🐕': dogEmojiUrl,
-  '🐶': dogFaceEmojiUrl,
-  '🐾': pawsEmojiUrl,
-  '👀': eyesEmojiUrl,
-  '💬': messageEmojiUrl,
-  '😅': sweatSmileEmojiUrl,
-  '😊': smileEmojiUrl,
-  '🤔': thinkingEmojiUrl,
-  '🤚': raisedHandEmojiUrl,
+  '🛏️': '/assets/emoji/bed.svg',
+  '🛏': '/assets/emoji/bed.svg',
+  '🚶🏻': '/assets/emoji/walking.svg',
+  '🚶': '/assets/emoji/walking.svg',
+  '🚪': '/assets/emoji/door.svg',
+  '😴': '/assets/emoji/sleeping-face.svg',
+  '😊': '/assets/emoji/smiling-face.svg',
+  '😅': '/assets/emoji/grinning-face-sweat.svg',
+  '🧩': '/assets/emoji/puzzle-piece.svg',
+  '🦴': '/assets/emoji/bone.svg',
+  '🥣': '/assets/emoji/bowl-with-spoon.svg',
+  '🤔': '/assets/emoji/thinking-face.svg',
+  '🔹': '/assets/emoji/small-blue-diamond.svg',
+  '🔑': '/assets/emoji/key.svg',
+  '👀': '/assets/emoji/eyes.svg',
+  '🐾': '/assets/emoji/paws.svg',
+  '🐶': '/assets/emoji/dog-face.svg',
+  '🐩': '/assets/emoji/poodle.svg',
+  '🐕': '/assets/emoji/dog.svg',
+  '🌿': '/assets/emoji/herb.svg',
+  '🏠': '/assets/emoji/house.svg',
+  '🏃‍♂️': '/assets/emoji/man-running.svg',
+  '🏃‍♀️': '/assets/emoji/man-running.svg',
+  '🏃': '/assets/emoji/man-running.svg',
+  '🤍': '/assets/emoji/white-heart.svg',
+  '♥️': '/assets/emoji/heart-suit.svg',
+  '♥': '/assets/emoji/heart-suit.svg',
+  '❤️': '/assets/emoji/heart-suit.svg',
+  '❤': '/assets/emoji/heart-suit.svg',
+  '❌': '/assets/emoji/cross-mark.svg',
+  '✅': '/assets/emoji/check-mark-button.svg',
+  '⚠️': '/assets/emoji/warning.svg',
+  '⚠': '/assets/emoji/warning.svg',
+  '💬': '/assets/emoji/speech-balloon.svg',
+  '💡': '/assets/emoji/light-bulb.svg',
+  '🤚': '/assets/emoji/raised-back-of-hand.svg',
 };
 
-const emojiPattern = /🏃‍♀️|❤️|❌|❤|🌿|🐕|🐶|🐾|👀|💬|😅|😊|🤔|🤚/gu;
+const emojiPattern = new RegExp(
+  Object.keys(emojiAssetUrls)
+    .sort((left, right) => right.length - left.length)
+    .map(escapeRegExp)
+    .join('|'),
+  'gu',
+);
 
 export function renderEmojiText(value: string): string {
   const matches = [...value.matchAll(emojiPattern)];
@@ -57,6 +71,10 @@ export function renderEmojiText(value: string): string {
   });
 
   return markup + escapeEmojiText(value.slice(cursor));
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function escapeEmojiText(value: string): string {

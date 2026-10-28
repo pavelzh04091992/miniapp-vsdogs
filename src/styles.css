@@ -1517,6 +1517,7 @@ img {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--program-grid-gap);
+  row-gap: clamp(12px, 1.8vw, 14px);
   position: relative;
 }
 
@@ -1726,6 +1727,60 @@ img {
   .program-card {
     background: linear-gradient(145deg, #ffffff 0%, rgba(var(--program-glass-tint), 0.28) 100%);
   }
+}
+
+.program-card--skills {
+  --program-glass-tint: 120, 218, 187;
+  grid-column: 1 / -1;
+  height: clamp(190px, 27vw, 216px);
+  min-height: clamp(190px, 27vw, 216px);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  background: linear-gradient(105deg, #fafffc 0%, #d8f7ed 100%);
+}
+
+.program-grid > .program-card--skills .program-card__media {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+  padding: 0 calc(var(--program-arrow-size) + 14px) 12px 10px;
+  align-items: flex-end;
+  justify-content: flex-end;
+  order: 0;
+}
+
+.program-grid > .program-card--skills .program-card__media img {
+  width: auto;
+  height: calc(100% - 42px);
+  max-width: min(45%, 180px);
+  object-fit: contain;
+  object-position: center bottom;
+  transform: none;
+}
+
+.program-grid > .program-card--skills .program-card__body {
+  width: 100%;
+  height: 100%;
+  grid-row: 1;
+  grid-template-columns: minmax(0, 1fr) var(--program-arrow-size);
+  align-items: start;
+  gap: 8px;
+  order: 1;
+}
+
+.program-grid > .program-card--skills .program-card__copy {
+  max-width: 54%;
+  align-self: center;
+}
+
+.program-card--skills:focus-visible {
+  outline: 3px solid rgba(20, 84, 163, 0.42);
+  outline-offset: 3px;
+}
+
+.dog-skills-empty {
+  --season-accent-rgb: 128, 205, 177;
+  --season-soft: #fafffc;
 }
 
 .filter-row {
@@ -3125,9 +3180,7 @@ img {
   width: 22px;
   height: 22px;
   display: block;
-  background-color: currentColor;
-  -webkit-mask: url('/assets/icons/message.svg') center / contain no-repeat;
-  mask: url('/assets/icons/message.svg') center / contain no-repeat;
+  object-fit: contain;
 }
 
 .feedback-open {
@@ -5120,6 +5173,20 @@ img {
 }
 
 @media (max-width: 430px) {
+  .program-grid > .program-card--skills {
+    height: 168px;
+    min-height: 168px;
+  }
+
+  .program-grid > .program-card--skills .program-card__copy {
+    max-width: 58%;
+  }
+
+  .program-grid > .program-card--skills .program-card__media img {
+    height: clamp(84px, calc(10.9vw + 49px), 96px);
+    max-width: 100%;
+  }
+
   .program-card__body {
     width: 100%;
   }

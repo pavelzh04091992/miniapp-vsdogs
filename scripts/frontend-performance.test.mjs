@@ -144,6 +144,26 @@ test('keeps back navigation in the actual puppy or adult fitness branch', async 
   assert.doesNotMatch(mainSource, /navigateTo\(fallbackRoute\)/);
 });
 
+test('adds the full-width dog skills program without a placeholder artwork asset', async () => {
+  const [appSource, mainSource, styles] = await Promise.all([
+    readFile(new URL('../src/app.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/main.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
+  ]);
+
+  const cardStart = appSource.indexOf("'Пёс умеет',");
+  const cardSource = appSource.slice(cardStart, cardStart + 420);
+
+  assert.match(cardSource, /'Команды, трюки и полезные навыки',[\s\S]*?undefined,[\s\S]*?'program-card--skills',[\s\S]*?route: 'dog-skills'/u);
+  assert.doesNotMatch(cardSource, /assets\/images\/programs/u);
+  assert.match(appSource, /imagePath: string \| undefined/u);
+  assert.match(appSource, /const mediaMarkup = imagePath/u);
+  assert.match(appSource, /route === 'dog-skills'[\s\S]*?createDogSkillsMarkup\(\)/u);
+  assert.match(mainSource, /hash === 'dog-skills'/u);
+  assert.match(styles, /\.program-card--skills\s*\{[\s\S]*?grid-column: 1 \/ -1;[\s\S]*?linear-gradient\(105deg, #fafffc 0%, #d8f7ed 100%\)/u);
+  assert.doesNotMatch(styles, /\.program-grid > \.program-card--skills \.program-card__(?:title|description|arrow)\s*\{/u);
+});
+
 async function walk(directoryUrl) {
   const entries = await readdir(directoryUrl, { withFileTypes: true });
   const files = [];
