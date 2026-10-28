@@ -17,6 +17,7 @@ export interface SeasonTheme {
 export interface SeasonalVideo {
   id: keyof typeof seasonalVideoDescriptions;
   mediaId: keyof typeof seasonalVideoDescriptions;
+  posterPath: string;
   title: string;
   description: string;
   seasons: readonly SeasonId[];
@@ -80,6 +81,7 @@ export const seasonalVideos: readonly SeasonalVideo[] = [
   {
     id: 'night-walk-safety',
     mediaId: 'night-walk-safety',
+    posterPath: '/media/night-walk-safety/poster.webp',
     title: 'Как безопасно гулять с собакой в тёмное время суток?',
     description: seasonalVideoDescriptions['night-walk-safety'],
     seasons: ['autumn'],
@@ -93,6 +95,7 @@ export const seasonalVideos: readonly SeasonalVideo[] = [
   {
     id: 'walk-motivation',
     mediaId: 'walk-motivation',
+    posterPath: '/media/walk-motivation/poster.webp',
     title: 'Как мотивировать собаку на прогулку?',
     description: seasonalVideoDescriptions['walk-motivation'],
     seasons: ['autumn'],
@@ -106,6 +109,7 @@ export const seasonalVideos: readonly SeasonalVideo[] = [
   {
     id: 'walk-enrichment',
     mediaId: 'walk-enrichment',
+    posterPath: '/media/walk-enrichment/poster.webp',
     title: 'Чем разнообразить прогулки в холодное время года',
     description: seasonalVideoDescriptions['walk-enrichment'],
     seasons: ['autumn'],
@@ -119,6 +123,7 @@ export const seasonalVideos: readonly SeasonalVideo[] = [
   {
     id: 'autumn-wardrobe',
     mediaId: 'autumn-wardrobe',
+    posterPath: '/media/autumn-wardrobe/poster.webp',
     title: 'Осенний гардероб',
     description: seasonalVideoDescriptions['autumn-wardrobe'],
     seasons: ['autumn'],
@@ -132,6 +137,7 @@ export const seasonalVideos: readonly SeasonalVideo[] = [
   {
     id: 'paw-protection',
     mediaId: 'paw-protection',
+    posterPath: '/media/paw-protection/poster.webp',
     title: 'Уход за лапами в холодное время года',
     description: seasonalVideoDescriptions['paw-protection'],
     seasons: ['autumn'],
@@ -145,6 +151,7 @@ export const seasonalVideos: readonly SeasonalVideo[] = [
   {
     id: 'stop-putting-paws',
     mediaId: 'stop-putting-paws',
+    posterPath: '/media/stop-putting-paws/poster.webp',
     title: 'Как отучить собаку ставить грязные лапы',
     description: seasonalVideoDescriptions['stop-putting-paws'],
     seasons: ['autumn'],
