@@ -3923,10 +3923,15 @@ img {
 }
 
 .app-shell--seasonal {
+  --seasonal-app-max-width: 810px;
   --frame-inner-padding: 16px;
   --season-accent: #ff7847;
   --season-accent-rgb: 255, 120, 71;
   --season-soft: #fff3ea;
+  --season-image-wide-slide-x: clamp(0px, calc(50vw - 345px), 60px);
+  width: min(100%, var(--seasonal-app-max-width));
+  max-width: var(--seasonal-app-max-width);
+  margin-inline: auto;
   background:
     radial-gradient(circle at 50% 0%, rgba(var(--season-accent-rgb), 0.08), transparent 34%),
     #ffffff;
@@ -3964,24 +3969,15 @@ img {
   --season-image-slide-x: clamp(0px, calc(16px - 2.5vw), 7px);
 }
 
-.app-shell--seasonal .content-frame {
-  width: min(
-    calc(100% - var(--frame-safe-inline) * 2),
-    calc(820px + var(--frame-inner-padding) * 2)
-  );
-  max-width: calc(820px + var(--frame-inner-padding) * 2);
+.app-shell--seasonal .content-frame,
+.app-shell--seasonal .bottom-nav__inner {
+  width: min(calc(100% - var(--frame-safe-inline) * 2), var(--seasonal-app-max-width));
+  max-width: var(--seasonal-app-max-width);
+  margin-inline: auto;
 }
 
 .app-shell--seasonal .subpage-header {
   --frame-inner-padding: 12px;
-}
-
-.app-shell--seasonal .subpage-header .content-frame {
-  width: min(
-    var(--screen-max),
-    calc(var(--frame-width-mobile) - var(--frame-safe-inline) * 2 - var(--page-gutter) * 2)
-  );
-  max-width: var(--screen-max);
 }
 
 .seasonal-screen,
@@ -3995,18 +3991,34 @@ img {
   --seasonal-copy-padding-block: clamp(14px, calc(10vw - 38px), 26px);
   --seasonal-copy-padding-inline: clamp(14px, calc(8.333vw - 29.332px), 24px);
   --seasonal-hero-height: clamp(250px, calc(25vw + 120px), 280px);
+  --seasonal-image-width: clamp(600px, calc(60vw + 288px), 672px);
+  --seasonal-title-size: clamp(24px, calc(15vw - 54px), 42px);
+  --seasonal-description-size: clamp(11.5px, calc(3.75vw - 8px), 16px);
+  --seasonal-title-row-height: clamp(49px, calc(30.833vw - 111.332px), 86px);
+  --seasonal-description-row-height: clamp(48px, calc(15vw - 30px), 66px);
+  --seasonal-cta-height: clamp(42px, calc(1.667vw + 33.332px), 44px);
   width: 100%;
   height: var(--seasonal-hero-height);
   min-height: 0;
   border: 1px solid rgba(var(--season-accent-rgb), 0.18);
   border-radius: 24px;
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background: var(--season-soft);
+  container-type: inline-size;
+  overflow: visible;
+  background: transparent;
   box-shadow:
     0 18px 40px rgba(15, 45, 92, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.seasonal-hero__clip {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--season-soft);
 }
 
 .seasonal-hero__visual {
@@ -4018,9 +4030,9 @@ img {
 }
 
 .seasonal-hero__image {
-  width: auto;
+  width: var(--seasonal-image-width);
   max-width: none;
-  height: var(--seasonal-hero-height);
+  height: auto;
   position: absolute;
   top: 50%;
   right: auto;
@@ -4028,7 +4040,19 @@ img {
   object-fit: contain;
   object-position: center;
   transform: translate3d(
-    calc(var(--season-image-face-anchor-x, -56%) + var(--season-image-slide-x, 0px)),
+    max(
+      calc(
+        var(--season-image-face-anchor-x, -56%) +
+        var(--season-image-slide-x, 0px) +
+        var(--season-image-wide-slide-x, 0px)
+      ),
+      calc(
+        100cqw -
+        var(--seasonal-copy-width) -
+        var(--seasonal-visual-gap) -
+        var(--seasonal-image-width)
+      )
+    ),
     -50%,
     0
   );
@@ -4055,17 +4079,21 @@ img {
   height: 100%;
   min-height: 0;
   padding: var(--seasonal-copy-padding-block) var(--seasonal-copy-padding-inline);
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows:
+    var(--seasonal-title-row-height)
+    var(--seasonal-description-row-height)
+    var(--seasonal-cta-height);
+  row-gap: 15px;
   align-items: flex-start;
-  justify-content: flex-start;
+  align-content: start;
 }
 
 .seasonal-hero__content h2 {
   max-width: min(12ch, 100%);
   margin: 0;
   color: var(--primary-dark);
-  font-size: clamp(24px, calc(15vw - 54px), 42px);
+  font-size: var(--seasonal-title-size);
   line-height: 1.02;
   font-weight: 850;
   letter-spacing: -0.035em;
@@ -4074,17 +4102,18 @@ img {
 
 .seasonal-hero__content p {
   max-width: min(29ch, 100%);
-  margin: clamp(7px, calc(2.5vw - 6px), 10px) 0 0;
+  margin: 0;
   color: #52647b;
-  font-size: clamp(11.5px, calc(3.75vw - 8px), 16px);
+  font-size: var(--seasonal-description-size);
   line-height: 1.38;
   font-weight: 550;
 }
 
 .seasonal-hero__cta {
-  min-height: clamp(40px, calc(3.333vw + 22.668px), 44px);
+  height: var(--seasonal-cta-height);
+  min-height: var(--seasonal-cta-height);
   max-width: 100%;
-  margin-top: clamp(9px, calc(10.833vw - 47.332px), 22px);
+  margin-top: 0;
   border: 1px solid rgba(var(--season-accent-rgb), 0.28);
   border-radius: 14px;
   padding:
@@ -4130,7 +4159,8 @@ img {
 }
 
 .season-switcher {
-  margin-top: 16px;
+  margin: 16px -10px -12px;
+  padding: 0 10px 12px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: clamp(6px, 2vw, 10px);
@@ -4162,14 +4192,11 @@ img {
 }
 
 .season-switcher__icon {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: block;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  object-fit: contain;
+  object-position: center;
 }
 
 .season-switcher__button--active {
@@ -4246,11 +4273,18 @@ img {
   height: 23px;
   flex: 0 0 auto;
   display: block;
-  fill: none;
-  stroke: var(--season-accent);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+}
+
+.seasonal-section__icon--dog-park {
+  background-color: var(--season-accent);
+  -webkit-mask: url('/assets/images/seasons/walks-icon.webp') center / contain no-repeat;
+  mask: url('/assets/images/seasons/walks-icon.webp') center / contain no-repeat;
+}
+
+.seasonal-section__icon--lightbulb {
+  background-color: var(--season-accent);
+  -webkit-mask: url('/assets/icons/lightbulb.svg') center / contain no-repeat;
+  mask: url('/assets/icons/lightbulb.svg') center / contain no-repeat;
 }
 
 .seasonal-section__link {
@@ -4270,6 +4304,8 @@ img {
 }
 
 .seasonal-bento {
+  margin: 0 -10px -12px;
+  padding: 0 10px 12px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
@@ -4500,6 +4536,8 @@ img {
 }
 
 .seasonal-list__grid {
+  margin: 0 -10px -12px;
+  padding: 0 10px 12px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
@@ -4510,16 +4548,23 @@ img {
 }
 
 .seasonal-empty {
-  min-height: 176px;
+  width: 100%;
+  min-height: 140px;
   margin-top: 26px;
-  padding: 18px;
+  padding: 24px 20px;
   border: 1px solid rgba(var(--season-accent-rgb), 0.2);
   border-radius: 22px;
-  display: grid;
-  justify-items: center;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   background:
-    radial-gradient(circle at 50% 0%, rgba(var(--season-accent-rgb), 0.14), transparent 50%),
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(var(--season-accent-rgb), 0.1) 0%,
+      rgba(var(--season-accent-rgb), 0.04) 38%,
+      transparent 72%
+    ),
     var(--season-soft);
   text-align: center;
 }
@@ -4532,15 +4577,16 @@ img {
 .seasonal-empty h2 {
   color: var(--primary-dark);
   font-size: 20px;
-  line-height: 1.12;
-  font-weight: 850;
+  line-height: 1.2;
+  font-weight: 800;
 }
 
 .seasonal-empty p {
-  max-width: 34ch;
-  color: #5f6f83;
-  font-size: 13px;
-  line-height: 1.42;
+  max-width: 320px;
+  margin-top: 12px;
+  color: #62758f;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 @media (hover: hover) and (pointer: fine) {

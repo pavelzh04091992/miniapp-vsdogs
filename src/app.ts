@@ -2157,24 +2157,26 @@ function createSeasonalVideosMarkup(activeSeason: SeasonId): string {
 function createSeasonHeroMarkup(theme: ReturnType<typeof getSeasonTheme>): string {
   return `
     <section class="seasonal-hero" aria-labelledby="seasonal-hero-title">
-      <span class="seasonal-hero__visual" aria-hidden="true">
-        <img
-          class="seasonal-hero__image"
-          src="${escapeHtml(theme.heroImagePath)}"
-          width="1440"
-          height="600"
-          alt=""
-          aria-hidden="true"
-        />
-      </span>
-      <span class="seasonal-hero__veil" aria-hidden="true"></span>
-      <div class="seasonal-hero__content">
-        <h2 id="seasonal-hero-title">${escapeHtml(theme.heroTitle)}</h2>
-        <p>${escapeHtml(theme.heroDescription)}</p>
-        <button class="seasonal-hero__cta" type="button" data-seasonal-cta>
-          <span>Смотреть подборку</span>
-          ${createArrowIconMarkup('seasonal-hero__cta-icon')}
-        </button>
+      <div class="seasonal-hero__clip">
+        <span class="seasonal-hero__visual" aria-hidden="true">
+          <img
+            class="seasonal-hero__image"
+            src="${escapeHtml(theme.heroImagePath)}"
+            width="1440"
+            height="600"
+            alt=""
+            aria-hidden="true"
+          />
+        </span>
+        <span class="seasonal-hero__veil" aria-hidden="true"></span>
+        <div class="seasonal-hero__content">
+          <h2 id="seasonal-hero-title">${escapeHtml(theme.heroTitle)}</h2>
+          <p>${escapeHtml(theme.heroDescription)}</p>
+          <button class="seasonal-hero__cta" type="button" data-seasonal-cta>
+            <span>Смотреть подборку</span>
+            ${createArrowIconMarkup('seasonal-hero__cta-icon')}
+          </button>
+        </div>
       </div>
     </section>
   `;
@@ -2194,7 +2196,14 @@ function createSeasonSwitcherMarkup(activeSeason: SeasonId): string {
               data-season="${season.id}"
               aria-pressed="${season.id === activeSeason}"
             >
-              ${createSeasonIconMarkup(season.id, 'season-switcher__icon')}
+              <img
+                class="season-switcher__icon"
+                src="${escapeHtml(season.iconImagePath)}"
+                width="90"
+                height="90"
+                alt=""
+                aria-hidden="true"
+              />
               <span>${escapeHtml(season.label)}</span>
             </button>
           `;
@@ -2320,23 +2329,12 @@ function createSeasonalEmptyStateMarkup(seasonLabel: string): string {
   `;
 }
 
-function createSeasonIconMarkup(season: SeasonId, className: string): string {
-  const paths: Record<SeasonId, string> = {
-    winter: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M12 3l-2 2m2-2 2 2m-2 16-2-2m2 2 2-2M4.2 7.5l2.7.7m-2.7-.7.8-2.7m14.8 11.7-2.7-.7m2.7.7-.8 2.7M4.2 16.5l.8 2.7m-.8-2.7 2.7-.7m12.9-8.3-.8-2.7m.8 2.7-2.7.7" />',
-    spring: '<path d="M12 10.2c-2.2-3.7-1-6.2 1.2-6.2 1.8 0 2.8 2.2 1.8 4.4 2.8-2.2 5.5-1.1 5.5 1.3 0 2-2.2 3.1-4.6 2.3 2.7 1.8 2.5 4.7.3 5.6-1.9.8-3.6-.9-3.8-3.3-1 3.2-3.7 4.1-5.3 2.6-1.6-1.5-.5-4.1 2.2-4.9-3.3.2-5.1-2.1-4-4 1.1-2 3.9-1.8 5.4.7" /><circle cx="12" cy="11.5" r="2.1" />',
-    summer: '<circle cx="12" cy="12" r="4" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9 7 7m10 10 2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" />',
-    autumn: '<path d="M19.5 4.5C13 4.7 7.2 7.4 5.2 12.2c-1.2 2.9.7 6.1 3.9 6.2 5.5.1 9.2-6 10.4-13.9Z" /><path d="M5.2 19.6c2.2-4.9 5.7-8.2 10.3-10.5M9.5 15.2l-3.6-.4m7-3.3.2-3.3" />',
-  };
-
-  return `<svg class="${className}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[season]}</svg>`;
-}
-
 function createSeasonalSectionIconMarkup(section: SeasonalSection): string {
-  const path = section === 'walks'
-    ? '<path d="M4 17.5c2.4-4.8 5.7-7.2 10.7-7.2H20" /><path d="m16.5 6.8 3.5 3.5-3.5 3.5" /><circle cx="5" cy="17.5" r="2" />'
-    : '<path d="M9 18h6m-5 3h4M8.5 14.8c-1.3-1-2.1-2.6-2.1-4.3A5.6 5.6 0 0 1 12 4.9a5.6 5.6 0 0 1 5.6 5.6c0 1.7-.8 3.3-2.1 4.3-.8.7-1.1 1.2-1.2 2.2H9.7c-.1-1-.4-1.5-1.2-2.2Z" />';
+  if (section === 'walks') {
+    return '<span class="seasonal-section__icon seasonal-section__icon--dog-park" aria-hidden="true"></span>';
+  }
 
-  return `<svg class="seasonal-section__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${path}</svg>`;
+  return '<span class="seasonal-section__icon seasonal-section__icon--lightbulb" aria-hidden="true"></span>';
 }
 
 function createPlayIconMarkup(className: string): string {
