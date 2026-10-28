@@ -17,6 +17,12 @@ import {
   type SeasonalSection,
   type SeasonalVideo,
 } from './seasonal-content';
+import {
+  dogSkillsLessons,
+  getDogSkillsLesson,
+  type DogSkillsLesson,
+  type DogSkillsLessonId,
+} from './dog-skills-content';
 
 type VideoDescriptionId = keyof typeof videoDescriptions;
 
@@ -125,6 +131,7 @@ export type AppRoute =
   | 'puppies'
   | 'adult-large'
   | 'dog-skills'
+  | `dog-skills-video:${DogSkillsLessonId}`
   | `lesson-video:${string}`
   | `puppy-situation:${PuppySituationSlug}`
   | `puppy-topic:${PuppyTopicSlug}`
@@ -1792,6 +1799,18 @@ function getLessonVideoFromRoute(route: AppRoute): LessonVideoEntry | null {
   return lessonVideosById.get(route.slice('lesson-video:'.length)) ?? null;
 }
 
+function getDogSkillsLessonFromRoute(route: AppRoute): DogSkillsLesson | null {
+  if (!route.startsWith('dog-skills-video:')) {
+    return null;
+  }
+
+  return getDogSkillsLesson(route.slice('dog-skills-video:'.length));
+}
+
+export function isDogSkillsLessonRoute(route: AppRoute): boolean {
+  return getDogSkillsLessonFromRoute(route) !== null;
+}
+
 export function createAppMarkup(
   route: AppRoute,
   activeFilter: PuppyFilter,
@@ -1799,9 +1818,14 @@ export function createAppMarkup(
   activeSeason: SeasonId = 'autumn',
 ): string {
   const lessonVideo = getLessonVideoFromRoute(route);
+  const dogSkillsLesson = getDogSkillsLessonFromRoute(route);
 
   if (lessonVideo) {
     return createLessonPlayerMarkup(lessonVideo, activeSeason);
+  }
+
+  if (dogSkillsLesson) {
+    return createDogSkillsLessonMarkup(dogSkillsLesson);
   }
 
   if (route === 'complex') {
@@ -1907,6 +1931,7 @@ export function getAllAppAssetPaths(): string[] {
     '/assets/images/programs/teen_dog.webp',
     '/assets/images/programs/adult_dog.webp',
     '/assets/images/programs/shelter_dog.webp',
+    '/assets/images/programs/dog-skills.webp',
     '/assets/images/programs/puppy-hero.webp',
     '/assets/images/programs/fitness-hero.webp',
     '/assets/icons/comp_lil_time.webp',
@@ -1929,6 +1954,10 @@ export function getAllAppAssetPaths(): string[] {
         }
       });
     });
+  });
+
+  dogSkillsLessons.forEach((lesson) => {
+    paths.push(resolveCardImagePath(lesson.coverPath));
   });
 
   return [...new Set(paths)];
@@ -2019,11 +2048,7 @@ function createHomeMarkup(): string {
                 Мы помогаем вам и вашей собаке понимать друг друга и быть одной командой
               </p>
 
-              <button
-                class="hero-card__cta js-feedback"
-                type="button"
-                data-feedback="Видео будет доступно позже"
-              >
+              <button class="hero-card__cta" type="button" data-welcome-video-open>
                 <span class="hero-card__cta-icon" aria-hidden="true"></span>
                 <span>Смотреть видео</span>
               </button>
@@ -2067,6 +2092,8 @@ function createHomeMarkup(): string {
             </div>
           </section>
 
+          ${createWelcomeVideoModalMarkup()}
+
           <section class="section-block" aria-labelledby="programs-title">
             <div class="section-heading">
               <h2 id="programs-title">Программы</h2>
@@ -2109,7 +2136,7 @@ function createHomeMarkup(): string {
                 'Пёс умеет',
                 'Пёс умеет',
                 'Команды, трюки и полезные навыки',
-                undefined,
+                '/assets/images/programs/dog-skills.webp',
                 'program-card--skills',
                 { route: 'dog-skills' },
               )}
@@ -2119,6 +2146,37 @@ function createHomeMarkup(): string {
       </main>
 
       ${createBottomNav('home')}
+    </div>
+  `;
+}
+
+function createWelcomeVideoModalMarkup(): string {
+  return `
+    <div class="welcome-video-modal" data-welcome-video-modal aria-hidden="true">
+      <button class="welcome-video-modal__backdrop" type="button" data-welcome-video-backdrop aria-label="Закрыть приветственное видео"></button>
+      <section class="welcome-video-modal__sheet" role="dialog" aria-modal="true" aria-labelledby="welcome-video-title" aria-describedby="welcome-video-subtitle">
+        <div class="welcome-video-modal__handle" aria-hidden="true"></div>
+        <header class="welcome-video-modal__header">
+          <div class="welcome-video-modal__heading">
+            <h2 id="welcome-video-title">Добро пожаловать!</h2>
+            <p id="welcome-video-subtitle">Знакомство с нашей школой</p>
+          </div>
+          <button class="welcome-video-modal__close" type="button" data-welcome-video-close aria-label="Закрыть">
+            <span aria-hidden="true"></span>
+          </button>
+        </header>
+        <div class="welcome-video-modal__video" role="status">
+          <div class="welcome-video-modal__unavailable">
+            <span class="welcome-video-modal__play-icon" aria-hidden="true"></span>
+            <p>Приветственное видео пока недоступно</p>
+          </div>
+        </div>
+        <p class="welcome-video-modal__description">Узнайте, как устроено обучение и с чего начать занятия с питомцем.</p>
+        <button class="welcome-video-modal__lessons" type="button" data-route="puppies">
+          <span>Перейти к урокам</span>
+          <span class="welcome-video-modal__arrow" aria-hidden="true"></span>
+        </button>
+      </section>
     </div>
   `;
 }
@@ -2383,9 +2441,86 @@ function createDogSkillsMarkup(): string {
 
       <main class="screen-content">
         <div class="content-frame">
-          <section class="seasonal-empty dog-skills-empty" aria-labelledby="dog-skills-empty-title">
-            <h2 id="dog-skills-empty-title">Раздел готовится к запуску</h2>
-            <p>Материалы программы появятся здесь.</p>
+          <section class="puppy-hero puppy-hero--dog-skills" aria-labelledby="dog-skills-hero-title">
+            <div class="puppy-hero__content">
+              <h2 id="dog-skills-hero-title">Пёс умеет</h2>
+              <p class="puppy-hero__description">
+                Команды, трюки и полезные навыки
+              </p>
+            </div>
+
+            <div class="puppy-hero__media" aria-hidden="true">
+              <span class="puppy-hero__decor puppy-hero__decor--top"></span>
+              <span class="puppy-hero__decor puppy-hero__decor--bottom"></span>
+              <img
+                class="puppy-hero__image puppy-hero__image--dog-skills"
+                src="/assets/images/programs/dog-skills.webp"
+                alt=""
+              />
+            </div>
+          </section>
+
+          <section class="section-block section-block--tight" aria-labelledby="dog-skills-lessons-title">
+            <div class="section-heading section-heading--solo">
+              <h2 id="dog-skills-lessons-title">Видео</h2>
+            </div>
+
+            <div class="dog-skills-list" aria-label="Видео программы Пёс умеет">
+              ${dogSkillsLessons.map(createDogSkillsCardMarkup).join('')}
+            </div>
+          </section>
+        </div>
+      </main>
+
+      ${createBottomNav('lessons')}
+    </div>
+  `;
+}
+
+function createDogSkillsCardMarkup(lesson: DogSkillsLesson, index: number): string {
+  const route: AppRoute = `dog-skills-video:${lesson.id}`;
+  const sequenceNumber = String(index + 1).padStart(2, '0');
+
+  return `
+    <button class="dog-skills-card" type="button" data-route="${route}">
+      <span class="dog-skills-card__media-wrap">
+        <span class="dog-skills-card__index" aria-hidden="true">${sequenceNumber}</span>
+        <span class="dog-skills-card__media">
+          <img src="${escapeHtml(lesson.coverPath)}" alt="" loading="lazy" aria-hidden="true" />
+          <span class="dog-skills-card__status">Видео скоро</span>
+        </span>
+      </span>
+      <span class="dog-skills-card__body">
+        <strong class="dog-skills-card__title">${escapeHtml(lesson.title)}</strong>
+        <span class="dog-skills-card__description">${escapeHtml(lesson.cardDescription)}</span>
+      </span>
+      <span class="dog-skills-card__arrow" aria-hidden="true">
+        <span class="program-card__arrow-icon"></span>
+      </span>
+    </button>
+  `;
+}
+
+function createDogSkillsLessonMarkup(lesson: DogSkillsLesson): string {
+  return `
+    <div class="app-shell app-shell--dog-skills-detail">
+      ${createSubpageHeaderMarkup(lesson.title, 'dog-skills')}
+
+      <main class="screen-content">
+        <div class="content-frame content-frame--player">
+          <section class="section-block section-block--detail-first">
+            <div class="lesson-player-card dog-skills-detail">
+              <div class="dog-skills-detail__cover">
+                <img src="${escapeHtml(lesson.coverPath)}" alt="" aria-hidden="true" />
+                <span class="dog-skills-detail__status">Видео скоро будет подключено</span>
+              </div>
+
+              <div class="lesson-player-card__divider" aria-hidden="true">
+                <span class="lesson-player-card__divider-dog"></span>
+              </div>
+
+              ${createLessonDescriptionMarkup(lesson.description, `dog-skills-${lesson.id}`, lesson.title)}
+            </div>
           </section>
         </div>
       </main>
@@ -2859,10 +2994,16 @@ type LessonDescriptionBlock =
   | { type: 'paragraph'; lines: string[] }
   | { type: 'steps'; items: Array<{ number: string; title: string; details: string[] }> }
   | { type: 'bullets'; items: string[] }
-  | { type: 'mistakes'; items: string[] }
-  | { type: 'callout'; text: string }
+  | { type: 'mistakes'; items: LessonDescriptionMistake[] }
+  | { type: 'callout'; text: string; icon: 'message' | 'tip' | 'warning' }
   | { type: 'flow'; text: string }
   | { type: 'separator' };
+
+interface LessonDescriptionMistake {
+  problem: string;
+  details?: string;
+  correction?: string;
+}
 
 interface LessonDescriptionSection {
   title: string | null;
@@ -2873,14 +3014,55 @@ interface LessonDescriptionSection {
 function createLessonDescriptionMarkup(description: string, lessonId: string, lessonTitle: string): string {
   const { body, feedbackPrompt } = extractLessonFeedbackPrompt(description);
   const sections = parseLessonDescriptionSections(body);
-  const content = sections
+  let content = sections
     .map((section) => createLessonDescriptionSectionMarkup(section))
     .join('');
+  const fitnessExercise = getFitnessExerciseName(lessonTitle);
+
+  if (fitnessExercise) {
+    const highlightedContent = highlightFitnessExerciseName(content, fitnessExercise.terms);
+    content = highlightedContent.markup;
+
+    if (fitnessExercise.alwaysShowName || !highlightedContent.didHighlight) {
+      content = `<p class="lesson-description__exercise-name"><strong>${escapeHtml(fitnessExercise.name)}</strong></p>${content}`;
+    }
+  }
+
   const feedbackMarkup = feedbackPrompt
     ? createLessonFeedbackMarkup(feedbackPrompt, lessonId, lessonTitle)
     : '';
 
   return `<article class="lesson-player-card__description lesson-description">${content}${feedbackMarkup}</article>`;
+}
+
+function getFitnessExerciseName(lessonTitle: string): { name: string; terms: string[]; alwaysShowName?: boolean } | null {
+  const exerciseNames: Record<string, { name: string; terms: string[]; alwaysShowName?: boolean }> = {
+    Поклон: { name: 'Поклон', terms: ['Поклон'] },
+    Зайка: { name: 'Зайка', terms: ['Зайка'] },
+    Домик: { name: 'Домик', terms: ['Домик'] },
+    'Поставь лапки или "тач"': { name: 'Поставь лапки', terms: ['Поставь лапки', 'тач'], alwaysShowName: true },
+    'Круть-верть': { name: 'Круть-верть', terms: ['Круть-верть'] },
+    'Влево-вправо': { name: 'Лево–право', terms: ['Лево–право', 'Влево-вправо'] },
+    Восемь: { name: 'Восьмёрка', terms: ['Восьмёрка', 'Восемь'] },
+    Обойди: { name: 'Обойди', terms: ['Обойди'] },
+  };
+
+  return exerciseNames[lessonTitle] ?? null;
+}
+
+function highlightFitnessExerciseName(markup: string, terms: string[]): { markup: string; didHighlight: boolean } {
+  let highlightedMarkup = markup;
+
+  terms.forEach((term) => {
+    const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const exercisePattern = new RegExp(`(^|[^\\p{L}\\p{N}])(${escapedTerm})(?![\\p{L}\\p{N}])`, 'giu');
+    highlightedMarkup = highlightedMarkup.replace(
+      exercisePattern,
+      '$1<strong class="lesson-description__exercise-highlight">$2</strong>',
+    );
+  });
+
+  return { markup: highlightedMarkup, didHighlight: highlightedMarkup !== markup };
 }
 
 function extractLessonFeedbackPrompt(description: string): { body: string; feedbackPrompt: string | null } {
@@ -2957,8 +3139,18 @@ function isLessonDescriptionHeading(line: string): boolean {
   const normalizedLine = normalizeLessonDescriptionHeading(line);
 
   if (
-    /^(?:Как (?:учим|играем|работаем|кормим|приучаем|организуем|выполняем)|Как .+ пошагово|Подготовка|Результат|Частые ошибки(?: ❌)?|Особенности 🐾|Важные (?:особенности|нюансы)(?: 🐾)?|Обратите внимание(?: 🐾)?|Что важно (?:понять|помнить 🐾)|Что можно использовать|Как устроен коготь 🐾|Зачем .+ 🐾|Разберём основные этапы обучения|Разберём распространённые ошибки и способы их исправления|Главное правило)$/.test(normalizedLine)
+    /^(?:Этапы обучения|Частая ошибка|Важн(?:ый нюанс|ые нюансы)|Дополнительно|Какие элементы можно использовать|Главный принцип|Правила челленджа|Челлендж)$/u.test(normalizedLine)
   ) {
+    return true;
+  }
+
+  if (
+    /^(?:Как (?:учим|обучаем|играем|работаем|кормим|приучаем|организуем|выполняем)|Как .+ пошагово|Подготовка|Результат|Частые ошибки(?: ❌)?|Особенности 🐾|Важные (?:особенности|нюансы)(?: 🐾)?|Обратите внимание(?: 🐾)?|Что важно (?:понять|помнить 🐾)|Что можно использовать|Как устроен коготь 🐾|Зачем .+ 🐾|Разберём основные этапы обучения|Разберём распространённые ошибки и способы их исправления|Главное правило)$/.test(normalizedLine)
+  ) {
+    return true;
+  }
+
+  if (/^(?:С чего начать\?(?: 🐾)?|Главное(?: 🐕)?|Как научить щенка оставаться одному дома 🐶🏠|Упражнение «[^»]+»: .+)$/u.test(normalizedLine)) {
     return true;
   }
 
@@ -2978,14 +3170,23 @@ function isLessonDescriptionHeading(line: string): boolean {
 function getLessonDescriptionSectionTone(title: string): LessonDescriptionTone {
   const normalizedTitle = normalizeLessonDescriptionHeading(title);
 
-  if (normalizedTitle.startsWith('Частые ошибки') || normalizedTitle.includes('ошибки и способы их исправления')) {
+  if (
+    normalizedTitle.startsWith('Частая ошибка')
+    || normalizedTitle.startsWith('Частые ошибки')
+    || normalizedTitle.includes('ошибки и способы их исправления')
+  ) {
     return 'mistakes';
   }
 
   if (
     normalizedTitle.includes('Особенности')
     || normalizedTitle.includes('Важно')
+    || normalizedTitle.startsWith('Важн')
     || normalizedTitle === 'Главное правило'
+    || normalizedTitle === 'Главное'
+    || normalizedTitle === 'Главный принцип'
+    || normalizedTitle === 'Дополнительно'
+    || normalizedTitle === 'Челлендж'
     || normalizedTitle.endsWith('🐾')
   ) {
     return 'note';
@@ -2995,24 +3196,28 @@ function getLessonDescriptionSectionTone(title: string): LessonDescriptionTone {
 }
 
 function createLessonDescriptionSectionMarkup(section: LessonDescriptionSection): string {
+  const isGettingStartedSection = section.title?.startsWith('С чего начать?') ?? false;
   const sectionClass = [
     'lesson-description__section',
     section.title ? '' : 'lesson-description__section--intro',
     section.tone !== 'default' ? `lesson-description__section--${section.tone}` : '',
+    isGettingStartedSection ? 'lesson-description__section--getting-started' : '',
   ]
     .filter(Boolean)
     .join(' ');
   const visibleTitle = section.title
-    ?.replace(/^(?:🔹|⚠️|💡)\s*/u, '')
+    ?.replace(/^(?:🔹|⚠️|💡|❌|🐾|🎁|🎯|🏆)\s*/u, '')
     .replace(/:\s*$/u, '')
     .replace(/\s*(?:🐾|❌)\s*$/u, '') ?? '';
-  const headingIcon = section.tone === 'note'
-    ? createLessonDescriptionIcon('note')
-    : section.tone === 'mistakes'
-      ? createLessonDescriptionIcon('mistake')
-      : '';
+  const headingIcon = section.tone === 'mistakes'
+    ? ''
+    : isGettingStartedSection
+      ? '<img class="lesson-description__heading-emoji" src="/assets/emoji/light-bulb.svg" alt="" aria-hidden="true" />'
+      : section.tone === 'note'
+        ? createLessonDescriptionIcon('note')
+        : '';
   const titleMarkup = section.title
-    ? `<h2 class="lesson-description__heading">${headingIcon}<span>${escapeHtml(visibleTitle)}</span></h2>`
+    ? `<h2 class="lesson-description__heading">${headingIcon}<span>${renderEmojiText(visibleTitle)}</span></h2>`
     : '';
 
   return `
@@ -3034,11 +3239,17 @@ function getLessonDescriptionSectionLayout(
     ? normalizeLessonDescriptionHeading(section.title)
     : '';
 
-  if (/^Как .+ пошагово$/u.test(normalizedTitle)) {
+  if (
+    /^Как .+ пошагово$/u.test(normalizedTitle)
+    || normalizedTitle === 'Разберём основные этапы обучения'
+    || normalizedTitle === 'Этапы обучения'
+    || normalizedTitle === 'Какие элементы можно использовать'
+    || normalizedTitle === 'Правила челленджа'
+  ) {
     return 'steps';
   }
 
-  if (/^Частые ошибки(?: ❌)?$/u.test(normalizedTitle)) {
+  if (/^Част(?:ая ошибка|ые ошибки)(?: ❌)?$/u.test(normalizedTitle)) {
     return 'mistakes';
   }
 
@@ -3054,7 +3265,7 @@ function getLessonDescriptionSectionLayout(
 
 function normalizeLessonDescriptionHeading(line: string): string {
   return line
-    .replace(/^(?:🔹|⚠️|💡)\s*/u, '')
+    .replace(/^(?:🔹|⚠️|💡|❌|🐾|🎁|🎯|🏆)\s*/u, '')
     .replace(/:\s*$/u, '')
     .trim();
 }
@@ -3082,7 +3293,7 @@ function createLessonDescriptionBlocksMarkup(
   if (layout === 'mistakes') {
     return createLessonDescriptionBlockMarkup({
       type: 'mistakes',
-      items: lines.map((line) => line.replace(/^❌\s*/u, '')),
+      items: lines.map(parseLessonDescriptionMistake),
     });
   }
 
@@ -3097,7 +3308,7 @@ function createLessonDescriptionBlocksMarkup(
   let paragraphLines: string[] = [];
   let stepItems: Array<{ number: string; title: string; details: string[] }> = [];
   let bulletItems: string[] = [];
-  let mistakeItems: string[] = [];
+  let mistakeItems: LessonDescriptionMistake[] = [];
 
   const flushParagraph = (): void => {
     if (paragraphLines.length > 0) {
@@ -3140,12 +3351,19 @@ function createLessonDescriptionBlocksMarkup(
       return;
     }
 
+    let callout: { icon: 'message' | 'tip' | 'warning'; text: string } | null = null;
+
     if (line.startsWith('💬') || line.endsWith('💬')) {
+      callout = { icon: 'message', text: line.replace(/^(?:💬\s*)|(?:\s*💬)$/gu, '').trim() };
+    } else if (line.startsWith('💡')) {
+      callout = { icon: 'tip', text: line.replace(/^💡\s*/u, '').trim() };
+    } else if (line.startsWith('⚠️')) {
+      callout = { icon: 'warning', text: line.replace(/^⚠️\s*/u, '').trim() };
+    }
+
+    if (callout) {
       flushAll();
-      blocks.push({
-        type: 'callout',
-        text: line.replace(/^(?:💬\s*)|(?:\s*💬)$/gu, '').trim(),
-      });
+      blocks.push({ type: 'callout', ...callout });
       return;
     }
 
@@ -3153,7 +3371,7 @@ function createLessonDescriptionBlocksMarkup(
       flushParagraph();
       flushSteps();
       flushBullets();
-      mistakeItems.push(line.replace(/^❌\s*/, ''));
+      mistakeItems.push(parseLessonDescriptionMistake(line));
       return;
     }
 
@@ -3199,6 +3417,21 @@ function createLessonDescriptionBlocksMarkup(
     .join('');
 }
 
+function parseLessonDescriptionMistake(line: string): LessonDescriptionMistake {
+  const normalized = line.replace(/^❌\s*/u, '').replace(/\s+/gu, ' ').trim();
+  const correctionMatch = normalized.match(/\s✅\s*Как исправить:\s*(.+)$/u);
+
+  if (!correctionMatch || correctionMatch.index === undefined) {
+    return { problem: normalized };
+  }
+
+  const problemAndDetails = normalized.slice(0, correctionMatch.index).trim();
+  const sentenceMatch = problemAndDetails.match(/^((?:\d+\.\s*)?.+?[.!?])\s+(.+)$/u);
+
+  return sentenceMatch
+    ? { problem: sentenceMatch[1].trim(), details: sentenceMatch[2].trim(), correction: correctionMatch[1].trim() }
+    : { problem: problemAndDetails, correction: correctionMatch[1].trim() };
+}
 function createLessonDescriptionBlockMarkup(
   block: LessonDescriptionBlock,
   isLeadParagraph = false,
@@ -3234,7 +3467,7 @@ function createLessonDescriptionBlockMarkup(
     return `
       <ul class="lesson-description__mistakes">
         ${block.items
-          .map((item) => `<li>${createLessonDescriptionIcon('mistake')}<span>${renderEmojiText(item)}</span></li>`)
+          .map((item) => `<li>\n            ${createLessonDescriptionIcon('mistake')}\n            <div class="lesson-description__mistake-content">\n              <span>${renderEmojiText(item.problem)}</span>\n              ${item.details ? `<p>${renderEmojiText(item.details)}</p>` : ''}\n              ${item.correction ? `<p class="lesson-description__mistake-correction"><strong>✅ Как исправить:</strong> ${renderEmojiText(item.correction)}</p>` : ''}\n            </div>\n          </li>`)
           .join('')}
       </ul>
     `;
@@ -3251,9 +3484,13 @@ function createLessonDescriptionBlockMarkup(
   }
 
   if (block.type === 'callout') {
+    const calloutIcon = block.icon === 'message'
+      ? createLessonDescriptionIcon('message')
+      : `<img class="lesson-description__callout-emoji" src="/assets/emoji/${block.icon === 'tip' ? 'light-bulb' : 'warning'}.svg" alt="" aria-hidden="true" />`;
+
     return `
       <aside class="lesson-description__callout">
-        <span class="lesson-description__callout-icon">${createLessonDescriptionIcon('message')}</span>
+        <span class="lesson-description__callout-icon">${calloutIcon}</span>
         <p>${renderEmojiText(block.text)}</p>
       </aside>
     `;
@@ -3273,7 +3510,7 @@ function createLessonDescriptionBlockMarkup(
 
 function createLessonDescriptionIcon(icon: LessonDescriptionIcon): string {
   if (icon === 'note') {
-    return '<span class="lesson-description__icon lesson-description__icon--note" aria-hidden="true"></span>';
+    return '<img class="lesson-description__icon lesson-description__icon--note" src="/assets/emoji/light-bulb.svg" alt="" aria-hidden="true" />';
   }
 
   const iconPaths: Record<Exclude<LessonDescriptionIcon, 'note'>, string> = {

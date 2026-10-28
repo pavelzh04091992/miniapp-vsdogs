@@ -96,7 +96,8 @@ test('renders combined and puppy fitness with independent page builders', async 
   assert.doesNotMatch(appSource, />Подразделы</);
   assert.match(appSource, /const backRoute = getPuppySituationRoute\(topic\.parentSlug\)/);
   assert.match(appSource, /const backRoute: AppRoute = `adult-large-situation:\$\{topic\.parentSlug\}`/);
-  assert.match(styles, /\.puppy-hero--fitness\s*\{[\s\S]*?linear-gradient\([\s\S]*?#218a5d/);
+  assert.match(styles, /\.puppy-hero--fitness\s*\{[\s\S]*?linear-gradient\(135deg, #e8faf4 0%, #50cbb4 100%\)/);
+  assert.doesNotMatch(styles, /\.puppy-hero--fitness\s*\{[\s\S]*?#218a5d/);
   assert.match(styles, /\.puppy-hero__image--fitness\s*\{[\s\S]*?height: auto[\s\S]*?aspect-ratio: 1/);
   assert.match(styles, /\.puppy-hero__image--fitness\s*\{[\s\S]*?width: clamp\(210px, 52vw, 228px\)/);
   assert.match(mainSource, /hash === 'fitness'/);
@@ -144,24 +145,63 @@ test('keeps back navigation in the actual puppy or adult fitness branch', async 
   assert.doesNotMatch(mainSource, /navigateTo\(fallbackRoute\)/);
 });
 
-test('adds the full-width dog skills program without a placeholder artwork asset', async () => {
-  const [appSource, mainSource, styles] = await Promise.all([
+test('adds the dog skills program, four planned cards, descriptions, and destination views', async () => {
+  const [appSource, mainSource, styles, contentSource] = await Promise.all([
     readFile(new URL('../src/app.ts', import.meta.url), 'utf8'),
     readFile(new URL('../src/main.ts', import.meta.url), 'utf8'),
     readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
+    readFile(new URL('../src/dog-skills-content.ts', import.meta.url), 'utf8'),
   ]);
 
   const cardStart = appSource.indexOf("'Пёс умеет',");
   const cardSource = appSource.slice(cardStart, cardStart + 420);
 
-  assert.match(cardSource, /'Команды, трюки и полезные навыки',[\s\S]*?undefined,[\s\S]*?'program-card--skills',[\s\S]*?route: 'dog-skills'/u);
-  assert.doesNotMatch(cardSource, /assets\/images\/programs/u);
+  assert.match(cardSource, /'Команды, трюки и полезные навыки',[\s\S]*?'\/assets\/images\/programs\/dog-skills\.webp',[\s\S]*?'program-card--skills',[\s\S]*?route: 'dog-skills'/u);
   assert.match(appSource, /imagePath: string \| undefined/u);
   assert.match(appSource, /const mediaMarkup = imagePath/u);
   assert.match(appSource, /route === 'dog-skills'[\s\S]*?createDogSkillsMarkup\(\)/u);
+  assert.match(appSource, /dogSkillsLessons\.map\(createDogSkillsCardMarkup\)/u);
+  assert.match(appSource, /function createDogSkillsCardMarkup\(lesson: DogSkillsLesson, index: number\)[\s\S]*?String\(index \+ 1\)\.padStart\(2, '0'\)[\s\S]*?dog-skills-card__index/u);
+  assert.match(appSource, /function createDogSkillsLessonMarkup\(lesson: DogSkillsLesson\)/u);
+  assert.match(appSource, /Видео скоро будет подключено/u);
+  assert.match(appSource, /puppy-hero puppy-hero--dog-skills[\s\S]*?dog-skills-hero-title[\s\S]*?\/assets\/images\/programs\/dog-skills\.webp/u);
+  assert.match(appSource, /getAllAppAssetPaths[\s\S]*?'\/assets\/images\/programs\/dog-skills\.webp'/u);
   assert.match(mainSource, /hash === 'dog-skills'/u);
-  assert.match(styles, /\.program-card--skills\s*\{[\s\S]*?grid-column: 1 \/ -1;[\s\S]*?linear-gradient\(105deg, #fafffc 0%, #d8f7ed 100%\)/u);
-  assert.doesNotMatch(styles, /\.program-grid > \.program-card--skills \.program-card__(?:title|description|arrow)\s*\{/u);
+  assert.match(mainSource, /hash\.startsWith\('dog-skills-video:'\)[\s\S]*?isDogSkillsLessonRoute\(route\)/u);
+  assert.match(styles, /\.program-card--skills\s*\{[\s\S]*?grid-column: 1 \/ -1;[\s\S]*?height: clamp\(150px, calc\(124px \+ 8vw\), 172px\);[\s\S]*?linear-gradient\(105deg, #fafffc 0%, #d8f7ed 100%\)/u);
+  assert.match(styles, /\.program-grid > \.program-card--skills \.program-card__media img\s*\{[\s\S]*?right: clamp\(30px, calc\(23px \+ 2vw\), 40px\);[\s\S]*?height: clamp\(118px, calc\(91px \+ 8vw\), 154px\);[\s\S]*?object-fit: contain/u);
+  assert.match(styles, /\.program-grid > \.program-card--skills \.program-card__copy\s*\{[\s\S]*?max-width: 48%;[\s\S]*?gap: 7px/u);
+  assert.match(styles, /\.program-grid > \.program-card--skills \.program-card__arrow\s*\{[\s\S]*?position: absolute;[\s\S]*?top: 0;[\s\S]*?right: 0;[\s\S]*?width: var\(--skills-arrow-size\)/u);
+  assert.match(styles, /@media \(max-width: 485px\)\s*\{[\s\S]*?\.program-grid > \.program-card--skills \.program-card__media\s*\{[\s\S]*?left: calc\(48% \+ 12px\);[\s\S]*?right: calc\(var\(--skills-arrow-size\) \+ 12px\);[\s\S]*?justify-content: center;[\s\S]*?\.program-grid > \.program-card--skills \.program-card__media img\s*\{[\s\S]*?position: static/u);
+  assert.doesNotMatch(styles, /\.program-grid > \.program-card--skills[\s\S]{0,180}?height: 168px/u);
+  assert.match(styles, /\.puppy-hero--dog-skills\s*\{[\s\S]*?linear-gradient\(135deg, #dff8ef 0%, #b8ecd9 54%, #82d5ba 100%\)/u);
+  assert.match(styles, /\.puppy-hero__image--dog-skills\s*\{[\s\S]*?object-fit: contain/u);
+  assert.match(styles, /\.dog-skills-card\s*\{[\s\S]*?min-height: 103px;[\s\S]*?padding: 12px;[\s\S]*?grid-template-columns: 136px minmax\(0, 1fr\) 38px[\s\S]*?background: #ffffff/u);
+  assert.match(styles, /\.dog-skills-card__media-wrap\s*\{[\s\S]*?width: 136px;[\s\S]*?position: relative;[\s\S]*?overflow: visible/u);
+  assert.match(styles, /\.dog-skills-card__index\s*\{[\s\S]*?width: clamp\(32px, 6vw, 38px\);[\s\S]*?position: absolute;[\s\S]*?top: 7px;[\s\S]*?left: -10px;[\s\S]*?border-radius: 50%/u);
+  assert.match(styles, /\.dog-skills-card__media\s*\{[\s\S]*?width: 136px;[\s\S]*?aspect-ratio: 16 \/ 9/u);
+  assert.match(styles, /@media \(max-width: 360px\)\s*\{[\s\S]*?grid-template-columns: clamp\(104px, 31vw, 112px\) minmax\(0, 1fr\) 36px[\s\S]*?\.dog-skills-card__media-wrap,[\s\S]*?\.dog-skills-card__media\s*\{[\s\S]*?width: clamp\(104px, 31vw, 112px\)/u);
+  assert.match(styles, /\.dog-skills-card:nth-child\(4n \+ 1\)[\s\S]*?#72d5c3[\s\S]*?\.dog-skills-card:nth-child\(4n \+ 2\)[\s\S]*?#f27fa6[\s\S]*?\.dog-skills-card:nth-child\(4n \+ 3\)[\s\S]*?#91c9f5[\s\S]*?\.dog-skills-card:nth-child\(4n \+ 4\)[\s\S]*?#f8c66c/u);
+  assert.match(styles, /\.dog-skills-detail__cover\s*\{[\s\S]*?aspect-ratio: 16 \/ 9/u);
+
+  const lessonIds = [...contentSource.matchAll(/^\s+id: '([^']+)'/gmu)].map((match) => match[1]);
+  assert.deepEqual(lessonIds, ['turn-off-light', 'high-ten', 'thimbles', 'obstacle-course']);
+  assert.doesNotMatch(contentSource, /\b(?:mediaId|sourceType|videoPath)\b/u);
+  assert.match(contentSource, /🐾 Этапы обучения/u);
+  assert.match(contentSource, /🎯 Правила челленджа/u);
+  assert.match(contentSource, /🐾 Какие элементы можно использовать/u);
+  assert.match(contentSource, /⚠️ Частая ошибка/u);
+
+  const artwork = await stat(new URL('../public/assets/images/programs/dog-skills.webp', import.meta.url));
+  assert.ok(artwork.size > 0);
+
+  const covers = await Promise.all([
+    'dog-skills-turn-off-light.webp',
+    'dog-skills-high-ten.webp',
+    'dog-skills-thimbles.webp',
+    'dog-skills-obstacle-course.webp',
+  ].map((fileName) => stat(new URL(`../public/assets/covers/${fileName}`, import.meta.url))));
+  assert.ok(covers.every((cover) => cover.size > 0));
 });
 
 async function walk(directoryUrl) {

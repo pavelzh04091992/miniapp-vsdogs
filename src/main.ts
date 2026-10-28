@@ -6,6 +6,7 @@ import {
   getAllAppAssetPaths,
   getSeasonalListRoute,
   getVideoSourceSlugForRoute,
+  isDogSkillsLessonRoute,
   isSeasonalVideoRoute,
 } from './app';
 import { getSeasonTheme, isSeasonId, type SeasonId } from './seasonal-content';
@@ -55,6 +56,12 @@ let videoCatalogAbortController: AbortController | null = null;
 let renderSequence = 0;
 let playerTitleFitFrame: number | null = null;
 let seasonTransitionSequence = 0;
+let welcomeVideoModalOpen = false;
+let welcomeVideoHistoryArmed = false;
+let suppressNextWelcomePopState = false;
+let welcomeVideoScrollTop = 0;
+let welcomeVideoOpener: HTMLButtonElement | null = null;
+let previousWelcomeBodyStyles: { position: string; top: string; width: string; overflow: string } | null = null;
 const preloadedImages = new Map<string, HTMLImageElement>();
 const assetPreloadPromises = new Map<string, Promise<void>>();
 const ASSET_PRELOAD_TIMEOUT_MS = 15_000;
@@ -72,10 +79,27 @@ setupAppViewportHeight(webApp);
 initializeRouteHistory();
 export const appReady = startPrivateApp();
 setupFeedbackFlow(root, webApp);
+webApp?.BackButton?.onClick(() => {
+  if (welcomeVideoModalOpen) {
+    closeWelcomeVideoModal();
+  }
+});
 window.addEventListener('hashchange', () => {
   void syncRouteState();
 });
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', (event) => {
+  if (suppressNextWelcomePopState) {
+    suppressNextWelcomePopState = false;
+    return;
+  }
+
+  if (welcomeVideoModalOpen && welcomeVideoHistoryArmed) {
+    welcomeVideoHistoryArmed = false;
+    closeWelcomeVideoModal({ fromPopState: true });
+    event.stopImmediatePropagation();
+    return;
+  }
+
   void syncRouteState();
 });
 window.addEventListener('resize', () => {
@@ -84,6 +108,12 @@ window.addEventListener('resize', () => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (welcomeVideoModalOpen && event.key === 'Escape') {
+    event.preventDefault();
+    closeWelcomeVideoModal();
+    return;
+  }
+
   if (
     event.defaultPrevented ||
     event.repeat ||
@@ -130,6 +160,18 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  const welcomeVideoOpenButton = target.closest<HTMLButtonElement>('[data-welcome-video-open]');
+
+  if (welcomeVideoOpenButton) {
+    openWelcomeVideoModal(welcomeVideoOpenButton);
+    return;
+  }
+
+  if (target.closest('[data-welcome-video-close], [data-welcome-video-backdrop]')) {
+    closeWelcomeVideoModal();
+    return;
+  }
+
   const routeButton = target.closest<HTMLElement>('[data-route]');
 
   if (routeButton) {
@@ -137,6 +179,10 @@ document.addEventListener('click', (event) => {
 
     if (!route) {
       return;
+    }
+
+    if (welcomeVideoModalOpen) {
+      closeWelcomeVideoModal({ preserveHistory: true, restoreFocus: false });
     }
 
     const currentRoute = getCurrentRoute();
@@ -375,6 +421,89 @@ async function switchSeason(nextSeason: SeasonId): Promise<void> {
 function waitForMilliseconds(duration: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, duration));
 }
+function openWelcomeVideoModal(opener: HTMLButtonElement): void {
+  const overlay = root.querySelector<HTMLElement>('[data-welcome-video-modal]');
+
+  if (!overlay || welcomeVideoModalOpen) {
+    return;
+  }
+
+  welcomeVideoModalOpen = true;
+  welcomeVideoOpener = opener;
+  welcomeVideoScrollTop = window.scrollY;
+  previousWelcomeBodyStyles = {
+    position: document.body.style.position,
+    top: document.body.style.top,
+    width: document.body.style.width,
+    overflow: document.body.style.overflow,
+  };
+
+  const currentState = window.history.state;
+  const baseState = currentState && typeof currentState === 'object' ? currentState : {};
+  window.history.pushState({ ...baseState, welcomeVideoModal: true }, '', window.location.href);
+  welcomeVideoHistoryArmed = true;
+
+  document.documentElement.classList.add('welcome-video-open');
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${welcomeVideoScrollTop}px`;
+  document.body.style.width = '100%';
+  document.body.style.overflow = 'hidden';
+  overlay.setAttribute('aria-hidden', 'false');
+  overlay.classList.add('welcome-video-modal--open');
+  webApp?.BackButton?.show();
+  overlay.querySelector<HTMLButtonElement>('[data-welcome-video-close]')?.focus();
+}
+
+function closeWelcomeVideoModal(options: { fromPopState?: boolean; preserveHistory?: boolean; restoreFocus?: boolean } = {}): void {
+  if (!welcomeVideoModalOpen) {
+    return;
+  }
+
+  const overlay = root.querySelector<HTMLElement>('[data-welcome-video-modal]');
+  welcomeVideoModalOpen = false;
+
+  if (welcomeVideoHistoryArmed) {
+    welcomeVideoHistoryArmed = false;
+
+    if (options.preserveHistory) {
+      const state = window.history.state;
+      const nextState = state && typeof state === 'object' ? { ...state } : {};
+      delete (nextState as Record<string, unknown>).welcomeVideoModal;
+      window.history.replaceState(nextState, '', window.location.href);
+    } else if (!options.fromPopState) {
+      suppressNextWelcomePopState = true;
+      window.history.back();
+    }
+  }
+
+  const video = overlay?.querySelector<HTMLVideoElement>('video');
+  video?.pause();
+  if (video) {
+    video.removeAttribute('src');
+    video.load();
+  }
+
+  overlay?.classList.remove('welcome-video-modal--open');
+  overlay?.setAttribute('aria-hidden', 'true');
+  document.documentElement.classList.remove('welcome-video-open');
+
+  if (previousWelcomeBodyStyles) {
+    document.body.style.position = previousWelcomeBodyStyles.position;
+    document.body.style.top = previousWelcomeBodyStyles.top;
+    document.body.style.width = previousWelcomeBodyStyles.width;
+    document.body.style.overflow = previousWelcomeBodyStyles.overflow;
+    previousWelcomeBodyStyles = null;
+  }
+
+  window.scrollTo(0, welcomeVideoScrollTop);
+  webApp?.BackButton?.hide();
+
+  if (options.restoreFocus !== false && welcomeVideoOpener?.isConnected) {
+    welcomeVideoOpener.focus();
+  }
+  welcomeVideoOpener = null;
+}
+
 async function render(): Promise<void> {
   const sequence = ++renderSequence;
   const route = getCurrentRoute();
@@ -862,6 +991,14 @@ function getCurrentRoute(): AppRoute {
 
   if (hash === 'dog-skills') {
     return 'dog-skills';
+  }
+
+  if (hash.startsWith('dog-skills-video:')) {
+    const route = hash as AppRoute;
+
+    if (isDogSkillsLessonRoute(route)) {
+      return route;
+    }
   }
 
   if (hash === 'fitness') {

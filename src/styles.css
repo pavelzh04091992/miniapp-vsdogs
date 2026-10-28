@@ -1087,15 +1087,15 @@ img {
 }
 
 .puppy-hero--fitness {
-  background:
-    radial-gradient(circle at 12% 8%, rgba(161, 255, 205, 0.34), transparent 38%),
-    linear-gradient(135deg, #218a5d 0%, #14734c 54%, #0d5d3d 100%);
-  box-shadow: 0 12px 24px rgba(13, 93, 61, 0.18);
+  background: linear-gradient(135deg, #e8faf4 0%, #50cbb4 100%);
+  color: var(--primary-dark);
+  box-shadow: 0 12px 24px rgba(36, 154, 134, 0.2);
 }
 
 .puppy-hero--fitness .puppy-hero__description {
-  border-color: rgba(220, 255, 235, 0.2);
-  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.28);
+  color: var(--primary-dark);
 }
 
 .puppy-hero__image--fitness {
@@ -1106,7 +1106,35 @@ img {
   margin-right: -18px;
   object-fit: contain;
   transform-origin: right bottom;
-  filter: drop-shadow(0 12px 14px rgba(5, 57, 37, 0.2));
+  filter: drop-shadow(0 12px 14px rgba(24, 105, 91, 0.18));
+}
+
+.puppy-hero--dog-skills {
+  background:
+    radial-gradient(circle at 14% 10%, rgba(255, 255, 255, 0.82), transparent 40%),
+    linear-gradient(135deg, #dff8ef 0%, #b8ecd9 54%, #82d5ba 100%);
+  color: var(--primary-dark);
+  box-shadow: 0 12px 24px rgba(55, 145, 115, 0.18);
+}
+
+.puppy-hero--dog-skills .puppy-hero__description {
+  border-color: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.38);
+  color: var(--primary-dark);
+}
+
+.puppy-hero--dog-skills .puppy-hero__decor {
+  border-color: rgba(15, 45, 92, 0.12);
+}
+
+.puppy-hero__image--dog-skills {
+  width: clamp(180px, 45vw, 196px);
+  height: auto;
+  max-width: none;
+  margin-right: -18px;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 12px 14px rgba(33, 109, 84, 0.18));
 }
 
 .puppy-hero__content h2 {
@@ -1731,9 +1759,11 @@ img {
 
 .program-card--skills {
   --program-glass-tint: 120, 218, 187;
+  --skills-arrow-size: 38.8px;
   grid-column: 1 / -1;
-  height: clamp(190px, 27vw, 216px);
-  min-height: clamp(190px, 27vw, 216px);
+  height: 163px;
+  min-height: 163px;
+  max-height: 163px;
   grid-template-rows: minmax(0, 1fr);
   gap: 0;
   background: linear-gradient(105deg, #fafffc 0%, #d8f7ed 100%);
@@ -1742,17 +1772,22 @@ img {
 .program-grid > .program-card--skills .program-card__media {
   position: absolute;
   inset: 0;
+  left: calc(46% + 12px);
+  right: calc(var(--skills-arrow-size) + 12px);
   min-height: 0;
-  padding: 0 calc(var(--program-arrow-size) + 14px) 12px 10px;
+  padding: 0 0 8.9px;
   align-items: flex-end;
-  justify-content: flex-end;
+  justify-content: center;
   order: 0;
+  pointer-events: none;
 }
 
 .program-grid > .program-card--skills .program-card__media img {
+  position: static;
   width: auto;
-  height: calc(100% - 42px);
-  max-width: min(45%, 180px);
+  height: 138px;
+  margin: 0;
+  max-width: none;
   object-fit: contain;
   object-position: center bottom;
   transform: none;
@@ -1761,16 +1796,38 @@ img {
 .program-grid > .program-card--skills .program-card__body {
   width: 100%;
   height: 100%;
+  padding: 0 16px;
   grid-row: 1;
-  grid-template-columns: minmax(0, 1fr) var(--program-arrow-size);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 8px;
+  gap: 0;
   order: 1;
 }
 
 .program-grid > .program-card--skills .program-card__copy {
-  max-width: 54%;
-  align-self: center;
+  max-width: 48%;
+  gap: 7px;
+  align-self: start;
+  padding-top: 15px;
+}
+
+.program-grid > .program-card--skills .program-card__title {
+  font-size: 17px;
+  line-height: 1.12;
+}
+
+.program-grid > .program-card--skills .program-card__description {
+  font-size: 12.5px;
+  line-height: 1.42;
+}
+
+.program-grid > .program-card--skills .program-card__arrow {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: var(--skills-arrow-size);
+  height: var(--skills-arrow-size);
 }
 
 .program-card--skills:focus-visible {
@@ -1778,9 +1835,203 @@ img {
   outline-offset: 3px;
 }
 
-.dog-skills-empty {
-  --season-accent-rgb: 128, 205, 177;
-  --season-soft: #fafffc;
+.dog-skills-list {
+  display: grid;
+  gap: 12px;
+}
+
+.dog-skills-card {
+  width: 100%;
+  min-height: 103px;
+  border: 1px solid rgba(70, 170, 143, 0.16);
+  border-radius: 18px;
+  padding: 12px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  color: var(--primary-dark);
+  text-align: left;
+  box-shadow: 0 10px 24px rgba(15, 90, 70, 0.08);
+  cursor: pointer;
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.dog-skills-card__media-wrap {
+  width: 136px;
+  position: relative;
+  display: block;
+  overflow: visible;
+}
+
+.dog-skills-card__index {
+  width: clamp(32px, 6vw, 38px);
+  height: clamp(32px, 6vw, 38px);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  position: absolute;
+  top: 7px;
+  left: -10px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-size: clamp(14px, 2.6vw, 16px);
+  line-height: 1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 6px 14px rgba(15, 45, 92, 0.18);
+  pointer-events: none;
+}
+
+.dog-skills-card:nth-child(4n + 1) .dog-skills-card__index {
+  background: #72d5c3;
+}
+
+.dog-skills-card:nth-child(4n + 2) .dog-skills-card__index {
+  background: #f27fa6;
+}
+
+.dog-skills-card:nth-child(4n + 3) .dog-skills-card__index {
+  background: #91c9f5;
+}
+
+.dog-skills-card:nth-child(4n + 4) .dog-skills-card__index {
+  background: #f8c66c;
+}
+
+.dog-skills-card__media {
+  width: 136px;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+  background: #dff6ee;
+}
+
+.dog-skills-card__media img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.dog-skills-card__status,
+.dog-skills-detail__status {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  padding: 4px 7px;
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  background: rgba(15, 45, 92, 0.78);
+  color: #ffffff;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 750;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+
+.dog-skills-card__body {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.dog-skills-card__title {
+  color: var(--primary-dark);
+  font-size: 16px;
+  line-height: 1.18;
+  font-weight: 800;
+  text-wrap: balance;
+}
+
+.dog-skills-card__description {
+  color: #536579;
+  font-size: 12px;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.dog-skills-card__arrow {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(20, 84, 163, 0.1);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 7px 16px rgba(15, 45, 92, 0.09);
+}
+
+.dog-skills-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(15, 90, 70, 0.11);
+}
+
+.dog-skills-card:focus-visible {
+  outline: 3px solid rgba(20, 84, 163, 0.36);
+  outline-offset: 3px;
+}
+
+.dog-skills-detail__cover {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  position: relative;
+  overflow: hidden;
+  background: #dff6ee;
+  box-shadow: 0 16px 36px rgba(15, 90, 70, 0.14);
+}
+
+.dog-skills-detail__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dog-skills-detail__status {
+  right: 12px;
+  bottom: 12px;
+  padding: 7px 10px;
+  font-size: 11px;
+}
+
+.app-shell--dog-skills-detail .lesson-player-card__divider-dog {
+  background: rgba(48, 164, 133, 0.72);
+}
+
+.app-shell--dog-skills-detail .lesson-player-card__description {
+  border-color: rgba(55, 166, 136, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 253, 250, 0.96));
+}
+
+@media (max-width: 360px) {
+  .dog-skills-card {
+    grid-template-columns: clamp(104px, 31vw, 112px) minmax(0, 1fr) 36px;
+    gap: 10px;
+  }
+
+  .dog-skills-card__media-wrap,
+  .dog-skills-card__media {
+    width: clamp(104px, 31vw, 112px);
+  }
+
+  .dog-skills-card__arrow {
+    width: 36px;
+    height: 36px;
+  }
+
+  .dog-skills-card__title {
+    font-size: 15px;
+  }
+
+  .dog-skills-card__description {
+    font-size: 11.5px;
+  }
 }
 
 .filter-row {
@@ -2882,6 +3133,13 @@ img {
   background: linear-gradient(145deg, rgba(239, 247, 255, 0.98), rgba(231, 242, 255, 0.76));
 }
 
+.lesson-description__section--note.lesson-description__section--getting-started {
+  margin-inline: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .lesson-description__heading {
   margin: 0;
   display: flex;
@@ -2898,6 +3156,13 @@ img {
   min-width: 0;
 }
 
+.lesson-description__heading-emoji {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
 .lesson-description__paragraph,
 .lesson-description__step-content p,
 .lesson-description__callout p,
@@ -2907,6 +3172,17 @@ img {
 
 .lesson-description__paragraph {
   text-wrap: pretty;
+}
+
+.lesson-description__exercise-name {
+  margin: 0;
+  color: #496387;
+}
+
+.lesson-description__exercise-highlight,
+.lesson-description__exercise-name strong {
+  color: var(--primary-dark);
+  font-weight: 750;
 }
 
 .lesson-description__paragraph--lead {
@@ -3019,6 +3295,24 @@ img {
   color: #663942;
 }
 
+.lesson-description__mistake-content {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.lesson-description__mistake-content p {
+  margin: 0;
+  color: #5b6675;
+  font-size: 13px;
+  line-height: 1.48;
+}
+
+.lesson-description__mistake-correction strong {
+  color: #356b4c;
+  font-weight: 750;
+}
+
 .lesson-description__icon {
   width: 20px;
   height: 20px;
@@ -3046,10 +3340,7 @@ img {
   width: 22px;
   height: 22px;
   display: block;
-  background-color: currentColor;
-  color: #1c63ae;
-  -webkit-mask: url('/assets/icons/lightbulb.svg') center / contain no-repeat;
-  mask: url('/assets/icons/lightbulb.svg') center / contain no-repeat;
+  object-fit: contain;
 }
 
 .lesson-description__callout {
@@ -3078,6 +3369,13 @@ img {
   background: linear-gradient(145deg, #2a78c8, #1454a3);
   color: #ffffff;
   box-shadow: 0 8px 18px rgba(20, 84, 163, 0.22);
+}
+
+.lesson-description__callout-emoji {
+  width: 26px;
+  height: 26px;
+  display: block;
+  object-fit: contain;
 }
 
 .lesson-feedback-cta {
@@ -5172,21 +5470,266 @@ img {
   }
 }
 
-@media (max-width: 430px) {
-  .program-grid > .program-card--skills {
-    height: 168px;
-    min-height: 168px;
+@media (max-width: 485px) {
+  .program-card--skills {
+    height: clamp(150px, calc(124px + 8vw), 163px);
+    min-height: clamp(150px, calc(124px + 8vw), 163px);
+    max-height: 163px;
+    --skills-arrow-size: 38.8px;
   }
 
-  .program-grid > .program-card--skills .program-card__copy {
-    max-width: 58%;
+  .program-grid > .program-card--skills .program-card__media {
+    padding-bottom: clamp(8px, calc(5px + 0.8vw), 8.9px);
   }
 
   .program-grid > .program-card--skills .program-card__media img {
-    height: clamp(84px, calc(10.9vw + 49px), 96px);
-    max-width: 100%;
+    height: clamp(124px, calc(96.8px + 8.5vw), 138px);
   }
 
+  .program-grid > .program-card--skills .program-card__copy {
+    max-width: 48%;
+  }
+}
+
+.welcome-video-open {
+  overflow: hidden;
+}
+
+.welcome-video-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.44);
+  transition: opacity 230ms ease, visibility 230ms ease;
+}
+
+.welcome-video-modal--open {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.welcome-video-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.welcome-video-modal__sheet {
+  width: min(100%, 640px);
+  max-height: calc(100dvh - env(safe-area-inset-top));
+  padding: 10px 18px max(18px, env(safe-area-inset-bottom));
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 24px 24px 0 0;
+  background: #ffffff;
+  box-shadow: 0 -12px 40px rgba(8, 38, 87, 0.2);
+  transform: translateY(100%);
+  transition: transform 230ms cubic-bezier(0.22, 0.8, 0.25, 1);
+}
+
+.welcome-video-modal--open .welcome-video-modal__sheet {
+  transform: translateY(0);
+}
+
+.welcome-video-modal__handle {
+  width: 38px;
+  height: 4px;
+  margin: 0 auto 14px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #cbd3de;
+}
+
+.welcome-video-modal__header {
+  min-height: 42px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.welcome-video-modal__heading h2 {
+  margin: 0;
+  color: #082657;
+  font-size: 21px;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.welcome-video-modal__heading p {
+  margin: 4px 0 0;
+  color: #62758f;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.welcome-video-modal__close {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  flex: 0 0 38px;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #eaf3ff;
+  color: #082657;
+  cursor: pointer;
+}
+
+.welcome-video-modal__close span {
+  width: 14px;
+  height: 14px;
+  position: relative;
+}
+
+.welcome-video-modal__close span::before,
+.welcome-video-modal__close span::after {
+  content: '';
+  width: 18px;
+  height: 2px;
+  position: absolute;
+  top: 6px;
+  left: -2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.welcome-video-modal__close span::before {
+  transform: rotate(45deg);
+}
+
+.welcome-video-modal__close span::after {
+  transform: rotate(-45deg);
+}
+
+.welcome-video-modal__video {
+  width: 100%;
+  min-height: 150px;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #101722;
+  color: #ffffff;
+}
+
+.welcome-video-modal__unavailable {
+  max-width: 280px;
+  padding: 20px;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.welcome-video-modal__unavailable p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.welcome-video-modal__play-icon {
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 50%;
+  position: relative;
+  display: block;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.welcome-video-modal__play-icon::after {
+  content: '';
+  position: absolute;
+  top: 13px;
+  left: 18px;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-left: 13px solid #ffffff;
+}
+
+.welcome-video-modal__description {
+  margin: 14px 0;
+  color: #62758f;
+  font-size: 13px;
+  line-height: 1.48;
+}
+
+.welcome-video-modal__lessons {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #1c67b9;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.welcome-video-modal__arrow {
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.welcome-video-modal__close:focus-visible,
+.welcome-video-modal__lessons:focus-visible {
+  outline: 3px solid rgba(28, 103, 185, 0.42);
+  outline-offset: 3px;
+}
+
+@media (min-width: 640px) {
+  .welcome-video-modal {
+    padding: 24px;
+    align-items: center;
+  }
+
+  .welcome-video-modal__sheet {
+    max-height: min(90dvh, 760px);
+    border-radius: 22px;
+    transform: translateY(14px);
+  }
+
+  .welcome-video-modal--open .welcome-video-modal__sheet {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-video-modal,
+  .welcome-video-modal__sheet {
+    transition-duration: 1ms;
+  }
+}
+
+@media (max-width: 430px) {
   .program-card__body {
     width: 100%;
   }
@@ -5284,6 +5827,12 @@ img {
   .puppy-hero__image {
     width: min(100%, 156px);
     margin-right: -4px;
+  }
+
+  .puppy-hero__image--dog-skills {
+    width: clamp(168px, 52vw, 184px);
+    max-width: none;
+    margin-right: -20px;
   }
 
   .situation-card {
