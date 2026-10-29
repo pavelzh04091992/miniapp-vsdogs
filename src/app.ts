@@ -2386,10 +2386,20 @@ function createWelcomeVideoModalMarkup(): string {
             <span aria-hidden="true"></span>
           </button>
         </header>
-        <div class="welcome-video-modal__video" role="status">
-          <div class="welcome-video-modal__unavailable">
-            <p>Приветственное видео пока недоступно</p>
-          </div>
+        <div class="welcome-video-modal__video">
+          <video
+            data-welcome-video
+            data-welcome-video-src="/media/img-9038/video.mp4"
+            poster="/media/img-9038/poster.webp"
+            preload="metadata"
+            playsinline
+            webkit-playsinline
+            controls
+            controlslist="nodownload noremoteplayback"
+            disablepictureinpicture
+            disableremoteplayback
+            aria-label="Приветственное видео о школе"
+          ></video>
         </div>
         <button class="welcome-video-modal__lessons" type="button" data-welcome-video-close>
           <span>Перейти к урокам</span>

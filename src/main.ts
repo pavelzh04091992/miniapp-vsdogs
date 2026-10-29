@@ -1048,6 +1048,14 @@ function openWelcomeVideoModal(opener: HTMLButtonElement): void {
     return;
   }
 
+  const video = overlay.querySelector<HTMLVideoElement>('[data-welcome-video]');
+  const videoSource = video?.dataset.welcomeVideoSrc;
+
+  if (video && videoSource && !video.getAttribute('src')) {
+    video.src = videoSource;
+    video.load();
+  }
+
   welcomeVideoModalOpen = true;
   welcomeVideoOpener = opener;
   welcomeVideoScrollTop = window.scrollY;

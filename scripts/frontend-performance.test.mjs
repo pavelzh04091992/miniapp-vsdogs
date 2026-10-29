@@ -155,6 +155,21 @@ test('alternates catalog cards by visible position and keeps fitness endpoints a
   assert.match(appSource, /createAdultLargeTopicCard\(topic, index, 'rose'\)/);
 });
 
+test('connects the welcome video with its production media and restores it after closing', async () => {
+  const [appSource, mainSource, styles] = await Promise.all([
+    readFile(new URL('../src/app.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/main.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(appSource, /data-welcome-video-src="\/media\/img-9038\/video\.mp4"/u);
+  assert.match(appSource, /poster="\/media\/img-9038\/poster\.webp"/u);
+  assert.doesNotMatch(appSource, /Приветственное видео пока недоступно/u);
+  assert.match(mainSource, /video\.src = videoSource;[\s\S]*?video\.load\(\)/u);
+  assert.match(mainSource, /video\.removeAttribute\('src'\);[\s\S]*?video\.load\(\)/u);
+  assert.match(styles, /\.welcome-video-modal__video video\s*\{[\s\S]*?object-fit: contain/u);
+});
+
 test('keeps back navigation in the actual puppy or adult fitness branch', async () => {
   const [appSource, mainSource] = await Promise.all([
     readFile(new URL('../src/app.ts', import.meta.url), 'utf8'),
