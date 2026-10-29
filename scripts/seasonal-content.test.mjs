@@ -47,10 +47,12 @@ test('seasonal catalog contains four seasons and six unique autumn videos', asyn
   for (const video of videos.elements) {
     const id = getStringProperty(sourceFile, video, 'id');
     const mediaId = getStringProperty(sourceFile, video, 'mediaId');
+    const posterPath = getStringProperty(sourceFile, video, 'posterPath');
     const section = getStringProperty(sourceFile, video, 'section');
     const seasonsProperty = getProperty(sourceFile, video, 'seasons');
 
     assert.equal(mediaId, id);
+    assert.equal(posterPath, `/assets/covers/seasonal/${id}.webp`);
     assert.ok(section === 'walks' || section === 'tips');
     assert.ok(seasonsProperty && ts.isArrayLiteralExpression(seasonsProperty));
     assert.deepEqual(seasonsProperty.elements.map((season) => getStringValue(season)), ['autumn']);
@@ -139,9 +141,20 @@ test('seasonal cards show duration only on the preview badge', async () => {
 
   assert.match(cardSource, /seasonal-video-card__duration[^\n]+video\.duration/u);
   assert.match(cardSource, /seasonal-video-card__category[^\n]+video\.category/u);
+  assert.match(cardSource, /const posterPath = video\.posterPath/u);
   assert.doesNotMatch(cardSource, /seasonal-video-card__meta/u);
   assert.equal((cardSource.match(/video\.duration/gu) ?? []).length, 1);
   assert.equal((cardSource.match(/video\.category/gu) ?? []).length, 1);
+  assert.match(cardSource, /const featuredOverlayMarkup = variant === 'featured'/u);
+  assert.match(cardSource, /const listArrowMarkup = variant === 'list'/u);
+  const overlayStart = cardSource.indexOf('const featuredOverlayMarkup');
+  const arrowStart = cardSource.indexOf('const listArrowMarkup', overlayStart);
+  const featuredOverlaySource = cardSource.slice(overlayStart, arrowStart);
+  assert.match(featuredOverlaySource, /seasonal-video-card__poster-fallback/u);
+  assert.match(featuredOverlaySource, /seasonal-video-card__category/u);
+  assert.match(featuredOverlaySource, /seasonal-video-card__play/u);
+  assert.equal((cardSource.match(/<button\b/gu) ?? []).length, 1);
+  assert.match(cardSource, /const listArrowMarkup = variant === 'list'[\s\S]*?createArrowIconMarkup\('seasonal-video-card__arrow-icon'\)/u);
 });
 
 test('seasonal overview keeps bento cards while all-video routes use the horizontal list', async () => {
@@ -157,10 +170,21 @@ test('seasonal overview keeps bento cards while all-video routes use the horizon
   assert.doesNotMatch(appSource, /seasonal-list__grid/u);
   assert.match(css, /\.seasonal-bento\s*\{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/u);
   assert.match(css, /\.seasonal-video-list\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\);[\s\S]*?gap: 12px;/u);
-  assert.match(css, /\.seasonal-video-card--list\s*\{[\s\S]*?width: 100%;[\s\S]*?min-height: 104px;[\s\S]*?grid-template-columns: 120px minmax\(0, 1fr\);/u);
-  assert.match(css, /\.seasonal-video-card--list \.seasonal-video-card__media\s*\{[\s\S]*?width: 120px;[\s\S]*?min-height: 102px;/u);
-  assert.match(css, /\.seasonal-video-card--list \.seasonal-video-card__title\s*\{[\s\S]*?font-size: clamp\(14px, 1\.9vw, 15px\);[\s\S]*?font-weight: 700;/u);
+  assert.match(css, /\.seasonal-video-list\s*\{[\s\S]*?width: min\(100%, 720px\);[\s\S]*?padding: 8px 16px 16px;[\s\S]*?gap: 10px;/u);
+  assert.match(css, /\.seasonal-video-card--list\s*\{[\s\S]*?width: 100%;[\s\S]*?min-height: 100px;[\s\S]*?padding: 10px 12px;[\s\S]*?grid-template-columns: clamp\(128px, 18vw, 150px\) minmax\(0, 1fr\);/u);
+  assert.match(css, /\.seasonal-video-card--list \.seasonal-video-card__media\s*\{[\s\S]*?width: 100%;[\s\S]*?aspect-ratio: 16 \/ 9;/u);
+  assert.match(css, /\.seasonal-video-card--list \.seasonal-video-card__arrow\s*\{[\s\S]*?width: 36px;[\s\S]*?height: 36px;[\s\S]*?background: #f0f6ff/u);
+  assert.match(css, /\.seasonal-video-card--list \.seasonal-video-card__arrow-icon\s*\{[\s\S]*?stroke: #1c67b9/u);
+  assert.match(css, /\.seasonal-video-card--list \.seasonal-video-card__title\s*\{[\s\S]*?font-size: clamp\(14px, 1\.9vw, 15px\);[\s\S]*?line-height: 1\.3;[\s\S]*?font-weight: 700;/u);
+  assert.doesNotMatch(css, /\.seasonal-video-card--list \.seasonal-video-card__body\s*\{[^}]*min-height/u);
+  assert.match(css, /\.seasonal-video-card__poster\s*\{[\s\S]*?object-fit: contain;/u);
+  assert.match(css, /\.seasonal-video-card__poster-backdrop\s*\{[\s\S]*?filter: blur\(16px\)/u);
+  assert.match(css, /\.seasonal-video-card--compact \.seasonal-video-card__title\s*\{[\s\S]*?font-size: clamp\(14px, 1\.8vw, 15px\);[\s\S]*?line-height: 1\.3;[\s\S]*?font-weight: 700/u);
+  assert.match(css, /@media \(max-width: 479px\)[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/u);
   assert.match(css, /grid-template-columns: clamp\(96px, 31vw, 104px\) minmax\(0, 1fr\)/u);
+  assert.match(css, /\.seasonal-video-card--list:active\s*\{[\s\S]*?transform: scale\(0\.99\);[\s\S]*?border-color:/u);
+  assert.match(css, /@media \(min-width: 360px\) and \(max-width: 430px\)[\s\S]*?grid-template-columns: clamp\(112px, 32vw, 128px\)/u);
+  assert.match(css, /@media \(max-width: 359px\)[\s\S]*?seasonal-video-card--list \.seasonal-video-card__arrow\s*\{\s*display: none;/u);
   assert.doesNotMatch(css, /seasonal-list__grid/u);
   assert.doesNotMatch(css, /\.seasonal-video-card__title\s*\{[^}]*-webkit-line-clamp/gu);
 });

@@ -17,6 +17,11 @@ test('stores access, profiles, invitations and revocable sessions', () => {
     const admin = database.ensureAdmin('10001');
     assert.equal(admin.role, 'admin');
     assert.equal(admin.status, 'active');
+    assert.deepEqual(database.getUserSubscription('10001'), {
+      hasSubscription: true,
+      tariffId: 'admin',
+      tariffName: 'Администратор',
+    });
 
     database.ensureAdmin('10002');
     assert.equal(database.getUser('10001').role, 'user');

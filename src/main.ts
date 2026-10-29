@@ -60,6 +60,12 @@ let pendingVideoLibraryNavigationRender = false;
 let videoLibraryTransitionToken = 0;
 let videoLibraryNavigationQueue: VideoLibraryNavigationRequest[] = [];
 let videoLibraryCardAnimations: Animation[] = [];
+let videoLibraryProgressUpdateToken = 0;
+let videoLibrarySurpriseRunning = false;
+let videoLibrarySurpriseToken = 0;
+let videoLibrarySurpriseButton: HTMLButtonElement | null = null;
+let videoLibrarySurpriseSnapshot: HTMLElement | null = null;
+let videoLibrarySurpriseAnimations: Animation[] = [];
 let videoLibraryPendingCategory: VideoLibraryFilter | null = null;
 let videoLibraryCategoryTransitionToken = 0;
 let videoLibraryCategoryTransitionRunning = false;
@@ -106,6 +112,15 @@ const videoLibraryDurationPromises = new Map<string, Promise<string | null>>();
 const ASSET_PRELOAD_TIMEOUT_MS = 15_000;
 
 type PageTransitionDirection = 'forward' | 'back' | 'fade';
+type LessonProgramRoute = Extract<AppRoute, 'puppies' | 'adult-large' | 'dog-skills'>;
+type LessonProgramMenuVisualSelection = 'puppy' | 'adult' | 'skills';
+
+let lastMenuVisualSelection: LessonProgramMenuVisualSelection | null = null;
+let lessonProgramMenuOpen = false;
+let lessonProgramMenuClosing: Promise<void> | null = null;
+let lessonProgramMenuResizeObserver: ResizeObserver | null = null;
+let lessonProgramMenuInertElements: HTMLElement[] = [];
+let lessonNavBookFeedbackAnimation: Animation | null = null;
 
 if (webApp) {
   document.documentElement.dataset.launchContext = 'telegram';
@@ -121,6 +136,8 @@ setupFeedbackFlow(root, webApp);
 webApp?.BackButton?.onClick(() => {
   if (welcomeVideoModalOpen) {
     closeWelcomeVideoModal();
+  } else if (lessonProgramMenuOpen) {
+    closeLessonProgramMenu();
   }
 });
 window.addEventListener('hashchange', () => {
@@ -139,17 +156,32 @@ window.addEventListener('popstate', (event) => {
     return;
   }
 
+  if (lessonProgramMenuOpen) {
+    closeLessonProgramMenu();
+  }
+
   void syncRouteState();
 });
 window.addEventListener('resize', () => {
   updateBottomNavIndicatorPosition();
   schedulePlayerHeaderTitleFit();
+  updateLessonProgramMenuPosition();
 });
+webApp?.onEvent?.('viewportChanged', updateLessonProgramMenuPosition);
 
 document.addEventListener('keydown', (event) => {
   if (welcomeVideoModalOpen && event.key === 'Escape') {
     event.preventDefault();
     closeWelcomeVideoModal();
+    return;
+  }
+
+  if (
+    lessonProgramMenuOpen &&
+    (event.key === 'Escape' || (event.key === 'Backspace' && !isEditableElement(event.target)))
+  ) {
+    event.preventDefault();
+    closeLessonProgramMenu();
     return;
   }
 
@@ -198,6 +230,59 @@ document.addEventListener('click', (event) => {
   if (!(target instanceof Element)) {
     return;
   }
+
+  const lessonProgramChoice = target.closest<HTMLButtonElement>('[data-lesson-program]');
+  if (lessonProgramChoice) {
+    event.preventDefault();
+    const route = lessonProgramChoice.dataset.lessonProgram as LessonProgramRoute | undefined;
+    if (lessonProgramMenuOpen && route && isLessonProgramRoute(route)) {
+      chooseLessonProgram(route);
+    }
+    return;
+  }
+
+  const lessonsNavButton = target.closest<HTMLButtonElement>('[data-lessons-nav]');
+  if (lessonsNavButton) {
+    event.preventDefault();
+    const currentRoute = getCurrentRoute();
+
+    if (currentRoute === 'home') {
+      if (lessonProgramMenuClosing) return;
+      if (lessonProgramMenuOpen) {
+        if (target.closest('.bottom-nav__lessons-paw')) chooseLessonProgram('dog-skills');
+        else closeLessonProgramMenu();
+      } else {
+        openLessonProgramMenu(lessonsNavButton);
+      }
+      return;
+    }
+
+    animateLessonNavBook(lessonsNavButton);
+    return;
+  }
+
+  if (target.closest('[data-lesson-program-menu-backdrop]')) {
+    event.preventDefault();
+    closeLessonProgramMenu();
+    return;
+  }
+
+  if (
+    lessonProgramMenuOpen &&
+    !target.closest('#lesson-program-menu') &&
+    !target.closest('[data-lessons-nav]')
+  ) {
+    closeLessonProgramMenu();
+  }
+
+  const surpriseButton = target.closest<HTMLButtonElement>('[data-library-surprise]');
+  if (surpriseButton) {
+    if (surpriseButton.disabled || videoLibrarySurpriseRunning) return;
+    void runVideoLibrarySurprise();
+    return;
+  }
+
+  if (videoLibrarySurpriseRunning && target.closest('.video-library-screen')) return;
 
   const welcomeVideoOpenButton = target.closest<HTMLButtonElement>('[data-welcome-video-open]');
 
@@ -427,6 +512,7 @@ document.addEventListener('click', (event) => {
 document.addEventListener('input', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLInputElement) || !target.matches('[data-library-search]')) return;
+  if (videoLibrarySurpriseRunning) return;
   const selectionStart = target.selectionStart;
   videoLibraryState = { ...videoLibraryState, query: target.value, activeId: null, transitionFromId: null, transitionRetainedIds: [], transitionMode: 'none' };
   void render({ suppressCategoryIndicatorMotion: true }).then(() => {
@@ -437,6 +523,7 @@ document.addEventListener('input', (event) => {
 });
 
 document.addEventListener('pointerdown', (event) => {
+  if (videoLibrarySurpriseRunning) return;
   const wheel = (event.target as Element | null)?.closest<HTMLElement>('[data-library-wheel]');
   if (!wheel || event.button !== 0) return;
   suppressVideoLibraryClick = false;
@@ -452,7 +539,7 @@ document.addEventListener('pointerdown', (event) => {
 
 document.addEventListener('pointermove', (event) => {
   const start = videoLibraryPointerStart;
-  if (!start || start.pointerId !== event.pointerId || getCurrentRoute() !== 'video-library') return;
+  if (videoLibrarySurpriseRunning || !start || start.pointerId !== event.pointerId || getCurrentRoute() !== 'video-library') return;
   const deltaX = event.clientX - start.x;
   const deltaY = event.clientY - start.y;
   if (Math.abs(deltaX) < 5 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
@@ -464,7 +551,7 @@ document.addEventListener('pointermove', (event) => {
 document.addEventListener('pointerup', (event) => {
   const start = videoLibraryPointerStart;
   videoLibraryPointerStart = null;
-  if (!start || start.pointerId !== event.pointerId || getCurrentRoute() !== 'video-library') return;
+  if (videoLibrarySurpriseRunning || !start || start.pointerId !== event.pointerId || getCurrentRoute() !== 'video-library') return;
   const deltaX = event.clientX - start.x;
   const deltaY = event.clientY - start.y;
   if (!start.dragging || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) {
@@ -509,7 +596,7 @@ document.addEventListener('pointercancel', (event) => {
 
 document.addEventListener('wheel', (event) => {
   const target = event.target;
-  if (!(target instanceof Element) || getCurrentRoute() !== 'video-library') return;
+  if (videoLibrarySurpriseRunning || !(target instanceof Element) || getCurrentRoute() !== 'video-library') return;
   if (!target.closest('[data-library-wheel]') || isEditableElement(target)) return;
 
   const primaryDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY)
@@ -557,7 +644,7 @@ document.addEventListener('wheel', (event) => {
 }, { passive: false });
 
 document.addEventListener('keydown', (event) => {
-  if (getCurrentRoute() !== 'video-library' || isEditableElement(event.target)) return;
+  if (videoLibrarySurpriseRunning || getCurrentRoute() !== 'video-library' || isEditableElement(event.target)) return;
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
   const items = getVisibleVideoLibraryItems();
   const currentIndex = getVideoLibraryNavigationBaseIndex(items);
@@ -576,6 +663,11 @@ document.addEventListener(
     const poster = event.target;
 
     if (!(poster instanceof HTMLImageElement)) {
+      return;
+    }
+
+    if (poster.matches('[data-seasonal-backdrop]')) {
+      poster.hidden = true;
       return;
     }
 
@@ -732,6 +824,218 @@ async function switchSeason(nextSeason: SeasonId): Promise<void> {
 function waitForMilliseconds(duration: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, duration));
 }
+
+function isLessonProgramRoute(route: string): route is LessonProgramRoute {
+  return route === 'puppies' || route === 'adult-large' || route === 'dog-skills';
+}
+
+function animateLessonNavBook(button: HTMLButtonElement): void {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const book = button.querySelector<HTMLElement>('.bottom-nav__lessons-book');
+  if (!book) return;
+
+  lessonNavBookFeedbackAnimation?.cancel();
+  const animation = book.animate(
+    [
+      {
+        transform: 'translate(-50%, -50%) scale(1)',
+        offset: 0,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      },
+      {
+        transform: 'translate(-50%, -50%) scale(1.1)',
+        offset: 0.22,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+      },
+      {
+        transform: 'translate(-50%, -50%) scale(0.97)',
+        offset: 0.66,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      },
+      { transform: 'translate(-50%, -50%) scale(1)', offset: 1 },
+    ],
+    {
+      duration: 250,
+      easing: 'linear',
+    },
+  );
+
+  lessonNavBookFeedbackAnimation = animation;
+  animation.onfinish = () => {
+    if (lessonNavBookFeedbackAnimation === animation) lessonNavBookFeedbackAnimation = null;
+  };
+  animation.oncancel = () => {
+    if (lessonNavBookFeedbackAnimation === animation) lessonNavBookFeedbackAnimation = null;
+  };
+}
+
+function openLessonProgramMenu(trigger: HTMLButtonElement): void {
+  if (getCurrentRoute() !== 'home' || lessonProgramMenuOpen) return;
+
+  const nav = trigger.closest<HTMLElement>('.bottom-nav');
+  if (!nav) return;
+
+  lessonProgramMenuOpen = true;
+  lessonProgramMenuInertElements = Array.from(
+    root.querySelectorAll<HTMLElement>('.app-shell > .home-header, .app-shell > .screen-content'),
+  ).filter((element) => !element.inert);
+  lessonProgramMenuInertElements.forEach((element) => {
+    element.inert = true;
+  });
+  trigger.classList.add('bottom-nav__tab--lesson-program-menu-open');
+  trigger.classList.toggle(
+    'bottom-nav__tab--lesson-program-last-selected',
+    lastMenuVisualSelection === 'skills',
+  );
+  trigger.setAttribute('aria-expanded', 'true');
+  trigger.setAttribute('aria-controls', 'lesson-program-menu');
+  nav.classList.add('bottom-nav--lesson-program-menu-open');
+
+  const menu = document.createElement('div');
+  menu.id = 'lesson-program-menu';
+  menu.className = 'lesson-program-menu';
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('aria-label', 'Выберите программу обучения');
+  menu.innerHTML = `
+    <button class="lesson-program-menu__choice lesson-program-menu__choice--puppies" type="button" role="menuitem" data-lesson-program="puppies" aria-label="Щенки">
+      <img src="/assets/images/programs/program-menu-puppies.webp" alt="" aria-hidden="true" />
+    </button>
+    <button class="lesson-program-menu__choice lesson-program-menu__choice--adults" type="button" role="menuitem" data-lesson-program="adult-large" aria-label="Взрослые">
+      <img src="/assets/images/programs/program-menu-adults.webp" alt="" aria-hidden="true" />
+    </button>
+  `;
+  if (lastMenuVisualSelection === 'puppy' || lastMenuVisualSelection === 'adult') {
+    const visualChoiceRoute = lastMenuVisualSelection === 'puppy' ? 'puppies' : 'adult-large';
+    menu.querySelector(`[data-lesson-program="${visualChoiceRoute}"]`)
+      ?.classList.add('lesson-program-menu__choice--last-selected');
+  }
+
+  const backdrop = document.createElement('button');
+  backdrop.type = 'button';
+  backdrop.className = 'lesson-program-menu-backdrop';
+  backdrop.setAttribute('aria-label', 'Закрыть выбор программы');
+  backdrop.setAttribute('data-lesson-program-menu-backdrop', '');
+
+  root.append(backdrop, menu);
+  updateLessonProgramMenuPosition();
+
+  lessonProgramMenuResizeObserver = new ResizeObserver(updateLessonProgramMenuPosition);
+  lessonProgramMenuResizeObserver.observe(root);
+  lessonProgramMenuResizeObserver.observe(nav);
+  webApp?.BackButton?.show();
+}
+
+function chooseLessonProgram(route: LessonProgramRoute): void {
+  if (!lessonProgramMenuOpen || lessonProgramMenuClosing || getCurrentRoute() !== 'home') return;
+
+  lastMenuVisualSelection = route === 'puppies'
+    ? 'puppy'
+    : route === 'adult-large'
+      ? 'adult'
+      : 'skills';
+  const selectedChoice = root.querySelector<HTMLElement>(
+    `#lesson-program-menu [data-lesson-program="${route}"]`,
+  );
+  selectedChoice?.classList.add('lesson-program-menu__choice--selected');
+  root.querySelector('[data-lessons-nav]')
+    ?.classList.add('bottom-nav__tab--lesson-program-choice-selected');
+
+  void closeLessonProgramMenu({ quick: true }).then(() => {
+    if (getCurrentRoute() !== 'home') return;
+    pendingTransitionDirection = getRouteTransitionDirection('home', route);
+    navigateTo(route);
+  });
+}
+
+function closeLessonProgramMenu(options: { quick?: boolean } = {}): Promise<void> {
+  if (lessonProgramMenuClosing) return lessonProgramMenuClosing;
+
+  const menu = root.querySelector<HTMLElement>('#lesson-program-menu');
+  const backdrop = root.querySelector<HTMLButtonElement>('[data-lesson-program-menu-backdrop]');
+  if (!lessonProgramMenuOpen && !menu && !backdrop) return Promise.resolve();
+
+  if (!menu || !backdrop) {
+    finishLessonProgramMenuClose(menu, backdrop);
+    return Promise.resolve();
+  }
+
+  menu.classList.add(options.quick ? 'lesson-program-menu--closing-quick' : 'lesson-program-menu--closing');
+  backdrop.classList.add(options.quick ? 'lesson-program-menu-backdrop--closing-quick' : 'lesson-program-menu-backdrop--closing');
+  menu.querySelectorAll<HTMLButtonElement>('button').forEach((choice) => {
+    choice.disabled = true;
+  });
+
+  const nav = root.querySelector<HTMLElement>('.bottom-nav');
+  const trigger = nav?.querySelector<HTMLButtonElement>('[data-lessons-nav]');
+  trigger?.classList.add('bottom-nav__tab--lesson-program-menu-closing');
+  if (options.quick) trigger?.classList.add('bottom-nav__tab--lesson-program-menu-closing-quick');
+
+  const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? 90
+    : options.quick
+      ? 140
+      : 260;
+
+  lessonProgramMenuClosing = new Promise((resolve) => {
+    window.setTimeout(() => {
+      finishLessonProgramMenuClose(menu, backdrop);
+      lessonProgramMenuClosing = null;
+      resolve();
+    }, duration);
+  });
+
+  return lessonProgramMenuClosing;
+}
+
+function finishLessonProgramMenuClose(
+  menu: HTMLElement | null,
+  backdrop: HTMLElement | null,
+): void {
+  lessonProgramMenuOpen = false;
+  lessonProgramMenuResizeObserver?.disconnect();
+  lessonProgramMenuResizeObserver = null;
+  lessonProgramMenuInertElements.forEach((element) => {
+    if (element.isConnected) element.inert = false;
+  });
+  lessonProgramMenuInertElements = [];
+  menu?.remove();
+  backdrop?.remove();
+
+  const nav = root.querySelector<HTMLElement>('.bottom-nav');
+  const trigger = nav?.querySelector<HTMLButtonElement>('[data-lessons-nav]');
+  nav?.classList.remove('bottom-nav--lesson-program-menu-open');
+  trigger?.classList.remove('bottom-nav__tab--lesson-program-menu-open');
+  trigger?.classList.remove('bottom-nav__tab--lesson-program-menu-closing');
+  trigger?.classList.remove('bottom-nav__tab--lesson-program-menu-closing-quick');
+  trigger?.classList.remove('bottom-nav__tab--lesson-program-choice-selected');
+  trigger?.classList.remove('bottom-nav__tab--lesson-program-last-selected');
+  trigger?.removeAttribute('aria-controls');
+  trigger?.setAttribute('aria-expanded', 'false');
+  webApp?.BackButton?.hide();
+}
+
+function updateLessonProgramMenuPosition(): void {
+  if (!lessonProgramMenuOpen) return;
+
+  const menu = root.querySelector<HTMLElement>('#lesson-program-menu');
+  const backdrop = root.querySelector<HTMLElement>('[data-lesson-program-menu-backdrop]');
+  const nav = root.querySelector<HTMLElement>('.bottom-nav');
+  const icon = root.querySelector<HTMLElement>('[data-lessons-nav] .bottom-nav__icon--lessons');
+  if (!menu || !backdrop || !nav || !icon) return;
+
+  const appRect = root.getBoundingClientRect();
+  const iconRect = icon.getBoundingClientRect();
+  const anchorX = iconRect.left + iconRect.width / 2 - appRect.left;
+  const anchorY = iconRect.top + iconRect.height / 2 - appRect.top;
+  const buttonSize = 52;
+  const buttonGap = 12;
+  const menuHeight = buttonSize * 2 + buttonGap;
+
+  menu.style.left = `${anchorX - buttonSize / 2}px`;
+  menu.style.top = `${anchorY - buttonSize / 2 - buttonGap - menuHeight}px`;
+}
+
 function openWelcomeVideoModal(opener: HTMLButtonElement): void {
   if (welcomeVideoClosePromise) {
     void welcomeVideoClosePromise.then(() => openWelcomeVideoModal(opener));
@@ -742,6 +1046,14 @@ function openWelcomeVideoModal(opener: HTMLButtonElement): void {
 
   if (!overlay || welcomeVideoModalOpen) {
     return;
+  }
+
+  const video = overlay.querySelector<HTMLVideoElement>('[data-welcome-video]');
+  const videoSource = video?.dataset.welcomeVideoSrc;
+
+  if (video && videoSource && !video.getAttribute('src')) {
+    video.src = videoSource;
+    video.load();
   }
 
   welcomeVideoModalOpen = true;
@@ -850,6 +1162,12 @@ async function render(options: {
 } = {}): Promise<void> {
   const sequence = ++renderSequence;
   const route = getCurrentRoute();
+  if (lessonProgramMenuOpen || root.querySelector('#lesson-program-menu')) {
+    closeLessonProgramMenu();
+  }
+  if (videoLibrarySurpriseRunning && route !== 'video-library') {
+    cancelVideoLibrarySurprise();
+  }
   if (
     videoLibraryCategoryTransitionRunning &&
     (route !== 'video-library' || options.categoryTransitionToken !== videoLibraryCategoryTransitionToken)
@@ -1431,7 +1749,9 @@ function updatePageMarkup(markup: string, categoryTransitionHeight?: number): vo
     getCurrentRoute() === 'video-library' && videoLibraryState.transitionMode === 'card'
       ? reuseVideoLibraryCardNodes(currentContent, nextContent)
       : () => {};
-
+  const updateReusedVideoLibraryProgressFill = getCurrentRoute() === 'video-library'
+    ? reuseVideoLibraryProgressFill(currentContent, nextContent)
+    : () => {};
   prepareCategoryIncomingCarousel(nextContent);
   currentShell.className = nextShell.className;
   if (nextShell.dataset.seasonTheme) {
@@ -1442,6 +1762,7 @@ function updatePageMarkup(markup: string, categoryTransitionHeight?: number): vo
   currentHeader.replaceWith(nextHeader);
   currentContent.replaceWith(nextContent);
   updateReusedVideoLibraryCards();
+  updateReusedVideoLibraryProgressFill();
 
   const currentTabs = currentNav.querySelectorAll<HTMLElement>('.bottom-nav__tab');
   const nextTabs = nextNav.querySelectorAll<HTMLElement>('.bottom-nav__tab');
@@ -1452,6 +1773,49 @@ function updatePageMarkup(markup: string, categoryTransitionHeight?: number): vo
       nextTabs[index]?.classList.contains('bottom-nav__tab--active') ?? false,
     );
   });
+}
+
+function reuseVideoLibraryProgressFill(currentContent: HTMLElement, nextContent: HTMLElement): () => void {
+  const token = ++videoLibraryProgressUpdateToken;
+  const currentProgress = currentContent.querySelector<HTMLElement>('.video-library__carousel-progress');
+  const nextProgress = nextContent.querySelector<HTMLElement>('.video-library__carousel-progress');
+  if (!currentProgress || !nextProgress) return () => {};
+
+  const currentFill = currentContent.querySelector<HTMLElement>('[data-library-progress-fill]');
+  const nextFill = nextContent.querySelector<HTMLElement>('[data-library-progress-fill]');
+  const currentPosition = currentProgress.querySelector<HTMLElement>('.video-library__position');
+  const nextPosition = nextProgress.querySelector<HTMLElement>('.video-library__position');
+  const currentPositionParts = currentPosition?.querySelectorAll<HTMLElement>('span');
+  const nextPositionParts = nextPosition?.querySelectorAll<HTMLElement>('span');
+  const currentTrack = currentProgress.querySelector<HTMLElement>('.video-library__progress-track');
+  const nextTrack = nextProgress.querySelector<HTMLElement>('.video-library__progress-track');
+  if (
+    !currentFill || !nextFill || !currentPositionParts || !nextPositionParts ||
+    currentPositionParts.length !== nextPositionParts.length || !currentTrack || !nextTrack
+  ) {
+    return () => {};
+  }
+
+  const targetWidth = nextFill.style.width;
+  const startingWidth = window.getComputedStyle(currentFill).width;
+  currentPositionParts.forEach((part, index) => {
+    part.textContent = nextPositionParts[index]?.textContent ?? '';
+  });
+  for (const { name, value } of [...nextTrack.attributes]) {
+    currentTrack.setAttribute(name, value);
+  }
+  currentFill.style.transition = 'none';
+  currentFill.style.width = startingWidth;
+  void currentFill.offsetWidth;
+  nextProgress.replaceWith(currentProgress);
+
+  return () => {
+    requestAnimationFrame(() => {
+      if (token !== videoLibraryProgressUpdateToken || !currentFill.isConnected) return;
+      currentFill.style.transition = '';
+      currentFill.style.width = targetWidth;
+    });
+  };
 }
 
 function reuseVideoLibraryCardNodes(currentContent: HTMLElement, nextContent: HTMLElement): () => void {
@@ -1785,6 +2149,186 @@ function getVisibleVideoLibraryItems() {
   );
 }
 
+async function runVideoLibrarySurprise(): Promise<void> {
+  if (videoLibrarySurpriseRunning || videoLibraryCategoryTransitionRunning || getCurrentRoute() !== 'video-library') return;
+
+  const visibleItems = getVisibleVideoLibraryItems();
+  const availableItems = visibleItems.filter((item) => item.available);
+  if (availableItems.length === 0) return;
+
+  const currentId = videoLibraryTransitionRunning
+    ? videoLibraryTransitionTargetId
+    : videoLibraryState.activeId ?? videoLibraryDisplayedId;
+  const alternatives = availableItems.filter((item) => item.id !== currentId);
+  const choices = alternatives.length > 0 ? alternatives : availableItems;
+  const selected = choices[Math.floor(Math.random() * choices.length)];
+  if (!selected) return;
+
+  const startedAt = performance.now();
+  const token = ++videoLibrarySurpriseToken;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  videoLibrarySurpriseRunning = true;
+  videoLibrarySurpriseButton = root.querySelector<HTMLButtonElement>('[data-library-surprise]');
+  setVideoLibrarySurpriseButtonState(videoLibrarySurpriseButton, true);
+  videoLibrarySurpriseButton?.classList.add('is-pressing');
+
+  const pressDuration = reducedMotion ? 0 : 100;
+
+  try {
+    if (pressDuration > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, pressDuration));
+    if (token !== videoLibrarySurpriseToken || !videoLibrarySurpriseRunning) return;
+
+    const outgoingCarousel = root.querySelector<HTMLElement>('.video-library__carousel-content');
+    const outgoingSnapshot = !reducedMotion && outgoingCarousel
+      ? createVideoLibrarySurpriseSnapshot(outgoingCarousel)
+      : null;
+    if (outgoingSnapshot) {
+      videoLibrarySurpriseSnapshot = outgoingSnapshot;
+      document.body.append(outgoingSnapshot);
+    }
+
+    const activeWheel = root.querySelector<HTMLElement>('[data-library-wheel]');
+    activeWheel?.classList.remove('is-dragging');
+    activeWheel?.style.setProperty('--wheel-drag-x', '0px');
+    videoLibraryPointerStart = null;
+
+    if (videoLibraryTransitionRunning) {
+      cancelVideoLibraryNavigation();
+    }
+
+    videoLibraryState = {
+      ...videoLibraryState,
+      mode: 'wheel',
+      activeId: selected.id,
+      transitionFromId: null,
+      transitionRetainedIds: [],
+      transitionMode: 'none',
+    };
+    await render({ suppressCategoryIndicatorMotion: true });
+    if (token !== videoLibrarySurpriseToken || !videoLibrarySurpriseRunning) return;
+
+    const incomingButton = root.querySelector<HTMLButtonElement>('[data-library-surprise]');
+    videoLibrarySurpriseButton = incomingButton;
+    setVideoLibrarySurpriseButtonState(incomingButton, true);
+    incomingButton?.classList.add('is-picking');
+
+    const incomingCarousel = root.querySelector<HTMLElement>('.video-library__carousel-content');
+    if (incomingCarousel && outgoingSnapshot) {
+      const outgoingAnimation = outgoingSnapshot.animate(
+        [{ opacity: 1 }, { opacity: 0 }],
+        { duration: 200, easing: 'ease-in-out', fill: 'both' },
+      );
+      const incomingAnimation = incomingCarousel.animate(
+        [{ opacity: 0 }, { opacity: 1 }],
+        { duration: 200, easing: 'ease-in-out', fill: 'both' },
+      );
+      videoLibrarySurpriseAnimations = [outgoingAnimation, incomingAnimation];
+      await Promise.all(videoLibrarySurpriseAnimations.map((animation) => animation.finished.catch(() => undefined)));
+      if (token !== videoLibrarySurpriseToken || !videoLibrarySurpriseRunning) return;
+      clearVideoLibrarySurpriseTransition();
+    }
+
+    const animationDuration = reducedMotion ? 0 : 700;
+    const remaining = Math.max(0, animationDuration - (performance.now() - startedAt));
+    if (remaining > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
+  } finally {
+    if (token === videoLibrarySurpriseToken) finishVideoLibrarySurprise(token);
+  }
+}
+
+function createVideoLibrarySurpriseSnapshot(carousel: HTMLElement): HTMLElement | null {
+  const rect = carousel.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+
+  const snapshot = carousel.cloneNode(true) as HTMLElement;
+  const carouselStyle = window.getComputedStyle(carousel);
+  snapshot.classList.remove(
+    'video-library__carousel-content--category-switching',
+    'video-library__carousel-content--incoming',
+    'video-library__carousel-content--outgoing',
+    'video-library__carousel-content--surprise-outgoing',
+  );
+  snapshot.setAttribute('aria-hidden', 'true');
+  snapshot.inert = true;
+  snapshot.style.position = 'fixed';
+  snapshot.style.inset = 'auto';
+  snapshot.style.left = `${rect.left}px`;
+  snapshot.style.top = `${rect.top}px`;
+  snapshot.style.width = `${rect.width}px`;
+  snapshot.style.height = `${rect.height}px`;
+  snapshot.style.margin = '0';
+  snapshot.style.zIndex = '1000';
+  snapshot.style.pointerEvents = 'none';
+  snapshot.style.overflow = 'visible';
+  snapshot.style.opacity = '1';
+  snapshot.style.setProperty('view-transition-name', 'none');
+
+  for (const property of ['--video-library-card-width', '--video-library-card-height']) {
+    const value = carouselStyle.getPropertyValue(property).trim();
+    if (value) snapshot.style.setProperty(property, value);
+  }
+
+  const cardFrames = new Map(
+    [...carousel.querySelectorAll<HTMLElement>('.video-library-card[data-library-id]')].map((card) => {
+      const frame = window.getComputedStyle(card);
+      return [card.dataset.libraryId ?? '', {
+        transform: frame.transform,
+        translate: frame.translate,
+        opacity: frame.opacity,
+        zIndex: frame.zIndex,
+      }] as const;
+    }),
+  );
+  snapshot.querySelectorAll<HTMLElement>('.video-library-card[data-library-id]').forEach((card) => {
+    const frame = cardFrames.get(card.dataset.libraryId ?? '');
+    if (!frame) return;
+    card.style.transform = frame.transform;
+    card.style.setProperty('translate', frame.translate);
+    card.style.opacity = frame.opacity;
+    card.style.zIndex = frame.zIndex;
+    card.style.setProperty('view-transition-name', 'none');
+  });
+  snapshot.querySelectorAll<HTMLElement>('*').forEach((element) => {
+    element.style.setProperty('view-transition-name', 'none');
+  });
+
+  return snapshot;
+}
+
+function clearVideoLibrarySurpriseTransition(): void {
+  videoLibrarySurpriseAnimations.forEach((animation) => animation.cancel());
+  videoLibrarySurpriseAnimations = [];
+  videoLibrarySurpriseSnapshot?.remove();
+  videoLibrarySurpriseSnapshot = null;
+}
+
+function setVideoLibrarySurpriseButtonState(button: HTMLButtonElement | null, locked: boolean): void {
+  if (!button) return;
+  const hasAvailableVideos = getVisibleVideoLibraryItems().some((item) => item.available);
+  button.disabled = locked || !hasAvailableVideos;
+  button.setAttribute('aria-disabled', String(button.disabled));
+  if (locked) button.setAttribute('aria-busy', 'true');
+  else button.removeAttribute('aria-busy');
+}
+
+function finishVideoLibrarySurprise(token: number): void {
+  if (token !== videoLibrarySurpriseToken) return;
+  clearVideoLibrarySurpriseTransition();
+  videoLibrarySurpriseRunning = false;
+  videoLibrarySurpriseButton?.classList.remove('is-pressing', 'is-picking');
+  const button = root.querySelector<HTMLButtonElement>('[data-library-surprise]');
+  setVideoLibrarySurpriseButtonState(button, false);
+  videoLibrarySurpriseButton = null;
+}
+
+function cancelVideoLibrarySurprise(): void {
+  videoLibrarySurpriseToken += 1;
+  clearVideoLibrarySurpriseTransition();
+  videoLibrarySurpriseRunning = false;
+  videoLibrarySurpriseButton?.classList.remove('is-pressing', 'is-picking');
+  videoLibrarySurpriseButton = null;
+}
+
 async function transitionVideoLibraryCategory(category: VideoLibraryFilter): Promise<void> {
   if (category === videoLibraryPendingCategory) return;
 
@@ -1802,12 +2346,13 @@ async function transitionVideoLibraryCategory(category: VideoLibraryFilter): Pro
     ?.scrollLeft ?? 0;
 
   const categoryButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-library-category]')];
+  pendingVideoLibraryCategoryIndicatorStart = getVideoLibraryCategoryIndicatorPosition();
   categoryButtons.forEach((button) => {
     const active = button.dataset.libraryCategory === category;
     button.classList.toggle('is-active', active);
     button.setAttribute('aria-pressed', String(active));
   });
-  updateVideoLibraryCategoryIndicator(false);
+  updateVideoLibraryCategoryIndicator();
   cancelVideoLibraryNavigation();
   videoLibraryState = {
     ...videoLibraryState,
@@ -1829,7 +2374,8 @@ async function transitionVideoLibraryCategory(category: VideoLibraryFilter): Pro
     videoLibraryState = { ...videoLibraryState, category, activeId };
     videoLibraryPendingCategory = null;
     videoLibraryCategoryTransitionRunning = false;
-    await render({ suppressCategoryIndicatorMotion: true, categoryTransitionToken: token });
+    pendingVideoLibraryCategoryIndicatorStart = getVideoLibraryCategoryIndicatorPosition() ?? pendingVideoLibraryCategoryIndicatorStart;
+    await render({ categoryTransitionToken: token });
     return;
   }
 
@@ -1840,8 +2386,8 @@ async function transitionVideoLibraryCategory(category: VideoLibraryFilter): Pro
   if (token !== videoLibraryCategoryTransitionToken) return;
 
   videoLibraryState = { ...videoLibraryState, category, activeId };
+  pendingVideoLibraryCategoryIndicatorStart = getVideoLibraryCategoryIndicatorPosition() ?? pendingVideoLibraryCategoryIndicatorStart;
   await render({
-    suppressCategoryIndicatorMotion: true,
     categoryTransitionToken: token,
     categoryTransitionHeight: retainedHeight,
   });
@@ -2131,6 +2677,18 @@ function pruneVideoLibraryTransitionCards(): void {
   root.querySelectorAll<HTMLButtonElement>('.video-library-card[data-library-id]').forEach((card) => {
     if (!retainedIds.has(card.dataset.libraryId ?? '')) card.remove();
   });
+}
+
+function getVideoLibraryCategoryIndicatorPosition(): { x: number; width: number } | null {
+  const categories = root.querySelector<HTMLElement>('[data-library-categories]');
+  const indicator = categories?.querySelector<HTMLElement>('[data-library-category-indicator]');
+  if (!categories || !indicator) return null;
+  const categoriesRect = categories.getBoundingClientRect();
+  const indicatorRect = indicator.getBoundingClientRect();
+  return {
+    x: indicatorRect.left - categoriesRect.left + categories.scrollLeft,
+    width: indicatorRect.width,
+  };
 }
 
 function updateVideoLibraryCategoryIndicator(animate = true): void {

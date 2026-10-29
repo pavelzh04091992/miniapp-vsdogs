@@ -145,6 +145,13 @@ function getCacheControl(filePath) {
     return 'private, max-age=31536000, immutable';
   }
 
+  if (
+    filePath.includes(`${sep}assets${sep}`) &&
+    /\.(?:avif|gif|jpe?g|png|svg|webp)$/iu.test(filePath)
+  ) {
+    return 'private, max-age=86400';
+  }
+
   if (filePath.includes(`${sep}assets${sep}`) || filePath.includes(`${sep}private${sep}`)) {
     return 'private, no-cache';
   }
