@@ -142,9 +142,21 @@ test('Telegram Bot: Полный клиентский сценарий онбо�
     // Проверяем кнопки в меню
     const keyboard = sentMessages[0].reply_markup.keyboard;
     assert.equal(keyboard[0][0].text, '🐶 Открыть видеоплатформу');
-    assert.equal(keyboard[0][0].web_app.url, 'https://miniapp-vsdogs.ru');
     assert.equal(keyboard[1][0].text, '🌐 Смотреть с компьютера');
     assert.equal(keyboard[1][1].text, '💳 Моя подписка');
+
+    // Проверяем нажатие на кнопку "Открыть видеоплатформу"
+    sentMessages.length = 0;
+    await bot.handleUpdate({
+      message: {
+        chat: { id: 1001, type: 'private' },
+        from: { id: 1001, first_name: 'Ольга', username: 'olga_dog' },
+        text: '🐶 Открыть видеоплатформу',
+      },
+    });
+    assert.equal(sentMessages.length, 1);
+    assert.ok(sentMessages[0].reply_markup.inline_keyboard);
+    assert.equal(sentMessages[0].reply_markup.inline_keyboard[0][0].web_app.url, 'https://miniapp-vsdogs.ru');
 
     // Проверяем запись в БД
     const userInDb = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get('1001');

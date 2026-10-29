@@ -280,21 +280,11 @@ export function createTelegramBot(options) {
    * Структура главного Reply-меню (всегда видно под строкой ввода)
    */
   function mainReplyKeyboard() {
-    const keyboard = [];
-
-    if (miniAppUrl) {
-      keyboard.push([
-        { text: APP_BUTTON_TEXT, web_app: { url: miniAppUrl } },
-      ]);
-    }
-
-    keyboard.push([
-      { text: BROWSER_BUTTON_TEXT },
-      { text: SUBSCRIPTION_BUTTON_TEXT },
-    ]);
-
     return {
-      keyboard,
+      keyboard: [
+        [{ text: APP_BUTTON_TEXT }],
+        [{ text: BROWSER_BUTTON_TEXT }, { text: SUBSCRIPTION_BUTTON_TEXT }],
+      ],
       resize_keyboard: true,
     };
   }
@@ -310,11 +300,12 @@ export function createTelegramBot(options) {
 
     await api.sendMessage(
       chatId,
-      'Нажмите на кнопку ниже, чтобы открыть видеоплатформу внутри Telegram:',
+      '🐶 <b>Обучающая видеоплатформа «Высшей школы собак»</b>\n\nНажмите на кнопку ниже для перехода к видеоурокам:',
       {
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🚀 Открыть PuppyApp 🐶', web_app: { url: miniAppUrl } }],
+            [{ text: '🚀 Открыть видеоплатформу 🐶', web_app: { url: miniAppUrl } }],
           ],
         },
       },
