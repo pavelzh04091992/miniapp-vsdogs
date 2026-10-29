@@ -6,6 +6,9 @@ export interface AuthenticatedUser {
   firstName: string | null;
   lastName: string | null;
   accessExpiresAt: number | null;
+  hasSubscription?: boolean;
+  tariffId?: string;
+  tariffName?: string;
 }
 
 export type AppAccessResult =

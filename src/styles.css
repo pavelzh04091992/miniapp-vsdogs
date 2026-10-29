@@ -2900,6 +2900,16 @@ img {
   opacity: 1;
 }
 
+.lesson-player--restricted .lesson-player__status {
+  pointer-events: auto;
+  cursor: pointer;
+  background: rgba(10, 25, 45, 0.9);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  padding: 10px 18px;
+  font-size: 14px;
+  letter-spacing: 0.2px;
+}
+
 .lesson-player__spinner {
   width: 16px;
   height: 16px;
@@ -4040,6 +4050,50 @@ img {
   font-size: 14px;
   font-weight: 750;
   cursor: pointer;
+}
+
+.feedback-paywall {
+  display: grid;
+  gap: 16px;
+  text-align: center;
+}
+
+.feedback-paywall__card {
+  padding: 16px;
+  border: 1px solid rgba(20, 84, 163, 0.1);
+  border-radius: 18px;
+  background: #f4f8fc;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.feedback-paywall__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #283b53;
+}
+
+.feedback-paywall__icon {
+  font-size: 18px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.feedback-paywall__hint {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #eaf4ff;
+  border: 1px solid rgba(20, 84, 163, 0.12);
+  color: #1454a3;
+  font-size: 13.5px;
+  line-height: 1.45;
+  font-weight: 500;
+  text-align: center;
 }
 
 .feedback-confirm {

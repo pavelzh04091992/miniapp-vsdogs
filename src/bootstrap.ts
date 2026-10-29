@@ -71,6 +71,9 @@ async function initializeApp(): Promise<void> {
   }
 
   document.documentElement.dataset.userRole = access.user.role;
+  document.documentElement.dataset.hasSubscription = String(Boolean(access.user.hasSubscription));
+  document.documentElement.dataset.tariffId = access.user.tariffId || 'free';
+  document.documentElement.dataset.tariffName = access.user.tariffName || 'Базовый (Free)';
 
   try {
     renderLoading('Загружаем приложение');

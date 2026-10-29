@@ -39,6 +39,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   rate_limited: 'Вы уже отправили несколько вопросов. Попробуйте снова через 10 минут.',
   not_authenticated: 'Сессия истекла. Перезапустите приложение и повторите отправку.',
   telegram_delivery_failed: 'Не удалось доставить вопрос. Проверьте соединение и попробуйте ещё раз.',
+  subscription_required: 'Чат с кинологом доступен по платной подписке. Обратитесь к менеджеру школы.',
 };
 
 export function setupFeedbackFlow(root: HTMLElement, webApp: TelegramWebApp | null): () => void {
@@ -132,13 +133,19 @@ export function setupFeedbackFlow(root: HTMLElement, webApp: TelegramWebApp | nu
       lessonTitle: trigger.dataset.feedbackLessonTitle,
     };
     opener = trigger;
+    const hasSubscription = document.documentElement.dataset.hasSubscription === 'true';
+
     overlay = document.createElement('div');
     overlay.className = 'feedback-overlay';
-    overlay.innerHTML = createFormMarkup();
+    overlay.innerHTML = hasSubscription ? createFormMarkup() : createPaywallMarkup();
     document.body.append(overlay);
     document.documentElement.classList.add('feedback-open');
     detachViewportSync = attachViewportSync(overlay);
-    bindFormEvents();
+    if (hasSubscription) {
+      bindFormEvents();
+    } else {
+      bindPaywallEvents();
+    }
     armHistory();
     window.requestAnimationFrame(() => {
       overlay?.classList.add('feedback-overlay--visible');
@@ -164,6 +171,12 @@ export function setupFeedbackFlow(root: HTMLElement, webApp: TelegramWebApp | nu
     form?.addEventListener('submit', (event) => {
       event.preventDefault();
       void submitFeedback();
+    });
+  };
+
+  const bindPaywallEvents = (): void => {
+    overlay?.querySelectorAll<HTMLElement>('[data-feedback-close]').forEach((element) => {
+      element.addEventListener('click', requestClose);
     });
   };
 
@@ -461,6 +474,49 @@ function createFormMarkup(): string {
   return `
     <section class="feedback-sheet" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
       ${createFormContentMarkup()}
+    </section>
+  `;
+}
+
+function createPaywallMarkup(): string {
+  return `
+    <section class="feedback-sheet feedback-sheet--paywall" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+      <div class="feedback-sheet__chrome">
+        <div class="feedback-sheet__handle" aria-hidden="true"></div>
+        <button class="feedback-sheet__close" type="button" data-feedback-close aria-label="Закрыть">×</button>
+      </div>
+      <div class="feedback-sheet__scroll" data-feedback-scroll>
+        <div class="feedback-sheet__visual" aria-hidden="true">
+          <img class="feedback-sheet__hero" src="/assets/feedback/feedback-main.svg" alt="" />
+        </div>
+        <div class="feedback-sheet__body feedback-paywall">
+          <h2 id="feedback-title" tabindex="-1">Чат с кинологом 🔒</h2>
+          <p class="feedback-sheet__intro">Консультации кинолога и персональные разборы видео доступны только на платном тарифе.</p>
+          
+          <div class="feedback-paywall__card">
+            <div class="feedback-paywall__item">
+              <span class="feedback-paywall__icon" aria-hidden="true">💬</span>
+              <span><strong>Ответы на вопросы</strong> по воспитанию и поведению вашего щенка</span>
+            </div>
+            <div class="feedback-paywall__item">
+              <span class="feedback-paywall__icon" aria-hidden="true">📹</span>
+              <span><strong>Разбор видео тренировок</strong> от профессионального кинолога</span>
+            </div>
+            <div class="feedback-paywall__item">
+              <span class="feedback-paywall__icon" aria-hidden="true">⭐</span>
+              <span><strong>Персональные советы</strong> и поддержка на всех этапах обучения</span>
+            </div>
+          </div>
+
+          <div class="feedback-paywall__hint">
+            Для оформления или продления подписки обратитесь к вашему менеджеру школы в Telegram.
+          </div>
+
+          <button class="feedback-submit" type="button" data-feedback-close>
+            <span>Понятно</span>
+          </button>
+        </div>
+      </div>
     </section>
   `;
 }

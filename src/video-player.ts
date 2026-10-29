@@ -1,4 +1,5 @@
 import type Hls from 'hls.js';
+import { getTelegramWebApp } from './lib/telegram';
 
 type PlaybackMode = 'hls-js' | 'hls-native' | 'mp4';
 
@@ -68,16 +69,25 @@ export function setupLessonVideoPlayer(): (() => void) | null {
     }
   };
 
-  const showError = (): void => {
+  const showError = (customText?: string): void => {
     setLoading(false);
     player.classList.add('lesson-player--error');
+
+    const hasSubscription = document.documentElement.dataset.hasSubscription === 'true';
+    if (!hasSubscription) {
+      player.classList.add('lesson-player--restricted');
+    }
 
     if (status) {
       status.hidden = false;
     }
 
     if (statusText) {
-      statusText.textContent = 'Видео пока недоступно';
+      if (customText) {
+        statusText.textContent = customText;
+      } else {
+        statusText.textContent = hasSubscription ? 'Видео временно недоступно' : '🔒 Доступно по подписке';
+      }
     }
   };
 
@@ -120,6 +130,12 @@ export function setupLessonVideoPlayer(): (() => void) | null {
   };
 
   const loadSource = async (): Promise<void> => {
+    const hasSubscription = document.documentElement.dataset.hasSubscription === 'true';
+    if (!hasSubscription) {
+      showError('🔒 Доступно по подписке');
+      return;
+    }
+
     setLoading(true);
     player.classList.remove('lesson-player--error');
 
@@ -243,6 +259,20 @@ export function setupLessonVideoPlayer(): (() => void) | null {
   };
 
   const togglePlayback = async (): Promise<void> => {
+    const hasSubscription = document.documentElement.dataset.hasSubscription === 'true';
+    if (!hasSubscription) {
+      showError('🔒 Доступно по подписке');
+      const webApp = getTelegramWebApp();
+      webApp?.HapticFeedback?.impactOccurred('medium');
+      const notice = 'Видеоуроки доступны по платной подписке 🔒\n\nДля подключения тарифа или продления доступа обратитесь к менеджеру школы.';
+      if (webApp?.showAlert) {
+        webApp.showAlert(notice);
+      } else {
+        window.alert(notice);
+      }
+      return;
+    }
+
     if (video.paused || video.ended) {
       if (video.ended) {
         video.currentTime = 0;
