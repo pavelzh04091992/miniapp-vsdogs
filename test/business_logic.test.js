@@ -86,10 +86,16 @@ test('Проверка бизнес-логики: выдача лицензии 
     `).run(dynamicTgId3);
     const tempUserId = insUser.lastInsertRowid;
 
-    db.prepare(`
+    const insLic = db.prepare(`
       INSERT INTO licenses (user_id, tariff_id, status)
       VALUES (?, 'paid_1m', 'active')
     `).run(tempUserId);
+    const tempLicId = insLic.lastInsertRowid;
+
+    db.prepare(`
+      INSERT INTO payments (user_id, license_id, amount, tariff_id)
+      VALUES (?, ?, 1990, 'paid_1m')
+    `).run(tempUserId, tempLicId);
 
     db.prepare(`
       INSERT INTO user_notes (user_id, author_admin_id, author_name, note_text)

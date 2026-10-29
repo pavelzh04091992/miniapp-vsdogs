@@ -516,18 +516,23 @@ router.post('/:id/delete', requireAuth, requireRole(['MANAGER']), (req, res) => 
 
   // Каскадное удаление данных клиента
   try {
-    db.prepare('DELETE FROM licenses WHERE user_id = ?').run(userId);
+    db.exec('PRAGMA foreign_keys = OFF;');
+
+    // 1. Платежи и подписки (payments ссылаются на licenses)
     db.prepare('DELETE FROM payments WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM licenses WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM subscription_requests WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM trainer_tickets WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM user_notes WHERE user_id = ?').run(userId);
 
-    // Удаляем связанные сессии и состояния по telegram_id
+    // 2. Удаляем связанные сессии, ссылки и состояния по telegram_id
     if (user.telegram_id) {
       const tgStr = String(user.telegram_id);
+      try { db.prepare('DELETE FROM subscription_notifications WHERE telegram_id = ?').run(tgStr); } catch {}
       try { db.prepare('DELETE FROM sessions WHERE telegram_id = ?').run(tgStr); } catch {}
       try { db.prepare('DELETE FROM magic_links WHERE telegram_id = ?').run(tgStr); } catch {}
-      try { db.prepare('DELETE FROM invites WHERE invited_telegram_id = ?').run(tgStr); } catch {}
-      try { db.prepare('DELETE FROM bot_messages WHERE telegram_id = ?').run(tgStr); } catch {}
+      try { db.prepare('DELETE FROM invites WHERE target_telegram_id = ?').run(tgStr); } catch {}
+      try { db.prepare('DELETE FROM bot_messages WHERE chat_id = ?').run(tgStr); } catch {}
       try { db.prepare('DELETE FROM bot_states WHERE telegram_id = ?').run(tgStr); } catch {}
     }
 
@@ -537,6 +542,10 @@ router.post('/:id/delete', requireAuth, requireRole(['MANAGER']), (req, res) => 
     logAudit(req.admin.id, req.admin.full_name, 'DELETE_USER', userId, `Удален клиент: ${clientDesc.trim()}`, req.ip);
   } catch (err) {
     console.error('Ошибка при удалении клиента:', err);
+  } finally {
+    try {
+      db.exec('PRAGMA foreign_keys = ON;');
+    } catch {}
   }
 
   res.redirect('/admin/users');
