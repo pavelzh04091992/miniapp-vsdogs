@@ -613,6 +613,13 @@ function handleLogout(request, response) {
   });
 }
 
+const FREE_MEDIA_IDS = new Set(['img-9038']);
+
+function isFreeMediaUri(uri) {
+  const match = /^\/media\/([^/]+)/i.exec(uri);
+  return match ? FREE_MEDIA_IDS.has(match[1].toLowerCase()) : false;
+}
+
 function handleMediaAuth(request, response) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET, HEAD' });
@@ -627,8 +634,9 @@ function handleMediaAuth(request, response) {
 
   const originalUri = request.headers['x-original-uri'] || '';
   const isPreviewAsset = /\.(?:webp|jpe?g|png|svg)$/i.test(originalUri);
+  const isFreeMedia = isFreeMediaUri(originalUri);
 
-  if (!isPreviewAsset) {
+  if (!isPreviewAsset && !isFreeMedia) {
     const sub = authDatabase.getUserSubscription(user.telegramId);
     if (!sub.hasSubscription) {
       respondJson(response, 403, { ok: false, error: 'subscription_required' });
