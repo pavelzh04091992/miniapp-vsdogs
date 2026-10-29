@@ -47,10 +47,12 @@ test('seasonal catalog contains four seasons and six unique autumn videos', asyn
   for (const video of videos.elements) {
     const id = getStringProperty(sourceFile, video, 'id');
     const mediaId = getStringProperty(sourceFile, video, 'mediaId');
+    const posterPath = getStringProperty(sourceFile, video, 'posterPath');
     const section = getStringProperty(sourceFile, video, 'section');
     const seasonsProperty = getProperty(sourceFile, video, 'seasons');
 
     assert.equal(mediaId, id);
+    assert.equal(posterPath, `/assets/covers/seasonal/${id}.webp`);
     assert.ok(section === 'walks' || section === 'tips');
     assert.ok(seasonsProperty && ts.isArrayLiteralExpression(seasonsProperty));
     assert.deepEqual(seasonsProperty.elements.map((season) => getStringValue(season)), ['autumn']);
@@ -139,6 +141,7 @@ test('seasonal cards show duration only on the preview badge', async () => {
 
   assert.match(cardSource, /seasonal-video-card__duration[^\n]+video\.duration/u);
   assert.match(cardSource, /seasonal-video-card__category[^\n]+video\.category/u);
+  assert.match(cardSource, /const posterPath = video\.posterPath/u);
   assert.doesNotMatch(cardSource, /seasonal-video-card__meta/u);
   assert.equal((cardSource.match(/video\.duration/gu) ?? []).length, 1);
   assert.equal((cardSource.match(/video\.category/gu) ?? []).length, 1);

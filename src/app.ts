@@ -2742,7 +2742,7 @@ function createSeasonalVideoCardMarkup(
 ): string {
   const route: AppRoute = `lesson-video:${video.id}`;
   const variantClass = `seasonal-video-card--${variant}`;
-  const posterPath = `/media/${encodeURIComponent(video.mediaId)}/poster.webp`;
+  const posterPath = video.posterPath;
   const featuredOverlayMarkup = variant === 'featured'
     ? `
         <span class="seasonal-video-card__poster-fallback" aria-hidden="true">
@@ -2769,14 +2769,14 @@ function createSeasonalVideoCardMarkup(
       <span class="seasonal-video-card__media">
         <img
           class="seasonal-video-card__poster-backdrop"
-          src="${posterPath}"
+          src="${escapeHtml(posterPath)}"
           alt=""
           aria-hidden="true"
           data-seasonal-backdrop
         />
         <img
           class="seasonal-video-card__poster"
-          src="${posterPath}"
+          src="${escapeHtml(posterPath)}"
           alt=""
           data-seasonal-poster
         />
