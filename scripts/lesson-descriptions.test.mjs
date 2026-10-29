@@ -175,6 +175,26 @@ test('orders useful cards as trainer, seasonal, complex and fitness', async () =
   assert.deepEqual([...positions].sort((left, right) => left - right), positions);
 });
 
+test('maps the shared car video to both puppy and adult lessons', async () => {
+  const catalog = await readJson('../src/local-video-catalog.json');
+  const carMappings = catalog.cardMedia
+    .filter(({ topicSlug }) => topicSlug === 'fears-cars' || topicSlug === 'adult-large-cars')
+    .map(({ topicSlug, lessonTitle, mediaId }) => ({ topicSlug, lessonTitle, mediaId }));
+
+  assert.deepEqual(carMappings, [
+    {
+      topicSlug: 'fears-cars',
+      lessonTitle: 'Приучаем постепенно к машине',
+      mediaId: 'cars-20261016',
+    },
+    {
+      topicSlug: 'adult-large-cars',
+      lessonTitle: 'Приучаем постепенно к машине',
+      mediaId: 'cars-20261016',
+    },
+  ]);
+});
+
 function isDescriptionHeading(line) {
   const normalizedLine = line
     .replace(/^(?:🔹|⚠️|💡)\s*/u, '')
