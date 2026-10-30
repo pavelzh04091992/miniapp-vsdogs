@@ -492,7 +492,7 @@ export async function startTicketBotPoller({ botToken = TICKET_BOT_TOKEN, custom
 
   // Удаляем webhook у служебного бота, если он был установлен
   try {
-    await callApi(botToken, 'deleteWebhook', { drop_pending_updates: false });
+    await callTelegramApi(botToken, 'deleteWebhook', { drop_pending_updates: false });
   } catch (err) {
     console.warn('[ticketBotService] Предупреждение при deleteWebhook:', err.message);
   }
@@ -502,7 +502,7 @@ export async function startTicketBotPoller({ botToken = TICKET_BOT_TOKEN, custom
   (async () => {
     while (!pollerStopping) {
       try {
-        const updates = await callApi(botToken, 'getUpdates', {
+        const updates = await callTelegramApi(botToken, 'getUpdates', {
           offset,
           timeout: 25,
           allowed_updates: ['message', 'callback_query'],
