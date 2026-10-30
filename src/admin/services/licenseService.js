@@ -239,11 +239,73 @@ export function grantOrExtendLicense({ userId, tariffId, amount = 0, notes = '',
 }
 
 /**
+ * Безопасное удаление лицензии с обязательным аудитом и синхронизацией доступа
+ */
+export function deleteLicense({ licenseId, userId, adminId, reason = '', ip = '' }) {
+  const admin = db.prepare('SELECT full_name FROM admin_users WHERE id = ?').get(adminId);
+  const adminName = admin ? admin.full_name : 'Администратор';
+
+  let license = null;
+  if (licenseId) {
+    license = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licenseId);
+  } else if (userId) {
+    license = db.prepare(`
+      SELECT * FROM licenses 
+      WHERE user_id = ? AND status = 'active'
+      ORDER BY id DESC LIMIT 1
+    `).get(userId);
+  }
+
+  if (!license) {
+    return { success: false, error: 'Лицензия не найдена' };
+  }
+
+  if (userId && Number(license.user_id) !== Number(userId)) {
+    return { success: false, error: 'Лицензия не принадлежит данному пользователю' };
+  }
+
+  const targetUserId = license.user_id;
+  const targetUser = db.prepare('SELECT * FROM users WHERE id = ?').get(targetUserId);
+  const tariffName = getTariffName(license.tariff_id);
+  const dateRange = license.expires_at 
+    ? `${formatDateOnly(license.starts_at)} — ${formatDateOnly(license.expires_at)}` 
+    : (license.tariff_id === 'lifetime' ? 'Бессрочно' : 'Без срока');
+
+  // Формируем подробное описание для журнала аудита
+  let auditDetails = `Удалена лицензия #${license.id} (Тариф: ${tariffName}, статус: ${license.status}, период: ${dateRange})`;
+  if (reason && reason.trim()) {
+    auditDetails += `. Причина: ${reason.trim()}`;
+  }
+  if (targetUser) {
+    const userDisplay = `${targetUser.first_name || ''} ${targetUser.last_name || ''} (@${targetUser.username || '—'}, TG: ${targetUser.telegram_id || '—'})`.trim();
+    auditDetails += ` [Клиент: ${userDisplay}]`;
+  }
+
+  // 1. Отвязываем платежи от этой лицензии (обнуляем FK, сохраняя историю оплат)
+  try {
+    db.prepare('UPDATE payments SET license_id = NULL WHERE license_id = ?').run(license.id);
+  } catch (err) {
+    console.error('Ошибка отвязки платежей при удалении лицензии:', err);
+  }
+
+  // 2. Удаляем запись лицензии
+  db.prepare('DELETE FROM licenses WHERE id = ?').run(license.id);
+
+  // 3. Записываем в журнал аудита
+  logAudit(adminId, adminName, 'DELETE_LICENSE', targetUserId, auditDetails, ip);
+
+  // 4. Синхронизируем доступ в таблице users
+  syncUserAccess(targetUserId);
+
+  return { success: true, license, details: auditDetails };
+}
+
+/**
  * Синхронизация access_expires_at для MiniApp в таблице users
  */
-function syncUserAccess(userId) {
+export function syncUserAccess(userId) {
   try {
-    const columns = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+    const columns = db.prepare('PRAGMA table_info(users)').all().map(c => c.name);
     if (!columns.includes('access_expires_at')) return;
 
     const activeLic = db.prepare(`
@@ -259,16 +321,29 @@ function syncUserAccess(userId) {
       } else if (activeLic.tariff_id === 'free') {
         expiryTimestamp = 0;
       } else if (activeLic.expires_at) {
-        expiryTimestamp = Math.floor(new Date(activeLic.expires_at).getTime() / 1000);
+        const cleanDate = String(activeLic.expires_at).trim().split(' ')[0];
+        const expDate = new Date(`${cleanDate}T23:59:59Z`);
+        expiryTimestamp = isNaN(expDate.getTime())
+          ? Math.floor(new Date(activeLic.expires_at).getTime() / 1000)
+          : Math.floor(expDate.getTime() / 1000);
       }
     }
 
-    db.prepare(`
-      UPDATE users 
-      SET access_expires_at = ?,
-          status = CASE WHEN is_blocked = 1 THEN 'blocked' ELSE 'active' END
-      WHERE id = ?
-    `).run(expiryTimestamp, userId);
+    const hasStatus = columns.includes('status');
+    if (hasStatus) {
+      db.prepare(`
+        UPDATE users 
+        SET access_expires_at = ?,
+            status = CASE WHEN is_blocked = 1 THEN 'blocked' ELSE 'active' END
+        WHERE id = ?
+      `).run(expiryTimestamp, userId);
+    } else {
+      db.prepare(`
+        UPDATE users 
+        SET access_expires_at = ?
+        WHERE id = ?
+      `).run(expiryTimestamp, userId);
+    }
   } catch (err) {
     console.error('Ошибка синхронизации access_expires_at:', err);
   }

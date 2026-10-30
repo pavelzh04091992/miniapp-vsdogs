@@ -65,42 +65,72 @@ export async function cleanupOrphanedFeedbackFiles(maxAgeMs = 60 * 60 * 1000) {
     }));
 }
 
-export async function deliverFeedback({ api, adminTelegramId, submission, user }) {
+export async function deliverFeedback({ api, adminTelegramId, submission, user, ticketId = null }) {
   const submissionId = randomUUID();
   const sentMessageIds = [];
 
   try {
+    const messageOptions = {
+      parse_mode: 'HTML',
+      link_preview_options: { is_disabled: true },
+    };
+
+    if (ticketId) {
+      const hasAttachments = submission.attachments && submission.attachments.length > 0;
+      const inlineKeyboard = [
+        [{ text: '✋ Взять в работу', callback_data: `ticket_take:${ticketId}` }]
+      ];
+
+      if (hasAttachments) {
+        inlineKeyboard.push([
+          {
+            text: `📎 Посмотреть вложения в админке (${submission.attachments.length})`,
+            url: `https://admin.miniapp-vsdogs.ru/admin/tickets?tab=new#ticket-${ticketId}`
+          }
+        ]);
+      } else {
+        inlineKeyboard.push([
+          { text: '🌐 Открыть в тикет-центре', url: 'https://admin.miniapp-vsdogs.ru/admin/tickets?tab=new' }
+        ]);
+      }
+
+      messageOptions.reply_markup = {
+        inline_keyboard: inlineKeyboard,
+      };
+    }
+
     const rootMessage = await api.sendMessage(
       adminTelegramId,
-      formatFeedbackMessage(submissionId, submission, user),
-      {
-        parse_mode: 'HTML',
-        link_preview_options: { is_disabled: true },
-      },
+      formatFeedbackMessage(submissionId, submission, user, ticketId),
+      messageOptions,
     );
     const rootMessageId = requireTelegramMessageId(rootMessage);
     sentMessageIds.push(rootMessageId);
 
-    for (let index = 0; index < submission.attachments.length; index += 1) {
-      const attachment = submission.attachments[index];
-      const extra = {
-        caption: `Вложение ${index + 1} из ${submission.attachments.length}: ${attachment.originalName}`,
-        reply_parameters: { message_id: rootMessageId },
-      };
-      let sentAttachment;
+    // Если тикет создан для тикет-центра, файлы не дублируются в Telegram — они доступны в админке.
+    // Загрузка в Telegram выполняется только при отсутствии ticketId (legacy fallback)
+    if (!ticketId && submission.attachments && submission.attachments.length > 0) {
+      for (let index = 0; index < submission.attachments.length; index += 1) {
+        const attachment = submission.attachments[index];
+        const extra = {
+          caption: `Вложение ${index + 1} из ${submission.attachments.length}: ${attachment.originalName}`,
+          reply_parameters: { message_id: rootMessageId },
+        };
+        let sentAttachment;
 
-      if (attachment.telegramMethod === 'photo') {
-        sentAttachment = await api.sendPhotoFile(adminTelegramId, attachment, extra);
-      } else if (attachment.telegramMethod === 'video') {
-        sentAttachment = await api.sendVideoFile(adminTelegramId, attachment, extra);
-      } else {
-        sentAttachment = await api.sendDocumentFile(adminTelegramId, attachment, extra);
+        if (attachment.telegramMethod === 'photo') {
+          sentAttachment = await api.sendPhotoFile(adminTelegramId, attachment, extra);
+        } else if (attachment.telegramMethod === 'video') {
+          sentAttachment = await api.sendVideoFile(adminTelegramId, attachment, extra);
+        } else {
+          sentAttachment = await api.sendDocumentFile(adminTelegramId, attachment, extra);
+        }
+
+        sentMessageIds.push(requireTelegramMessageId(sentAttachment));
       }
-
-      sentMessageIds.push(requireTelegramMessageId(sentAttachment));
     }
 
-    return { submissionId };
+    return { submissionId, rootMessageId, ticketId };
   } catch (error) {
     await Promise.allSettled(
       sentMessageIds.reverse().map((messageId) => api.deleteMessage(adminTelegramId, messageId)),
@@ -109,7 +139,7 @@ export async function deliverFeedback({ api, adminTelegramId, submission, user }
   }
 }
 
-export function formatFeedbackMessage(submissionId, submission, user) {
+export function formatFeedbackMessage(submissionId, submission, user, ticketId = null) {
   const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Без имени';
   const profileLabel = user.username ? `@${user.username}` : displayName;
   const profileLink = `<a href="tg://user?id=${escapeHtml(user.telegramId)}">${escapeHtml(profileLabel)}</a>`;
@@ -121,13 +151,34 @@ export function formatFeedbackMessage(submissionId, submission, user) {
       ].filter(Boolean)
     : [];
 
+  const title = ticketId ? `<b>Новый вопрос кинологу [#${ticketId}]</b>` : '<b>Новый вопрос кинологу</b>';
+
+  const hasAttachments = submission.attachments && submission.attachments.length > 0;
+  const attachmentLines = hasAttachments
+    ? [
+        `📎 <b>Прикреплены материалы:</b> ${submission.attachments.length} файла(ов) (фото/видео)`,
+        `<i>(Вложения доступны для просмотра и скачивания в веб-админке по кнопке ниже ⬇️)</i>`,
+      ]
+    : [];
+
+  const moscowTime = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Europe/Moscow',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date());
+
   return [
-    '<b>Новый вопрос кинологу</b>',
+    title,
     `Заявка: <code>${escapeHtml(submissionId)}</code>`,
+    `Время: <b>${moscowTime} МСК</b>`,
     `Пользователь: ${profileLink}`,
     `Telegram ID: <code>${escapeHtml(user.telegramId)}</code>`,
     `Источник: ${escapeHtml(sourceLabel)}`,
     ...lessonLines,
+    ...attachmentLines,
     '',
     '<b>Вопрос</b>',
     escapeHtml(submission.question),

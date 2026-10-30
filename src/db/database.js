@@ -57,6 +57,10 @@ export function initDatabase() {
       db.exec("ALTER TABLE users ADD COLUMN last_active_at TEXT;");
       db.exec("UPDATE users SET last_active_at = datetime('now') WHERE last_active_at IS NULL;");
     }
+
+    if (!columns.includes('access_expires_at')) {
+      db.exec("ALTER TABLE users ADD COLUMN access_expires_at INTEGER;");
+    }
   } else {
     // Чистая установка таблицы пользователей
     db.exec(`
@@ -68,6 +72,7 @@ export function initDatabase() {
         last_name TEXT,
         phone TEXT,
         is_blocked INTEGER DEFAULT 0,
+        access_expires_at INTEGER,
         created_at TEXT DEFAULT (datetime('now')),
         last_active_at TEXT DEFAULT (datetime('now'))
       );
@@ -89,6 +94,10 @@ export function initDatabase() {
       full_name TEXT NOT NULL,
       is_owner INTEGER DEFAULT 0,
       roles TEXT NOT NULL DEFAULT '[]',
+      can_answer_tickets_bot INTEGER DEFAULT 0,
+      phone TEXT,
+      telegram_id TEXT,
+      telegram_username TEXT,
       is_active INTEGER DEFAULT 1,
       last_login_at TEXT,
       created_at TEXT DEFAULT (datetime('now'))
@@ -163,6 +172,9 @@ export function initDatabase() {
       media_url TEXT,
       status TEXT NOT NULL DEFAULT 'new',
       assigned_trainer_id INTEGER REFERENCES admin_users(id),
+      assigned_trainer_name TEXT,
+      tg_message_id INTEGER,
+      tg_chat_id TEXT,
       answer_text TEXT,
       answered_by_name TEXT,
       created_at TEXT DEFAULT (datetime('now')),
@@ -206,6 +218,43 @@ export function initDatabase() {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // Миграция таблицы вопросов кинологу (trainer_tickets)
+  try {
+    const ticketCols = db.prepare("PRAGMA table_info(trainer_tickets)").all().map(c => c.name);
+    if (!ticketCols.includes('tg_message_id')) {
+      db.exec("ALTER TABLE trainer_tickets ADD COLUMN tg_message_id INTEGER;");
+    }
+    if (!ticketCols.includes('tg_chat_id')) {
+      db.exec("ALTER TABLE trainer_tickets ADD COLUMN tg_chat_id TEXT;");
+    }
+    if (!ticketCols.includes('assigned_trainer_name')) {
+      db.exec("ALTER TABLE trainer_tickets ADD COLUMN assigned_trainer_name TEXT;");
+    }
+    db.exec("CREATE INDEX IF NOT EXISTS idx_tickets_tg_message ON trainer_tickets(tg_message_id);");
+  } catch (err) {
+    console.error('Ошибка проверки колонок trainer_tickets:', err);
+  }
+
+  // Миграция таблицы сотрудников (admin_users) для прав в Telegram-боте
+  try {
+    const adminCols = db.prepare("PRAGMA table_info(admin_users)").all().map(c => c.name);
+    if (!adminCols.includes('can_answer_tickets_bot')) {
+      db.exec("ALTER TABLE admin_users ADD COLUMN can_answer_tickets_bot INTEGER DEFAULT 0;");
+      db.exec("UPDATE admin_users SET can_answer_tickets_bot = 1 WHERE is_owner = 1;");
+    }
+    if (!adminCols.includes('telegram_id')) {
+      db.exec("ALTER TABLE admin_users ADD COLUMN telegram_id TEXT;");
+    }
+    if (!adminCols.includes('telegram_username')) {
+      db.exec("ALTER TABLE admin_users ADD COLUMN telegram_username TEXT;");
+    }
+    if (!adminCols.includes('phone')) {
+      db.exec("ALTER TABLE admin_users ADD COLUMN phone TEXT;");
+    }
+  } catch (err) {
+    console.error('Ошибка проверки колонок admin_users:', err);
+  }
 
   const tariffCount = db.prepare('SELECT COUNT(*) as count FROM tariffs').get().count;
   if (tariffCount === 0) {

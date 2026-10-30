@@ -5,6 +5,42 @@ import { requireAuth, requireRole, logAudit } from '../auth.js';
 import { renderLayout } from '../views/layout.js';
 import { getTariffName } from '../services/licenseService.js';
 
+export function getTicketMediaList(ticketOrMediaUrl) {
+  const raw = typeof ticketOrMediaUrl === 'object' && ticketOrMediaUrl !== null
+    ? ticketOrMediaUrl.media_url
+    : ticketOrMediaUrl;
+  if (!raw || typeof raw !== 'string') return [];
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch {}
+  }
+  return [trimmed];
+}
+
+export function formatMoscowDateTime(dateStr) {
+  if (!dateStr) return '—';
+  let date;
+  if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateStr)) {
+    date = new Date(dateStr.replace(' ', 'T') + 'Z');
+  } else {
+    date = new Date(dateStr);
+  }
+  if (Number.isNaN(date.getTime())) return String(dateStr);
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Europe/Moscow',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(date) + ' МСК';
+}
+
 const router = express.Router();
 
 router.get('/', requireAuth, requireRole(['TRAINER']), (req, res) => {
@@ -96,8 +132,9 @@ router.get('/', requireAuth, requireRole(['TRAINER']), (req, res) => {
           </div>
         ` : tickets.map(t => {
           const tariffDisplay = t.tariff_name || getTariffName(t.tariff_id);
+          const mediaList = getTicketMediaList(t);
           return `
-            <div style="border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; background: ${tab === 'new' ? '#fffbeb' : '#ffffff'};">
+            <div id="ticket-${t.id}" style="border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; background: ${tab === 'new' ? '#fffbeb' : '#ffffff'}; scroll-margin-top: 80px;">
               
               <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                 <div>
@@ -106,28 +143,49 @@ router.get('/', requireAuth, requireRole(['TRAINER']), (req, res) => {
                   ${t.username ? `<span style="font-size: 13px; color: var(--primary); margin-left: 6px;">@${t.username}</span>` : ''}
                   <span class="badge badge-paid" style="margin-left: 8px; font-size: 11px;">Тариф: ${tariffDisplay}</span>
                   ${t.assigned_trainer_name ? `<span class="badge badge-free" style="margin-left: 6px;">В работе у: ${t.assigned_trainer_name}</span>` : ''}
+                  <span class="badge" style="margin-left: 6px; font-size: 11px; background: #e0f2fe; color: #0369a1;">#${t.id}</span>
                 </div>
-                <div style="font-size: 12px; color: var(--text-muted);">
-                  Поступил: ${t.created_at}
+                <div style="font-size: 12px; color: var(--text-muted); font-weight: 500;">
+                  Поступил: ${formatMoscowDateTime(t.created_at)}
                 </div>
               </div>
 
               <!-- Текст вопроса -->
-              <div style="font-size: 14px; line-height: 1.5; margin-bottom: 14px; color: #1e293b; background: #f8fafc; padding: 12px 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                ${t.question_text}
-              </div>
+              <div style="font-size: 14px; line-height: 1.5; margin-bottom: 14px; color: #1e293b; background: #f8fafc; padding: 12px 14px; border-radius: 8px; border: 1px solid #e2e8f0; white-space: pre-wrap;">${escapeHtml(t.question_text)}</div>
 
               <!-- Медиа (видео или фото) -->
-              ${t.media_url ? `
+              ${mediaList.length > 0 ? `
                 <div style="margin-bottom: 16px;">
-                  <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">Вложенное видео/фото собаки:</div>
-                  ${/\.(mp4|mov|webm)$/i.test(t.media_url) ? `
-                    <video controls style="max-width: 100%; max-height: 280px; border-radius: 8px; background: #000;" src="${t.media_url}"></video>
-                  ` : `
-                    <a href="${t.media_url}" target="_blank" rel="noopener noreferrer">
-                      <img style="max-width: 100%; max-height: 280px; border-radius: 8px; object-fit: contain; border: 1px solid var(--border-color);" src="${t.media_url}" alt="Вложение" />
-                    </a>
-                  `}
+                  <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">
+                    Вложенные материалы собаки (${mediaList.length}):
+                  </div>
+                  <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start;">
+                    ${mediaList.map((url, idx) => {
+                      const isVideo = /\.(mp4|mov|webm)$/i.test(url);
+                      if (isVideo) {
+                        return `
+                          <div style="max-width: 320px; width: 100%; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: #000;">
+                            <video controls style="width: 100%; max-height: 240px; display: block;" src="${url}"></video>
+                            <div style="padding: 6px 10px; background: #f8fafc; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+                              <span style="color: var(--text-muted); font-weight: 600;">Видео #${idx + 1}</span>
+                              <a href="${url}" target="_blank" download style="color: var(--primary); text-decoration: none;">⬇ Скачать</a>
+                            </div>
+                          </div>
+                        `;
+                      }
+                      return `
+                        <div style="max-width: 220px; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: #fff;">
+                          <a href="${url}" target="_blank" rel="noopener noreferrer" title="Нажмите для просмотра в полном размере">
+                            <img style="width: 100%; max-height: 180px; object-fit: cover; display: block;" src="${url}" alt="Вложение #${idx + 1}" />
+                          </a>
+                          <div style="padding: 6px 10px; background: #f8fafc; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+                            <span style="color: var(--text-muted); font-weight: 600;">Фото #${idx + 1}</span>
+                            <a href="${url}" target="_blank" style="color: var(--primary); text-decoration: none;">🔍 Открыть</a>
+                          </div>
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
                 </div>
               ` : ''}
 
@@ -163,7 +221,7 @@ router.get('/', requireAuth, requireRole(['TRAINER']), (req, res) => {
                 <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px;">
                   <div style="display: flex; justify-content: space-between; font-size: 12px; color: #166534; font-weight: 600; margin-bottom: 6px;">
                     <span>Ответил: ${t.answered_by_name || 'Кинолог'}</span>
-                    <span>${t.answered_at}</span>
+                    <span>${formatMoscowDateTime(t.answered_at)}</span>
                   </div>
                   <div style="font-size: 13.5px; color: #14532d; line-height: 1.5;">${t.answer_text}</div>
                 </div>
@@ -248,6 +306,16 @@ router.post('/:id/answer', requireAuth, requireRole(['TRAINER']), express.urlenc
           answerText: answer_text.trim(),
         });
       }
+
+      // Обновляем статус сообщения в группе кинологов, если тикет был туда переслан
+      if (ticket.tg_chat_id && ticket.tg_message_id) {
+        await sendTelegramGroupUpdate({
+          chatId: ticket.tg_chat_id,
+          messageId: ticket.tg_message_id,
+          trainerName: req.admin.full_name,
+          ticketId,
+        });
+      }
     }
   }
 
@@ -282,11 +350,39 @@ async function sendTelegramTicketAnswer({ telegramId, firstName, questionText, t
     parse_mode: 'HTML',
   });
 
+  return makeTelegramPostRequest(egressHost, botToken, '/sendMessage', payload);
+}
+
+async function sendTelegramGroupUpdate({ chatId, messageId, trainerName, ticketId }) {
+  const botToken = process.env.BOT_TOKEN;
+  if (!botToken || !chatId || !messageId) return;
+
+  const egressHost = process.env.TELEGRAM_EGRESS_HOST || 'telegram-egress';
+
+  // 1. Очищаем кнопки
+  const editPayload = JSON.stringify({
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: { inline_keyboard: [] },
+  });
+  await makeTelegramPostRequest(egressHost, botToken, '/editMessageReplyMarkup', editPayload);
+
+  // 2. Оставляем уведомление в чате кинологов
+  const noticePayload = JSON.stringify({
+    chat_id: chatId,
+    text: `🎉 <b>Вопрос #${ticketId} закрыт через веб-панель!</b>\nОтветил: ${escapeHtml(trainerName)}`,
+    parse_mode: 'HTML',
+    reply_parameters: { message_id: messageId },
+  });
+  await makeTelegramPostRequest(egressHost, botToken, '/sendMessage', noticePayload);
+}
+
+function makeTelegramPostRequest(egressHost, botToken, path, payload) {
   return new Promise((resolve) => {
     const req = https.request({
       host: egressHost,
       port: 443,
-      path: `/bot${botToken}/sendMessage`,
+      path: `/bot${botToken}${path}`,
       method: 'POST',
       servername: 'api.telegram.org',
       headers: {
@@ -295,12 +391,10 @@ async function sendTelegramTicketAnswer({ telegramId, firstName, questionText, t
         'Content-Length': Buffer.byteLength(payload),
       },
       timeout: 10000,
-    }, (res) => {
-      resolve();
-    });
+    }, () => resolve());
 
     req.on('error', (err) => {
-      console.error('[tickets] Ошибка доставки ответа в Telegram:', err.message);
+      console.error(`[tickets] Telegram ${path} error:`, err.message);
       resolve();
     });
 

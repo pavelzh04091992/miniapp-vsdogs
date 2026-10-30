@@ -96,7 +96,8 @@ export function createAuthDatabase(databasePath, options = {}) {
       }
 
       const userRow = statements.getUser.get(id);
-      if (!userRow || !userRow.id) {
+      const targetUserId = userRow ? (userRow.id ?? userRow.rowid ?? userRow.telegram_id) : null;
+      if (!targetUserId) {
         throw new Error('User not found for telegram_id: ' + user.telegramId);
       }
 
@@ -106,12 +107,69 @@ export function createAuthDatabase(databasePath, options = {}) {
       }
 
       const info = statements.insertTrainerTicket.run(
-        userRow.id,
+        targetUserId,
         questionText,
         mediaUrl,
       );
 
       return info.lastInsertRowid;
+    },
+
+    setTrainerTicketTelegramMessage(ticketId, tgMessageId, tgChatId) {
+      if (!statements.setTrainerTicketTelegramMessage) return;
+      statements.setTrainerTicketTelegramMessage.run(tgMessageId, String(tgChatId), ticketId);
+    },
+
+    getTrainerTicketById(ticketId) {
+      const hasTable = Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_tickets'").get());
+      if (!hasTable) return null;
+      return database.prepare(`
+        SELECT t.*, u.telegram_id, u.first_name, u.last_name, u.username
+        FROM trainer_tickets t
+        JOIN users u ON (u.telegram_id = t.user_id OR CAST(u.rowid AS TEXT) = CAST(t.user_id AS TEXT))
+        WHERE t.id = ?
+      `).get(ticketId);
+    },
+
+    getTrainerTicketByTgMessage(messageId) {
+      const hasTable = Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_tickets'").get());
+      if (!hasTable) return null;
+      return database.prepare(`
+        SELECT t.*, u.telegram_id, u.first_name, u.last_name, u.username
+        FROM trainer_tickets t
+        JOIN users u ON (u.telegram_id = t.user_id OR CAST(u.rowid AS TEXT) = CAST(t.user_id AS TEXT))
+        WHERE t.tg_message_id = ?
+      `).get(messageId);
+    },
+
+    assignTrainerTicket(ticketId, trainerId, trainerName) {
+      const hasTable = Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_tickets'").get());
+      if (!hasTable) return null;
+      return database.prepare(`
+        UPDATE trainer_tickets 
+        SET status = 'in_progress', assigned_trainer_id = ?, assigned_trainer_name = ? 
+        WHERE id = ?
+      `).run(trainerId, trainerName, ticketId);
+    },
+
+    releaseTrainerTicket(ticketId) {
+      const hasTable = Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_tickets'").get());
+      if (!hasTable) return null;
+      return database.prepare(`
+        UPDATE trainer_tickets 
+        SET status = 'new', assigned_trainer_id = NULL, assigned_trainer_name = NULL 
+        WHERE id = ?
+      `).run(ticketId);
+    },
+
+    answerTrainerTicket(ticketId, answerText, trainerName) {
+      const hasTable = Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_tickets'").get());
+      if (!hasTable) return null;
+      return database.prepare(`
+        UPDATE trainer_tickets 
+        SET status = 'answered', answer_text = ?, answered_by_name = ?, answered_at = datetime('now', 'localtime') 
+        WHERE id = ?
+      `).run(answerText, trainerName, ticketId);
     },
 
     touchTelegramUser(profile) {
@@ -877,6 +935,10 @@ function migrate(database) {
     database.exec('ALTER TABLE users ADD COLUMN access_expires_at INTEGER;');
   }
 
+  if (!userColumns.some((column) => column.name === 'phone')) {
+    database.exec('ALTER TABLE users ADD COLUMN phone TEXT;');
+  }
+
   const magicLinkColumns = database.prepare('PRAGMA table_info(magic_links)').all();
 
   if (!magicLinkColumns.some((column) => column.name === 'delivered_at')) {
@@ -884,6 +946,20 @@ function migrate(database) {
       ALTER TABLE magic_links ADD COLUMN delivered_at INTEGER;
       UPDATE magic_links SET delivered_at = created_at WHERE delivered_at IS NULL;
     `);
+  }
+
+  const ticketsTable = database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_tickets'").get();
+  if (ticketsTable) {
+    const ticketCols = database.prepare('PRAGMA table_info(trainer_tickets)').all().map((c) => c.name);
+    if (!ticketCols.includes('tg_message_id')) {
+      database.exec('ALTER TABLE trainer_tickets ADD COLUMN tg_message_id INTEGER;');
+    }
+    if (!ticketCols.includes('tg_chat_id')) {
+      database.exec('ALTER TABLE trainer_tickets ADD COLUMN tg_chat_id TEXT;');
+    }
+    if (!ticketCols.includes('assigned_trainer_name')) {
+      database.exec('ALTER TABLE trainer_tickets ADD COLUMN assigned_trainer_name TEXT;');
+    }
   }
 }
 
@@ -910,6 +986,9 @@ function prepareStatements(database) {
         `)
       : null,
     insertTrainerTicket: Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_tickets'").get()) ? database.prepare("INSERT INTO trainer_tickets (user_id, question_text, media_url, status, created_at) VALUES (?, ?, ?, 'new', datetime('now', 'localtime'))") : null,
+    setTrainerTicketTelegramMessage: Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_tickets'").get())
+      ? database.prepare('UPDATE trainer_tickets SET tg_message_id = ?, tg_chat_id = ? WHERE id = ?')
+      : null,
     touchUser: database.prepare(`
       UPDATE users SET username = ?, first_name = ?, last_name = ?, updated_at = ?, last_seen_at = ?
       WHERE telegram_id = ?

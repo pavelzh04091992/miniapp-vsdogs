@@ -108,6 +108,17 @@ export function createTelegramApi(botToken, options = {}) {
       chat_id: chatId,
       message_id: messageId,
     }),
+    editMessageText: (chatId, messageId, text, extra = {}) => request('editMessageText', {
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      ...extra,
+    }),
+    editMessageReplyMarkup: (chatId, messageId, replyMarkup) => request('editMessageReplyMarkup', {
+      chat_id: chatId,
+      message_id: messageId,
+      reply_markup: replyMarkup,
+    }),
     setChatMenuButton: (menuButton) => request('setChatMenuButton', {
       menu_button: menuButton,
     }),

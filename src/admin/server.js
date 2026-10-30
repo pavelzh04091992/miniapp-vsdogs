@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import { initDatabase } from '../db/database.js';
 import { authMiddleware } from './auth.js';
+import { startTicketBotPoller } from './services/ticketBotService.js';
 
 // Роуты
 import authRoutes from './routes/auth.js';
@@ -55,6 +56,10 @@ if (process.argv[1]?.endsWith('server.js')) {
     console.log(`🚀 VS Dogs Backoffice запущен на http://localhost:${PORT}/admin`);
     console.log(`Вход по умолчанию: daria / daria2026! (Владелец)`);
     console.log(`======================================================\n`);
+
+    if (process.env.TICKET_BOT_TOKEN || process.env.BOT_TOKEN) {
+      startTicketBotPoller();
+    }
   });
 }
 

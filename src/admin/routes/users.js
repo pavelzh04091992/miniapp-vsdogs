@@ -2,7 +2,9 @@ import express from 'express';
 import db from '../../db/database.js';
 import { requireAuth, requireRole, logAudit } from '../auth.js';
 import { renderLayout } from '../views/layout.js';
-import { getTariffName, getRemainingTimeText, grantOrExtendLicense, formatDateOnly } from '../services/licenseService.js';
+import { getTariffName, getRemainingTimeText, grantOrExtendLicense, deleteLicense, formatDateOnly } from '../services/licenseService.js';
+import { ACTION_NAMES } from './system.js';
+import { getTicketMediaList } from './tickets.js';
 
 const router = express.Router();
 
@@ -10,6 +12,14 @@ const router = express.Router();
 router.get('/', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) => {
   const search = (req.query.q || '').trim();
   const tariffFilter = req.query.tariff || 'all';
+  const alertParam = req.query.alert;
+
+  let alert = null;
+  if (alertParam === 'license_deleted') {
+    alert = { type: 'success', message: '🗑️ Лицензия успешно удалена. Действие зафиксировано в журнале аудита.' };
+  } else if (alertParam === 'error') {
+    alert = { type: 'danger', message: req.query.msg || 'Произошла ошибка при выполнении операции.' };
+  }
 
   const availableTariffs = db.prepare('SELECT id, name FROM tariffs WHERE is_active = 1 ORDER BY order_index ASC').all();
 
@@ -130,6 +140,13 @@ router.get('/', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) => 
                       <a href="/admin/users/${u.id}" class="btn btn-secondary btn-sm">Открыть</a>
                       ${isManager ? `
                         <a href="/admin/users/${u.id}?focus=grant" class="btn btn-primary btn-sm">Лицензия</a>
+                        ${u.license_status === 'active' && u.tariff_id && u.tariff_id !== 'free' ? `
+                          <form method="POST" action="/admin/users/${u.id}/delete-license" style="display: inline; margin: 0;" onsubmit="const r = prompt('Вы действительно хотите удалить активную лицензию клиента #${u.id} (${u.first_name || ''} ${u.last_name || ''})?\\n\\nДействие будет записано в журнал аудита.\\nУкажите причину удаления (необязательно):'); if (r === null) return false; this.reason.value = r; return true;">
+                            <input type="hidden" name="reason" value="">
+                            <input type="hidden" name="redirect_to" value="/admin/users">
+                            <button type="submit" class="btn btn-danger btn-sm" style="padding: 4px 8px;" title="Удалить активную лицензию">Снять лиц.</button>
+                          </form>
+                        ` : ''}
                         <form method="POST" action="/admin/users/${u.id}/delete" style="display: inline; margin: 0;" onsubmit="return confirm('Удалить клиента #${u.id} (${u.first_name || ''} ${u.last_name || ''})? Будет удалена вся история подписок и заметок.');">
                           <button type="submit" class="btn btn-danger btn-sm" style="padding: 4px 8px;" title="Удалить клиента">🗑️</button>
                         </form>
@@ -149,6 +166,7 @@ router.get('/', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) => 
     title: 'Клиенты',
     activeNav: 'users',
     admin: req.admin,
+    alert,
     content
   }));
 });
@@ -157,6 +175,16 @@ router.get('/', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) => 
 router.get('/:id', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) => {
   const userId = req.params.id;
   const focusGrant = req.query.focus === 'grant';
+  const alertParam = req.query.alert;
+
+  let alert = null;
+  if (alertParam === 'license_deleted') {
+    alert = { type: 'success', message: '🗑️ Лицензия успешно удалена. Действие зафиксировано в журнале аудита.' };
+  } else if (alertParam === 'license_granted') {
+    alert = { type: 'success', message: '✅ Лицензия успешно сохранена.' };
+  } else if (alertParam === 'error') {
+    alert = { type: 'danger', message: req.query.msg || 'Произошла ошибка при выполнении операции.' };
+  }
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!user) {
@@ -180,6 +208,13 @@ router.get('/:id', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) 
     LEFT JOIN admin_users a ON a.id = l.created_by_admin_id
     WHERE l.user_id = ?
     ORDER BY l.id DESC
+  `).all(userId);
+
+  // Журнал аудита по этому клиенту
+  const clientAuditLogs = db.prepare(`
+    SELECT * FROM admin_audit_logs 
+    WHERE target_user_id = ? 
+    ORDER BY created_at DESC LIMIT 15
   `).all(userId);
 
   // Тарифы из БД для выпадающего списка
@@ -268,7 +303,7 @@ router.get('/:id', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) 
           </span>
         </div>
 
-        <div style="font-size: 13.5px; margin-bottom: 20px;">
+        <div style="font-size: 13.5px; margin-bottom: 16px;">
           <div style="margin-bottom: 8px;">
             <span style="color: var(--text-muted);">Срок окончания:</span> 
             <strong>${activeLicense?.expires_at ? formatDateOnly(activeLicense.expires_at) : (activeLicense?.tariff_id === 'lifetime' ? 'Бессрочно' : 'Бесплатный базовый доступ')}</strong>
@@ -278,6 +313,22 @@ router.get('/:id', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) 
             <strong style="color: #166534;">${remainingText}</strong>
           </div>
         </div>
+
+        ${isManager && activeLicense ? `
+          <div style="margin-bottom: 18px; padding: 12px 14px; background: #fff5f5; border: 1px solid #fed7d7; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div>
+              <div style="font-size: 13px; font-weight: 700; color: #9b2c2c;">Активная лицензия #${activeLicense.id} (${currentTariffDisplayName})</div>
+              <div style="font-size: 11.5px; color: #c53030; margin-top: 2px;">Удаление аннулирует доступ ученика. Действие фиксируется в журнале.</div>
+            </div>
+            <form method="POST" action="/admin/users/${user.id}/delete-license" style="margin: 0;" onsubmit="const r = prompt('Вы действительно хотите удалить активную лицензию #${activeLicense.id} (${currentTariffDisplayName}) клиента #${user.id}?\\n\\nДействие будет записано в журнал аудита.\\nУкажите причину удаления (необязательно):'); if (r === null) return false; this.reason.value = r; return true;">
+              <input type="hidden" name="license_id" value="${activeLicense.id}">
+              <input type="hidden" name="reason" value="">
+              <button type="submit" class="btn btn-danger btn-sm" style="font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                🗑️ Удалить лицензию
+              </button>
+            </form>
+          </div>
+        ` : ''}
 
         ${isManager ? `
           <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
@@ -340,7 +391,7 @@ router.get('/:id', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) 
         <div>
           <h3 class="card-title">История лицензий клиента</h3>
           <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">
-            Полная хронология подписок клиента. Старые записи не затираются.
+            Полная хронология подписок клиента. Каждое удаление фиксируется в журнале аудита.
           </p>
         </div>
       </div>
@@ -356,10 +407,13 @@ router.get('/:id', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) 
               <th>Статус</th>
               <th>Примечание</th>
               <th>Сотрудник</th>
+              ${isManager ? '<th style="text-align: right;">Действия</th>' : ''}
             </tr>
           </thead>
           <tbody>
-            ${licenseHistory.map(l => {
+            ${licenseHistory.length === 0 ? `
+              <tr><td colspan="${isManager ? 8 : 7}" style="text-align: center; color: var(--text-muted); padding: 24px;">История лицензий пуста</td></tr>
+            ` : licenseHistory.map(l => {
               const name = l.tariff_name || getTariffName(l.tariff_id);
               let statusBadge = '<span class="badge badge-paid">Активна</span>';
               if (l.status === 'extended') statusBadge = '<span class="badge badge-free">Продлена</span>';
@@ -376,6 +430,63 @@ router.get('/:id', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) 
                   <td>${statusBadge}</td>
                   <td style="font-size: 12.5px; color: var(--text-muted);">${l.notes || '—'}</td>
                   <td style="font-size: 12.5px;">${l.admin_name || 'Система'}</td>
+                  ${isManager ? `
+                    <td style="text-align: right;">
+                      <form method="POST" action="/admin/users/${user.id}/licenses/${l.id}/delete" style="display: inline; margin: 0;" onsubmit="const r = prompt('Вы действительно хотите удалить лицензию #${l.id} (${name})?\\n\\nДействие будет записано в журнал аудита.\\nУкажите причину удаления (необязательно):'); if (r === null) return false; this.reason.value = r; return true;">
+                        <input type="hidden" name="reason" value="">
+                        <button type="submit" class="btn btn-danger btn-sm" style="padding: 3px 8px; font-size: 12px;" title="Удалить лицензию">
+                          🗑️ Удалить
+                        </button>
+                      </form>
+                    </td>
+                  ` : ''}
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Журнал действий и аудита по клиенту -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">Журнал аудита по клиенту</h3>
+          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">
+            Фиксация всех административных действий по клиенту (выдача, продление и удаление лицензий, блокировки)
+          </p>
+        </div>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Время</th>
+              <th>Сотрудник</th>
+              <th>Действие</th>
+              <th>Подробности</th>
+              <th>IP</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${clientAuditLogs.length === 0 ? `
+              <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">Записей в журнале по клиенту пока нет</td></tr>
+            ` : clientAuditLogs.map(log => {
+              const actionLabel = ACTION_NAMES[log.action] || log.action;
+              let badgeClass = 'badge-free';
+              if (log.action === 'DELETE_LICENSE' || log.action === 'BLOCK_USER' || log.action === 'REVOKE_LICENSE' || log.action === 'DELETE_USER') {
+                badgeClass = 'badge-expired';
+              } else if (log.action.startsWith('GRANT_') || log.action.startsWith('EXTEND_') || log.action.startsWith('UPGRADE_')) {
+                badgeClass = 'badge-paid';
+              }
+              return `
+                <tr>
+                  <td style="font-size: 12px; color: var(--text-muted); white-space: nowrap;">${log.created_at}</td>
+                  <td><strong>${log.admin_name}</strong></td>
+                  <td><span class="badge ${badgeClass}" style="font-size: 11px;">${actionLabel}</span></td>
+                  <td style="font-size: 12.5px; max-width: 400px;">${log.details || '—'}</td>
+                  <td style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${log.ip_address || '—'}</td>
                 </tr>
               `;
             }).join('')}
@@ -436,7 +547,18 @@ router.get('/:id', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) 
                 <td style="font-size: 12px; color: var(--text-muted);">${formatDateOnly(t.created_at)}</td>
                 <td style="font-weight: 500; font-size: 13px; max-width: 300px;">${t.question_text}</td>
                 <td>
-                  ${t.media_url ? `<a href="${t.media_url}" target="_blank" class="btn btn-secondary btn-sm">Смотреть файл</a>` : '—'}
+                  ${(() => {
+                    const media = getTicketMediaList(t);
+                    if (media.length === 0) return '—';
+                    if (media.length === 1) {
+                      const isVideo = /\.(mp4|mov|webm)$/i.test(media[0]);
+                      return `<a href="${media[0]}" target="_blank" class="btn btn-secondary btn-sm">${isVideo ? '🎬 Видео' : '📷 Фото'}</a>`;
+                    }
+                    return `<div style="display: flex; gap: 4px; flex-wrap: wrap;">${media.map((u, i) => {
+                      const isVideo = /\.(mp4|mov|webm)$/i.test(u);
+                      return `<a href="${u}" target="_blank" class="btn btn-secondary btn-sm" title="Файл #${i+1}">${isVideo ? `🎬 #${i+1}` : `📷 #${i+1}`}</a>`;
+                    }).join('')}</div>`;
+                  })()}
                 </td>
                 <td>
                   <span class="badge ${t.status === 'answered' ? 'badge-paid' : 'badge-expiring'}">
@@ -458,6 +580,7 @@ router.get('/:id', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) 
     title: `Клиент: ${user.first_name || ''} ${user.last_name || ''}`,
     activeNav: 'users',
     admin: req.admin,
+    alert,
     content
   }));
 });
@@ -476,7 +599,49 @@ router.post('/:id/grant-license', requireAuth, requireRole(['MANAGER']), express
     ip: req.ip
   });
 
-  res.redirect(`/admin/users/${userId}`);
+  res.redirect(`/admin/users/${userId}?alert=license_granted`);
+});
+
+// Удаление активной или указанной лицензии клиента
+router.post('/:id/delete-license', requireAuth, requireRole(['MANAGER']), express.urlencoded({ extended: false }), (req, res) => {
+  const userId = req.params.id;
+  const { license_id, reason, redirect_to } = req.body;
+
+  const result = deleteLicense({
+    licenseId: license_id ? parseInt(license_id, 10) : null,
+    userId,
+    adminId: req.admin.id,
+    reason: reason || '',
+    ip: req.ip
+  });
+
+  const baseRedirect = redirect_to || `/admin/users/${userId}`;
+  if (!result.success) {
+    return res.redirect(`${baseRedirect}?alert=error&msg=${encodeURIComponent(result.error || 'Ошибка удаления')}`);
+  }
+
+  res.redirect(`${baseRedirect}?alert=license_deleted`);
+});
+
+// Удаление конкретной лицензии по ID из истории
+router.post('/:id/licenses/:licenseId/delete', requireAuth, requireRole(['MANAGER']), express.urlencoded({ extended: false }), (req, res) => {
+  const userId = req.params.id;
+  const licenseId = req.params.licenseId;
+  const { reason } = req.body;
+
+  const result = deleteLicense({
+    licenseId: parseInt(licenseId, 10),
+    userId,
+    adminId: req.admin.id,
+    reason: reason || '',
+    ip: req.ip
+  });
+
+  if (!result.success) {
+    return res.redirect(`/admin/users/${userId}?alert=error&msg=${encodeURIComponent(result.error || 'Ошибка удаления')}`);
+  }
+
+  res.redirect(`/admin/users/${userId}?alert=license_deleted`);
 });
 
 // Добавление комментария

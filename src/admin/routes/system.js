@@ -9,12 +9,14 @@ const router = express.Router();
 const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'auth.sqlite');
 
 // Человекочитаемые названия действий
-const ACTION_NAMES = {
+export const ACTION_NAMES = {
   'LOGIN': 'Вход в панель',
   'GRANT_LICENSE': 'Выдача лицензии',
   'EXTEND_LICENSE': 'Продление лицензии',
   'UPGRADE_LIFETIME': 'Апгрейд до VIP',
   'REVOKE_LICENSE': 'Сброс лицензии',
+  'DELETE_LICENSE': 'Удаление лицензии',
+  'DELETE_USER': 'Удаление клиента',
   'BLOCK_USER': 'Блокировка клиента',
   'UNBLOCK_USER': 'Разблокировка клиента',
   'TAKE_TICKET': 'Взятие вопроса в работу',
@@ -104,6 +106,13 @@ router.get('/', requireAuth, requireOwner, (req, res) => {
               <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 32px;">Записей в журнале пока нет</td></tr>
             ` : logs.map(l => {
               const actionLabel = ACTION_NAMES[l.action] || l.action;
+              let badgeClass = 'badge-free';
+              if (l.action === 'DELETE_LICENSE' || l.action === 'DELETE_USER' || l.action === 'BLOCK_USER' || l.action === 'REVOKE_LICENSE') {
+                badgeClass = 'badge-expired';
+              } else if (l.action.startsWith('GRANT_') || l.action.startsWith('EXTEND_') || l.action.startsWith('UPGRADE_')) {
+                badgeClass = 'badge-paid';
+              }
+
               return `
                 <tr>
                   <td style="font-size: 12.5px; color: var(--text-muted); white-space: nowrap;">
@@ -113,7 +122,7 @@ router.get('/', requireAuth, requireOwner, (req, res) => {
                     <strong>${l.admin_name}</strong>
                   </td>
                   <td>
-                    <span class="badge badge-free" style="font-size: 11.5px; font-weight: 600;">
+                    <span class="badge ${badgeClass}" style="font-size: 11.5px; font-weight: 600;">
                       ${actionLabel}
                     </span>
                   </td>

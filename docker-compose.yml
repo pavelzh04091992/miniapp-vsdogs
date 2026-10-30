@@ -46,6 +46,8 @@ services:
       LOCKED_MODE: "${LOCKED_MODE:-true}"
       APP_SERVER_PORT: "8787"
       ADMIN_TELEGRAM_ID: "${ADMIN_TELEGRAM_ID:-}"
+      TICKET_CHAT_ID: "${TICKET_CHAT_ID:-}"
+      TICKET_BOT_TOKEN: "${TICKET_BOT_TOKEN:-}"
       AUTH_DATABASE_PATH: "/app/data/auth.sqlite"
       BOT_TOKEN: "${BOT_TOKEN:-}"
       BOT_USERNAME: "${BOT_USERNAME:-}"
@@ -181,6 +183,8 @@ services:
       - ADMIN_PORT=3000
       - DB_PATH=/data/auth.sqlite
       - BOT_TOKEN=${BOT_TOKEN:-}
+      - TICKET_BOT_TOKEN=${TICKET_BOT_TOKEN:-}
+      - TICKET_CHAT_ID=${TICKET_CHAT_ID:-}
       - TELEGRAM_EGRESS_HOST=telegram-egress
     networks:
       - proxy

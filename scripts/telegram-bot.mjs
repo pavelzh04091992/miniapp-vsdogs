@@ -65,8 +65,13 @@ export function createTelegramBot(options) {
         return;
       }
 
-      if (update.message?.chat?.type === 'private') {
-        await handlePrivateMessage(update.message);
+      if (update.message) {
+        const handledReply = await handleTicketReply(update.message);
+        if (handledReply) return;
+
+        if (update.message.chat?.type === 'private') {
+          await handlePrivateMessage(update.message);
+        }
       }
     },
 
@@ -178,10 +183,81 @@ export function createTelegramBot(options) {
     const sender = toProfile(query.from);
     if (!sender) return;
 
+    const data = String(query.data || '');
+
+    if (data.startsWith('ticket_take:')) {
+      const ticketId = Number(data.split(':')[1]);
+      if (!ticketId) return;
+
+      const ticket = database?.getTrainerTicketById ? database.getTrainerTicketById(ticketId) : null;
+      if (!ticket) {
+        await api.answerCallbackQuery(query.id, { text: 'Тикет не найден', show_alert: true }).catch(() => {});
+        return;
+      }
+
+      if (ticket.status === 'in_progress') {
+        const who = ticket.assigned_trainer_name || 'другим кинологом';
+        await api.answerCallbackQuery(query.id, { text: `⚠️ Этот вопрос уже взят в работу (${who})!`, show_alert: true }).catch(() => {});
+        return;
+      }
+
+      if (ticket.status === 'answered') {
+        await api.answerCallbackQuery(query.id, { text: '✅ На этот вопрос уже дан ответ.', show_alert: true }).catch(() => {});
+        return;
+      }
+
+      const trainerName = [sender.firstName, sender.lastName].filter(Boolean).join(' ') || sender.username || 'Кинолог';
+      if (database?.assignTrainerTicket) {
+        database.assignTrainerTicket(ticketId, null, trainerName);
+      }
+
+      await api.answerCallbackQuery(query.id, { text: '✅ Вы взяли вопрос в работу!' }).catch(() => {});
+
+      if (query.message?.message_id && query.message?.chat?.id) {
+        const updatedMarkup = {
+          inline_keyboard: [
+            [{ text: '↩️ Вернуть в общие', callback_data: `ticket_release:${ticketId}` }],
+            [{ text: '🌐 Открыть в админке', url: 'https://admin.miniapp-vsdogs.ru/admin/tickets?tab=my' }],
+          ],
+        };
+        await api.editMessageReplyMarkup(query.message.chat.id, query.message.message_id, updatedMarkup).catch(() => {});
+        await api.sendMessage(
+          query.message.chat.id,
+          `✍️ <b>Тикет #${ticketId} взят в работу</b> (${escapeHtml(trainerName)})\n\nЧтобы отправить ответ ученику, ответьте <b>Reply</b> на исходное сообщение с вопросом, либо отправьте ответ через <a href="https://admin.miniapp-vsdogs.ru/admin/tickets?tab=my">веб-панель</a>.`,
+          {
+            parse_mode: 'HTML',
+            reply_parameters: { message_id: query.message.message_id },
+          }
+        ).catch(() => {});
+      }
+      return;
+    }
+
+    if (data.startsWith('ticket_release:')) {
+      const ticketId = Number(data.split(':')[1]);
+      if (!ticketId) return;
+
+      if (database?.releaseTrainerTicket) {
+        database.releaseTrainerTicket(ticketId);
+      }
+
+      await api.answerCallbackQuery(query.id, { text: 'Вопрос возвращен в общие!' }).catch(() => {});
+
+      if (query.message?.message_id && query.message?.chat?.id) {
+        const updatedMarkup = {
+          inline_keyboard: [
+            [{ text: '✋ Взять в работу', callback_data: `ticket_take:${ticketId}` }],
+            [{ text: '🌐 Открыть в тикет-центре', url: 'https://admin.miniapp-vsdogs.ru/admin/tickets?tab=new' }],
+          ],
+        };
+        await api.editMessageReplyMarkup(query.message.chat.id, query.message.message_id, updatedMarkup).catch(() => {});
+      }
+      return;
+    }
+
     await api.answerCallbackQuery(query.id).catch(() => {});
 
     const chatId = query.message?.chat?.id ?? sender.id;
-    const data = String(query.data || '');
 
     if (data === 'user:browser') {
       await sendBrowserLogin(chatId, sender.id);
@@ -197,6 +273,73 @@ export function createTelegramBot(options) {
       await sendMainMenu(chatId);
       return;
     }
+  }
+
+  /**
+   * Обработка ответа кинолога на тикет через Reply в Telegram
+   */
+  async function handleTicketReply(message) {
+    if (!message.reply_to_message) return false;
+    const repliedMessageId = message.reply_to_message.message_id;
+    if (!repliedMessageId || !database?.getTrainerTicketByTgMessage) return false;
+
+    const ticket = database.getTrainerTicketByTgMessage(repliedMessageId);
+    if (!ticket) return false;
+
+    if (ticket.status === 'answered') {
+      await api.sendMessage(
+        message.chat.id,
+        `⚠️ На тикет #${ticket.id} уже был отправлен ответ ранее.`,
+        {
+          parse_mode: 'HTML',
+          reply_parameters: { message_id: message.message_id },
+        }
+      ).catch(() => {});
+      return true;
+    }
+
+    const answerText = String(message.text || '').trim();
+    if (!answerText) return true;
+
+    const senderProfile = toProfile(message.from);
+    const trainerName = senderProfile
+      ? [senderProfile.firstName, senderProfile.lastName].filter(Boolean).join(' ') || senderProfile.username || 'Кинолог'
+      : (ticket.assigned_trainer_name || 'Кинолог');
+
+    // 1. Фиксируем ответ в базе данных
+    if (database.answerTrainerTicket) {
+      database.answerTrainerTicket(ticket.id, answerText, trainerName);
+    }
+
+    // 2. Доставляем ответ ученику в клиентский бот
+    if (ticket.telegram_id) {
+      const studentText = `🐾 <b>Ответ кинолога на ваш вопрос</b>\n\n` +
+        `Здравствуйте, ${escapeHtml(ticket.first_name || 'ученик')}!\n\n` +
+        `❓ <b>Ваш вопрос:</b>\n<i>${escapeHtml(ticket.question_text)}</i>\n\n` +
+        `💬 <b>Ответ кинолога (${escapeHtml(trainerName)}):</b>\n${escapeHtml(answerText)}\n\n` +
+        `Желаем продуктивных тренировок! 🐶`;
+
+      await api.sendMessage(ticket.telegram_id, studentText, { parse_mode: 'HTML' }).catch((err) => {
+        console.error('[telegram-bot] Failed to deliver ticket answer to student:', err);
+      });
+    }
+
+    // 3. Отправляем подтверждение в чат кинологов
+    await api.sendMessage(
+      message.chat.id,
+      `🎉 <b>Ответ на тикет #${ticket.id} успешно доставлен ученику (${escapeHtml(ticket.first_name || 'Ученик')})!</b>`,
+      {
+        parse_mode: 'HTML',
+        reply_parameters: { message_id: message.message_id },
+      }
+    ).catch(() => {});
+
+    // 4. Очищаем кнопки на исходном сообщении с вопросом
+    if (ticket.tg_chat_id && ticket.tg_message_id) {
+      await api.editMessageReplyMarkup(ticket.tg_chat_id, ticket.tg_message_id, { inline_keyboard: [] }).catch(() => {});
+    }
+
+    return true;
   }
 
   /**
@@ -617,7 +760,7 @@ export function formatTtl(ttlSeconds) {
   }
   const lastDigit = minutes % 10;
   if (lastDigit === 1) {
-    return `${minutes} минуту`;
+    return `${minutes} минута`;
   }
   return lastDigit >= 2 && lastDigit <= 4 ? `${minutes} минуты` : `${minutes} минут`;
 }
@@ -653,6 +796,39 @@ function pluralizeDays(n) {
   if (last === 1) return 'день';
   if (last >= 2 && last <= 4) return 'дня';
   return 'дней';
+}
+
+export function parseMoscowEndOfDay(dateString) {
+  if (typeof dateString !== 'string') return null;
+  const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(dateString.trim());
+  if (!match) return null;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day, 20, 59, 59));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return date.getTime() / 1000;
+}
+
+export function formatSubscriptionDate(seconds) {
+  if (!seconds) return '—';
+  if (typeof seconds === 'string' && seconds.includes('-')) {
+    return formatDateRu(seconds);
+  }
+  const date = new Date((typeof seconds === 'number' ? seconds : Number(seconds)) * 1000);
+  const formatter = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Europe/Moscow',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  return formatter.format(date);
 }
 
 function escapeHtml(text) {
