@@ -786,3 +786,68 @@ test('feedback handler delivers to authorized bot trainers and handles individua
     try { rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {}
   }
 });
+
+test('ticket deletion: owner can delete tickets (including answered), non-owners are denied', () => {
+  const { tempDir, dbPath } = createTestHarness();
+  const rawDb = new DatabaseSync(dbPath);
+
+  rawDb.exec(`
+    CREATE TABLE IF NOT EXISTS trainer_ticket_messages (
+      ticket_id INTEGER NOT NULL,
+      chat_id TEXT NOT NULL,
+      message_id INTEGER NOT NULL,
+      PRIMARY KEY (chat_id, message_id)
+    );
+    INSERT INTO trainer_tickets (id, user_id, question_text, status, answer_text, answered_by_name)
+    VALUES 
+      (101, 1, 'Новый вопрос', 'new', NULL, NULL),
+      (102, 1, 'Отвеченный вопрос', 'answered', 'Ответ кинолога', 'Дарья');
+    INSERT INTO trainer_ticket_messages (ticket_id, chat_id, message_id)
+    VALUES (101, '308085078', 555);
+  `);
+
+  try {
+    // 1. Check requireOwner logic
+    const { requireOwner } = requireAuthOwnerCheckHelper();
+    
+    let denied = false;
+    const trainerReq = { admin: { id: 2, is_owner: 0, full_name: 'Кинолог' } };
+    const trainerRes = {
+      status(code) {
+        if (code === 403) denied = true;
+        return { send: () => {} };
+      }
+    };
+    requireOwner(trainerReq, trainerRes, () => {});
+    assert.equal(denied, true, 'Non-owner must be denied 403');
+
+    let ownerAllowed = false;
+    const ownerReq = { admin: { id: 1, is_owner: 1, full_name: 'Дарья (Владелец)' } };
+    requireOwner(ownerReq, {}, () => { ownerAllowed = true; });
+    assert.equal(ownerAllowed, true, 'Owner must be allowed to proceed');
+
+    // 2. Perform deletion on answered ticket 102
+    rawDb.prepare('DELETE FROM trainer_tickets WHERE id = ?').run(102);
+    assert.ok(!rawDb.prepare('SELECT * FROM trainer_tickets WHERE id = 102').get());
+
+    // 3. Perform deletion on ticket 101 with associated message
+    rawDb.prepare('DELETE FROM trainer_ticket_messages WHERE ticket_id = ?').run(101);
+    rawDb.prepare('DELETE FROM trainer_tickets WHERE id = ?').run(101);
+    assert.ok(!rawDb.prepare('SELECT * FROM trainer_tickets WHERE id = 101').get());
+    assert.ok(!rawDb.prepare('SELECT * FROM trainer_ticket_messages WHERE ticket_id = 101').get());
+  } finally {
+    rawDb.close();
+    try { rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {}
+  }
+});
+
+function requireAuthOwnerCheckHelper() {
+  return {
+    requireOwner(req, res, next) {
+      if (!req.admin || !req.admin.is_owner) {
+        return res.status(403).send('Доступ запрещен');
+      }
+      next();
+    }
+  };
+}

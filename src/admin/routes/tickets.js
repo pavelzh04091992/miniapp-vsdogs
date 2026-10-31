@@ -1,7 +1,7 @@
 import express from 'express';
 import https from 'node:https';
 import db from '../../db/database.js';
-import { requireAuth, requireRole, logAudit } from '../auth.js';
+import { requireAuth, requireRole, requireOwner, logAudit } from '../auth.js';
 import { renderLayout } from '../views/layout.js';
 import { getTariffName } from '../services/licenseService.js';
 
@@ -45,6 +45,7 @@ const router = express.Router();
 
 router.get('/', requireAuth, requireRole(['TRAINER']), (req, res) => {
   const adminId = req.admin.id;
+  const isOwner = Boolean(req.admin && req.admin.is_owner);
   const tab = req.query.tab || 'my';
 
   const myCount = db.prepare(`
@@ -145,8 +146,17 @@ router.get('/', requireAuth, requireRole(['TRAINER']), (req, res) => {
                   ${t.assigned_trainer_name ? `<span class="badge badge-free" style="margin-left: 6px;">В работе у: ${t.assigned_trainer_name}</span>` : ''}
                   <span class="badge" style="margin-left: 6px; font-size: 11px; background: #e0f2fe; color: #0369a1;">#${t.id}</span>
                 </div>
-                <div style="font-size: 12px; color: var(--text-muted); font-weight: 500;">
-                  Поступил: ${formatMoscowDateTime(t.created_at)}
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <div style="font-size: 12px; color: var(--text-muted); font-weight: 500;">
+                    Поступил: ${formatMoscowDateTime(t.created_at)}
+                  </div>
+                  ${isOwner ? `
+                    <form method="POST" action="/admin/tickets/${t.id}/delete?tab=${tab}" onsubmit="return confirm('Вы действительно хотите удалить вопрос #${t.id}? Это действие необратимо.');" style="margin: 0; display: inline;">
+                      <button type="submit" class="btn btn-sm" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 3px 8px; font-size: 11px; cursor: pointer; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;" title="Удалить вопрос (доступно только Владельцу)">
+                        <span>🗑️</span> Удалить
+                      </button>
+                    </form>
+                  ` : ''}
                 </div>
               </div>
 
@@ -267,6 +277,33 @@ router.post('/:id/release', requireAuth, requireRole(['TRAINER']), (req, res) =>
   `).run(ticketId, req.admin.id, req.admin.is_owner ? 1 : 0);
 
   res.redirect('/admin/tickets?tab=new');
+});
+
+// Удаление вопроса (доступно только Владельцу)
+router.post('/:id/delete', requireAuth, requireOwner, (req, res) => {
+  const ticketId = Number(req.params.id);
+  const tab = req.query.tab || 'new';
+
+  if (!ticketId) {
+    return res.redirect(`/admin/tickets?tab=${encodeURIComponent(tab)}`);
+  }
+
+  const ticket = db.prepare('SELECT * FROM trainer_tickets WHERE id = ?').get(ticketId);
+  if (ticket) {
+    try {
+      const hasMsgTable = Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_ticket_messages'").get());
+      if (hasMsgTable) {
+        db.prepare('DELETE FROM trainer_ticket_messages WHERE ticket_id = ?').run(ticketId);
+      }
+    } catch (e) {
+      console.warn('[tickets] Failed to delete trainer_ticket_messages:', e.message);
+    }
+
+    db.prepare('DELETE FROM trainer_tickets WHERE id = ?').run(ticketId);
+    logAudit(req.admin.id, req.admin.full_name, 'DELETE_TICKET', ticket.user_id, `Удален вопрос #${ticketId} (статус: ${ticket.status})`, req.ip);
+  }
+
+  res.redirect(`/admin/tickets?tab=${encodeURIComponent(tab)}`);
 });
 
 // Отправка ответа
