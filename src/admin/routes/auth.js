@@ -120,11 +120,11 @@ router.get('/login', (req, res) => {
     <form method="POST" action="/admin/login">
       <div class="form-group">
         <label>Логин или Email</label>
-        <input type="text" name="login" required placeholder="daria" autocomplete="username">
+        <input type="text" name="login" required autocomplete="username">
       </div>
       <div class="form-group">
         <label>Пароль</label>
-        <input type="password" name="password" required placeholder="••••••••" autocomplete="current-password">
+        <input type="password" name="password" required autocomplete="current-password">
       </div>
       <button type="submit" class="btn">Войти в панель</button>
     </form>

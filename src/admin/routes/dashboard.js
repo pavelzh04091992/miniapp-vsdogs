@@ -2,17 +2,22 @@ import express from 'express';
 import db from '../../db/database.js';
 import { requireAuth } from '../auth.js';
 import { renderLayout } from '../views/layout.js';
-import { getTariffName, getRemainingTimeText, formatDateOnly } from '../services/licenseService.js';
+import { getTariffName } from '../services/licenseService.js';
 
 const router = express.Router();
 
 router.get('/', requireAuth, (req, res) => {
   const isOwner = req.admin.is_owner;
-  const roles = req.admin.roles;
-  const hasManager = isOwner || roles.includes('MANAGER');
+  const roles = req.admin.roles || [];
 
-  if (!hasManager && roles.includes('TRAINER')) {
-    return res.redirect('/admin/tickets');
+  if (!isOwner) {
+    if (roles.includes('MANAGER')) {
+      return res.redirect('/admin/users');
+    }
+    if (roles.includes('TRAINER')) {
+      return res.redirect('/admin/tickets');
+    }
+    return res.redirect('/admin/login');
   }
 
   // 1. Статистика по лицензиям и клиентам
@@ -35,21 +40,7 @@ router.get('/', requireAuth, (req, res) => {
     WHERE status IN ('new', 'in_progress')
   `).get().count;
 
-  // 2. Лицензии, истекающие в ближайшие 2 дня
-  const expiringLicenses = db.prepare(`
-    SELECT l.*, u.phone, u.username, u.first_name, u.last_name, u.telegram_id,
-           t.name as tariff_name
-    FROM licenses l
-    JOIN users u ON u.id = l.user_id
-    LEFT JOIN tariffs t ON t.id = l.tariff_id
-    WHERE l.status = 'active' 
-      AND l.expires_at IS NOT NULL 
-      AND l.expires_at <= date('now', '+2 days')
-      AND l.expires_at >= date('now')
-    ORDER BY l.expires_at ASC
-  `).all();
-
-  // 3. Последние тикеты
+  // 2. Последние тикеты
   const recentTickets = db.prepare(`
     SELECT t.*, u.first_name, u.last_name, u.phone, u.username
     FROM trainer_tickets t
@@ -58,7 +49,7 @@ router.get('/', requireAuth, (req, res) => {
     LIMIT 5
   `).all();
 
-  // 4. Последние транзакции
+  // 3. Последние транзакции
   const recentPayments = db.prepare(`
     SELECT p.*, u.first_name, u.last_name, u.phone, a.full_name as admin_name,
            t.name as tariff_name
@@ -114,64 +105,8 @@ router.get('/', requireAuth, (req, res) => {
       </div>
     </div>
 
-    <!-- Таблица: Истекают в ближайшие 2 дня -->
-    <div class="card">
-      <div class="card-header">
-        <div>
-          <h3 class="card-title">Лицензии, истекающие в ближайшие 2 дня</h3>
-          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">Клиенты, требующие напоминания или продления доступа</p>
-        </div>
-        <span class="badge ${expiringLicenses.length > 0 ? 'badge-expiring' : 'badge-paid'}">
-          ${expiringLicenses.length} чел.
-        </span>
-      </div>
-
-      ${expiringLicenses.length === 0 ? `
-        <div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 13.5px;">
-          В ближайшие 2 дня истекающих подписок нет.
-        </div>
-      ` : `
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Клиент / Телефон</th>
-                <th>Telegram</th>
-                <th>Тариф</th>
-                <th>Срок действия</th>
-                <th>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${expiringLicenses.map(item => `
-                <tr>
-                  <td>
-                    <strong>${item.first_name || ''} ${item.last_name || ''}</strong><br>
-                    <span style="font-size: 12px; color: var(--text-muted);">${item.phone || 'Телефон не указан'}</span>
-                  </td>
-                  <td>
-                    ${item.username ? `@${item.username}` : `ID: ${item.telegram_id}`}
-                  </td>
-                  <td>
-                    <span class="badge badge-paid">${item.tariff_name || getTariffName(item.tariff_id)}</span>
-                  </td>
-                  <td>
-                    <div>до ${formatDateOnly(item.expires_at)}</div>
-                    <div style="font-size: 11px; color: var(--text-muted);">${getRemainingTimeText(item)}</div>
-                  </td>
-                  <td>
-                    <a href="/admin/users/${item.user_id}" class="btn btn-secondary btn-sm">Открыть профиль</a>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `}
-    </div>
-
     <!-- Сетка: Свежие вопросы кинологам и последние оплаты -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
       
       <!-- Последние тикеты -->
       <div class="card">
@@ -182,7 +117,9 @@ router.get('/', requireAuth, (req, res) => {
         <div class="table-container">
           <table>
             <tbody>
-              ${recentTickets.map(t => `
+              ${recentTickets.length === 0 ? `
+                <tr><td style="text-align: center; color: var(--text-muted); padding: 20px;">Нет новых вопросов</td></tr>
+              ` : recentTickets.map(t => `
                 <tr>
                   <td>
                     <div style="font-weight: 600; font-size: 13px;">${t.first_name || 'Ученик'} (${t.phone || 'нет тел.'})</div>
@@ -211,7 +148,9 @@ router.get('/', requireAuth, (req, res) => {
         <div class="table-container">
           <table>
             <tbody>
-              ${recentPayments.map(p => `
+              ${recentPayments.length === 0 ? `
+                <tr><td style="text-align: center; color: var(--text-muted); padding: 20px;">Оплат пока нет</td></tr>
+              ` : recentPayments.map(p => `
                 <tr>
                   <td>
                     <div style="font-weight: 600; font-size: 13px;">${p.first_name || 'Клиент'} ${p.last_name || ''}</div>

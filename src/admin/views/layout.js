@@ -6,8 +6,10 @@ import db from '../../db/database.js';
 export function renderLayout({ title, activeNav, admin, content, alert = null }) {
   const isOwner = Boolean(admin?.is_owner);
   const roles = admin?.roles || [];
-  const hasManager = isOwner || roles.includes('MANAGER');
-  const hasTrainer = isOwner || roles.includes('TRAINER');
+  
+  // Роль Менеджер видит ТОЛЬКО Клиенты и Оплаты (если не Владелец)
+  const isManagerOnly = !isOwner && roles.includes('MANAGER');
+  const hasTrainer = isOwner || (!isManagerOnly && roles.includes('TRAINER'));
 
   // Двухуровневый счетчик тикетов: закрепленные неотвеченные за сотрудником / новые ничейные
   let ticketBadgeText = '';
@@ -29,16 +31,6 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
     }
   }
 
-  // Счетчик ожидающих запросов на подписку
-  let pendingRequestsCount = 0;
-  if (hasManager) {
-    try {
-      pendingRequestsCount = db.prepare(`SELECT COUNT(*) as c FROM subscription_requests WHERE status = 'pending'`).get()?.c || 0;
-    } catch (err) {
-      pendingRequestsCount = 0;
-    }
-  }
-
   // Ролевые бейджи
   const roleBadges = [];
   if (isOwner) {
@@ -55,7 +47,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>${title} | VS Dogs Backoffice</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -89,6 +81,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       color: var(--text-main);
       display: flex;
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* Сайдбар */
@@ -100,10 +93,11 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       flex-direction: column;
       flex-shrink: 0;
       border-right: 1px solid #1e293b;
+      transition: transform 0.25s ease-in-out;
     }
 
     .brand {
-      padding: 24px 20px;
+      padding: 20px;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -113,8 +107,8 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
     .brand-icon {
       font-size: 24px;
       background: #1e293b;
-      width: 42px;
-      height: 42px;
+      width: 40px;
+      height: 40px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -187,6 +181,17 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       background: #dc2626;
       color: #ffffff;
       letter-spacing: 0.03em;
+      transition: transform 0.2s, background-color 0.2s;
+    }
+
+    .badge-pulse {
+      animation: badgePulseAnim 1.2s ease-in-out infinite;
+    }
+
+    @keyframes badgePulseAnim {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+      50% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
     }
 
     /* Профиль внизу сайдбара */
@@ -253,7 +258,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       color: #64748b;
       text-decoration: none;
       font-size: 18px;
-      padding: 4px;
+      padding: 6px;
       transition: color 0.15s;
     }
     .logout-btn:hover { color: #ef4444; }
@@ -264,6 +269,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       display: flex;
       flex-direction: column;
       overflow-x: hidden;
+      min-width: 0;
     }
 
     .top-header {
@@ -273,6 +279,21 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
+    }
+
+    .mobile-menu-btn {
+      display: none;
+      background: none;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--text-main);
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
     }
 
     .page-title {
@@ -315,6 +336,8 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
     /* Таблицы */
     .table-container {
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
     }
 
     table {
@@ -322,6 +345,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       border-collapse: collapse;
       text-align: left;
       font-size: 13.5px;
+      min-width: 500px;
     }
 
     th {
@@ -333,6 +357,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       letter-spacing: 0.04em;
       padding: 12px 16px;
       border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
     }
 
     td {
@@ -354,6 +379,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       border-radius: 20px;
       font-size: 12px;
       font-weight: 600;
+      white-space: nowrap;
     }
     .badge-paid { background: var(--success-bg); color: var(--success-text); }
     .badge-free { background: #f1f5f9; color: #475569; }
@@ -367,7 +393,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       align-items: center;
       justify-content: center;
       gap: 6px;
-      padding: 8px 16px;
+      padding: 9px 16px;
       border-radius: 8px;
       font-size: 13.5px;
       font-weight: 600;
@@ -375,6 +401,8 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       border: 1px solid transparent;
       text-decoration: none;
       transition: all 0.15s ease;
+      min-height: 38px;
+      white-space: nowrap;
     }
 
     .btn-primary {
@@ -397,8 +425,9 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
     .btn-danger:hover { background: #fecaca; }
 
     .btn-sm {
-      padding: 5px 10px;
+      padding: 6px 12px;
       font-size: 12px;
+      min-height: 32px;
       border-radius: 6px;
     }
 
@@ -415,7 +444,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
     }
     .form-control {
       width: 100%;
-      padding: 9px 12px;
+      padding: 10px 13px;
       border: 1px solid var(--border-color);
       border-radius: 8px;
       font-size: 14px;
@@ -440,10 +469,13 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       border-top: 1px solid var(--border-color);
       font-size: 13px;
       color: var(--text-muted);
+      flex-wrap: wrap;
+      gap: 12px;
     }
     .pagination-links {
       display: flex;
       gap: 6px;
+      flex-wrap: wrap;
     }
     .page-btn {
       padding: 6px 12px;
@@ -474,12 +506,125 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
     }
     .alert-success { background: var(--success-bg); color: var(--success-text); border: 1px solid #bbf7d0; }
     .alert-danger { background: var(--danger-bg); color: var(--danger-text); border: 1px solid #fecaca; }
+
+    /* Тосты (уведомления в реальном времени) */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+      max-width: 320px;
+      pointer-events: auto;
+      transition: opacity 0.3s, transform 0.3s;
+      border-left: 4px solid var(--primary);
+      animation: toastSlideIn 0.3s ease forwards;
+    }
+    .toast-success { border-left-color: #22c55e; }
+    .toast-info { border-left-color: #3b82f6; }
+    .toast.hide { opacity: 0; transform: translateY(10px); }
+
+    @keyframes toastSlideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Подложка мобильного сайдбара */
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      z-index: 998;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    /* Адаптивность для мобильных устройств */
+    @media (max-width: 768px) {
+      body {
+        position: relative;
+      }
+
+      .mobile-menu-btn {
+        display: flex;
+      }
+
+      .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 280px;
+        z-index: 1000;
+        transform: translateX(-100%);
+        box-shadow: 5px 0 25px rgba(0, 0, 0, 0.3);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .sidebar-backdrop.active {
+        display: block;
+        opacity: 1;
+      }
+
+      .top-header {
+        padding: 12px 16px;
+      }
+
+      .page-title {
+        font-size: 18px;
+      }
+
+      .content-container {
+        padding: 16px;
+      }
+
+      .card {
+        padding: 16px;
+        border-radius: 10px;
+        margin-bottom: 16px;
+      }
+
+      /* Сетка в одну колонку на мобильных */
+      .grid-two-cols,
+      [style*="grid-template-columns: 1fr 380px"],
+      [style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+      }
+
+      .toast-container {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+      }
+      .toast {
+        max-width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
 
+  <!-- Затемнение для мобильного сайдбара -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
   <!-- Сайдбар -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="adminSidebar">
     <div class="brand">
       <div class="brand-icon">🐶</div>
       <div class="brand-info">
@@ -489,7 +634,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
     </div>
 
     <nav class="nav-section">
-      ${hasManager ? `
+      ${isOwner ? `
         <div class="nav-title">Основное</div>
         <a href="/admin" class="nav-link ${activeNav === 'dashboard' ? 'active' : ''}">
           <span>📊</span> Дашборд
@@ -499,19 +644,14 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
         </a>
         <a href="/admin/payments" class="nav-link ${activeNav === 'payments' ? 'active' : ''}">
           <span>💳</span> Оплаты
-          ${pendingRequestsCount > 0 ? `<span class="nav-badge" title="Новые запросы на подписку">${pendingRequestsCount}</span>` : ''}
         </a>
-      ` : ''}
 
-      ${hasTrainer ? `
         <div class="nav-title">Обучение & Поддержка</div>
         <a href="/admin/tickets" class="nav-link ${activeNav === 'tickets' ? 'active' : ''}">
           <span>💬</span> Вопросы к кинологу
-          <span class="nav-badge" title="Закреплено за вами / Новые ничейные">${ticketBadgeText}</span>
+          <span class="nav-badge" id="ticketsBadge" title="Закреплено за вами / Новые ничейные">${ticketBadgeText}</span>
         </a>
-      ` : ''}
 
-      ${hasManager ? `
         <div class="nav-title">Тарифы & Маркетинг</div>
         <a href="/admin/tariffs" class="nav-link ${activeNav === 'tariffs' ? 'active' : ''}">
           <span>📋</span> Тарифы
@@ -519,9 +659,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
         <a href="/admin/broadcasts" class="nav-link ${activeNav === 'broadcasts' ? 'active' : ''}">
           <span>📢</span> Рассылки в Telegram
         </a>
-      ` : ''}
 
-      ${isOwner ? `
         <div class="nav-title">Система</div>
         <a href="/admin/team" class="nav-link ${activeNav === 'team' ? 'active' : ''}">
           <span>🛡️</span> Команда & Доступы
@@ -529,7 +667,23 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
         <a href="/admin/system" class="nav-link ${activeNav === 'system' ? 'active' : ''}">
           <span>📜</span> Логи & Копия базы
         </a>
-      ` : ''}
+      ` : (isManagerOnly ? `
+        <!-- Сотрудник с ролью "Менеджер" видит только "Клиенты" и "Оплаты" -->
+        <div class="nav-title">Менеджер</div>
+        <a href="/admin/users" class="nav-link ${activeNav === 'users' ? 'active' : ''}">
+          <span>👥</span> Клиенты
+        </a>
+        <a href="/admin/payments" class="nav-link ${activeNav === 'payments' ? 'active' : ''}">
+          <span>💳</span> Оплаты
+        </a>
+      ` : `
+        <!-- Кинолог -->
+        <div class="nav-title">Обучение & Поддержка</div>
+        <a href="/admin/tickets" class="nav-link ${activeNav === 'tickets' ? 'active' : ''}">
+          <span>💬</span> Вопросы к кинологу
+          <span class="nav-badge" id="ticketsBadge" title="Закреплено за вами / Новые ничейные">${ticketBadgeText}</span>
+        </a>
+      `)}
     </nav>
 
     <!-- Подвал пользователя -->
@@ -550,7 +704,10 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
   <!-- Рабочая зона -->
   <div class="main-wrapper">
     <header class="top-header">
-      <h2 class="page-title">${title}</h2>
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <button type="button" class="mobile-menu-btn" id="menuToggleBtn" title="Меню">☰</button>
+        <h2 class="page-title">${title}</h2>
+      </div>
       <div style="font-size: 13px; color: var(--text-muted);">
         Школа дрессировки Дарьи Сахаровой
       </div>
@@ -561,6 +718,116 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
       ${content}
     </main>
   </div>
+
+  <!-- Контейнер для real-time уведомлений -->
+  <div id="adminToastContainer" class="toast-container"></div>
+
+  <!-- Глобальный скрипт: Мобильное меню + Realtime SSE Автообновление -->
+  <script>
+    (function() {
+      // 1. Управление мобильным сайдбаром
+      const toggleBtn = document.getElementById('menuToggleBtn');
+      const sidebar = document.getElementById('adminSidebar');
+      const backdrop = document.getElementById('sidebarBackdrop');
+
+      if (toggleBtn && sidebar && backdrop) {
+        function openSidebar() {
+          sidebar.classList.add('open');
+          backdrop.classList.add('active');
+          document.body.style.overflow = 'hidden';
+        }
+        function closeSidebar() {
+          sidebar.classList.remove('open');
+          backdrop.classList.remove('active');
+          document.body.style.overflow = '';
+        }
+        toggleBtn.addEventListener('click', openSidebar);
+        backdrop.addEventListener('click', closeSidebar);
+      }
+
+      // 2. Всплывающие уведомления (Toasts)
+      function showToast(message, type) {
+        const container = document.getElementById('adminToastContainer');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-' + (type || 'info');
+        toast.innerHTML = message;
+        container.appendChild(toast);
+        setTimeout(function() {
+          toast.classList.add('hide');
+          setTimeout(function() { toast.remove(); }, 350);
+        }, 4000);
+      }
+
+      // 3. Автообновление в реальном времени (Server-Sent Events)
+      if (window.EventSource) {
+        try {
+          var evtSource = new EventSource('/admin/api/events');
+
+          evtSource.onmessage = function(e) {
+            try {
+              var data = JSON.parse(e.data);
+
+              if (data.type === 'connected') {
+                var badge = document.getElementById('ticketsBadge');
+                if (badge && data.payload && data.payload.ticketBadgeText) {
+                  badge.textContent = data.payload.ticketBadgeText;
+                }
+              } else if (data.type === 'update') {
+                var p = data.payload || {};
+                var badge = document.getElementById('ticketsBadge');
+                if (badge && p.badges && p.badges.ticketBadgeText) {
+                  if (badge.textContent !== p.badges.ticketBadgeText) {
+                    badge.textContent = p.badges.ticketBadgeText;
+                    badge.classList.remove('badge-pulse');
+                    void badge.offsetWidth; // reflow
+                    badge.classList.add('badge-pulse');
+                  }
+                }
+
+                if (p.ticketsChanged) {
+                  showToast('💬 <b>Вопросы к кинологу</b><br>Поступил новый вопрос или изменился статус!', 'info');
+                }
+                if (p.usersChanged) {
+                  showToast('👤 <b>Клиенты</b><br>Зарегистрирован новый пользователь или обновлен профиль!', 'success');
+                }
+                if (p.paymentsChanged) {
+                  showToast('💳 <b>Оплаты</b><br>Зафиксирована новая оплата!', 'success');
+                }
+
+                // Интеллектуальное бесшовное обновление текущей страницы
+                var path = window.location.pathname;
+                var activeElem = document.activeElement;
+                var isTyping = activeElem && (activeElem.tagName === 'INPUT' || activeElem.tagName === 'TEXTAREA' || activeElem.tagName === 'SELECT');
+
+                var shouldRefresh = (
+                  (p.ticketsChanged && path.indexOf('/tickets') !== -1) ||
+                  (p.usersChanged && (path === '/admin/users' || path === '/admin/users/')) ||
+                  (p.paymentsChanged && path.indexOf('/payments') !== -1) ||
+                  ((p.ticketsChanged || p.paymentsChanged || p.usersChanged) && (path === '/admin' || path === '/admin/'))
+                );
+
+                if (shouldRefresh && !isTyping) {
+                  fetch(window.location.href, { headers: { 'X-Requested-With': 'LiveUpdate' } })
+                    .then(function(res) { return res.text(); })
+                    .then(function(html) {
+                      var parser = new DOMParser();
+                      var doc = parser.parseFromString(html, 'text/html');
+                      var newContent = doc.querySelector('.content-container');
+                      var curContent = document.querySelector('.content-container');
+                      if (newContent && curContent) {
+                        curContent.innerHTML = newContent.innerHTML;
+                      }
+                    })
+                    .catch(function() {});
+                }
+              }
+            } catch (err) {}
+          };
+        } catch (err) {}
+      }
+    })();
+  </script>
 
 </body>
 </html>

@@ -1,12 +1,12 @@
 import express from 'express';
 import db from '../../db/database.js';
-import { requireAuth, requireRole, logAudit } from '../auth.js';
+import { requireAuth, requireOwner, logAudit } from '../auth.js';
 import { renderLayout } from '../views/layout.js';
 
 const router = express.Router();
 
-// Список тарифов и форма редактирования
-router.get('/', requireAuth, requireRole(['MANAGER']), (req, res) => {
+// Список тарифов и форма редактирования (только Владелец)
+router.get('/', requireAuth, requireOwner, (req, res) => {
   const tariffs = db.prepare('SELECT * FROM tariffs ORDER BY order_index ASC, price ASC').all();
   const editId = req.query.edit;
   let editingTariff = null;
@@ -16,7 +16,7 @@ router.get('/', requireAuth, requireRole(['MANAGER']), (req, res) => {
   }
 
   const content = `
-    <div style="display: grid; grid-template-columns: 1fr 380px; gap: 24px;">
+    <div style="display: grid; grid-template-columns: 1fr 380px; gap: 24px;" class="grid-two-cols">
       
       <!-- Список существующих тарифов -->
       <div class="card">
@@ -84,14 +84,6 @@ router.get('/', requireAuth, requireRole(['MANAGER']), (req, res) => {
         </div>
 
         <form method="POST" action="${editingTariff ? `/admin/tariffs/${editingTariff.id}/update` : '/admin/tariffs/create'}">
-          ${!editingTariff ? `
-            <div class="form-group">
-              <label class="form-label">Уникальный ID тарифа (латиницей)</label>
-              <input type="text" name="id" class="form-control" required placeholder="например: paid_12m" pattern="[a-z0-9_]+">
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Только строчные латинские буквы, цифры и подчеркивание</div>
-            </div>
-          ` : ''}
-
           <div class="form-group">
             <label class="form-label">Название тарифа</label>
             <input type="text" name="name" class="form-control" required value="${editingTariff?.name || ''}" placeholder="например: 1 год обучения">
@@ -140,17 +132,18 @@ router.get('/', requireAuth, requireRole(['MANAGER']), (req, res) => {
   }));
 });
 
-// Создание тарифа
-router.post('/create', requireAuth, requireRole(['MANAGER']), express.urlencoded({ extended: false }), (req, res) => {
-  const { id, name, price, period_months, duration_days, description, order_index } = req.body;
+// Создание тарифа (ID генерируется автоматически)
+router.post('/create', requireAuth, requireOwner, express.urlencoded({ extended: false }), (req, res) => {
+  const { name, price, period_months, duration_days, description, order_index } = req.body;
 
-  if (id && name) {
+  if (name && name.trim()) {
     try {
+      const id = `tariff_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
       db.prepare(`
         INSERT INTO tariffs (id, name, price, period_months, duration_days, description, is_active, order_index)
         VALUES (?, ?, ?, ?, ?, ?, 1, ?)
       `).run(
-        id.trim().toLowerCase(),
+        id,
         name.trim(),
         Number(price) || 0,
         Number(period_months) || 1,
@@ -159,7 +152,7 @@ router.post('/create', requireAuth, requireRole(['MANAGER']), express.urlencoded
         Number(order_index) || 0
       );
 
-      logAudit(req.admin.id, req.admin.full_name, 'CREATE_TARIFF', null, `Создан тариф ${id}: ${price} руб`, req.ip);
+      logAudit(req.admin.id, req.admin.full_name, 'CREATE_TARIFF', null, `Создан тариф ${id} (${name.trim()}): ${price} руб`);
     } catch (err) {
       console.error('Ошибка создания тарифа:', err);
     }
@@ -169,7 +162,7 @@ router.post('/create', requireAuth, requireRole(['MANAGER']), express.urlencoded
 });
 
 // Обновление существующего тарифа
-router.post('/:id/update', requireAuth, requireRole(['MANAGER']), express.urlencoded({ extended: false }), (req, res) => {
+router.post('/:id/update', requireAuth, requireOwner, express.urlencoded({ extended: false }), (req, res) => {
   const id = req.params.id;
   const { name, price, period_months, duration_days, description, order_index } = req.body;
 
@@ -188,20 +181,20 @@ router.post('/:id/update', requireAuth, requireRole(['MANAGER']), express.urlenc
       id
     );
 
-    logAudit(req.admin.id, req.admin.full_name, 'UPDATE_TARIFF', null, `Обновлен тариф ${id}: ${price} руб`, req.ip);
+    logAudit(req.admin.id, req.admin.full_name, 'UPDATE_TARIFF', null, `Обновлен тариф ${id}: ${price} руб`);
   }
 
   res.redirect('/admin/tariffs');
 });
 
 // Переключение активности тарифа
-router.post('/:id/toggle', requireAuth, requireRole(['MANAGER']), (req, res) => {
+router.post('/:id/toggle', requireAuth, requireOwner, (req, res) => {
   const id = req.params.id;
   const t = db.prepare('SELECT is_active FROM tariffs WHERE id = ?').get(id);
   if (t) {
     const newStatus = t.is_active ? 0 : 1;
     db.prepare('UPDATE tariffs SET is_active = ? WHERE id = ?').run(newStatus, id);
-    logAudit(req.admin.id, req.admin.full_name, 'TOGGLE_TARIFF', null, `Тариф ${id} статус: ${newStatus}`, req.ip);
+    logAudit(req.admin.id, req.admin.full_name, 'TOGGLE_TARIFF', null, `Тариф ${id} статус: ${newStatus}`);
   }
   res.redirect('/admin/tariffs');
 });

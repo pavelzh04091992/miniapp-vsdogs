@@ -217,6 +217,25 @@ export function initDatabase() {
       ip_address TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    -- 10. Журнал автоматических уведомлений об окончании подписки
+    CREATE TABLE IF NOT EXISTS subscription_notifications (
+      telegram_id TEXT NOT NULL,
+      access_expires_at TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      delivered_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (telegram_id, access_expires_at, kind)
+    );
+
+    -- 11. Шаблоны автосообщений бота (напоминания о подписке и др.)
+    CREATE TABLE IF NOT EXISTS auto_messages (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      message_template TEXT NOT NULL,
+      placeholders TEXT,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Миграция таблицы вопросов кинологу (trainer_tickets)
@@ -268,6 +287,33 @@ export function initDatabase() {
     insertTariff.run('paid_6m', '6 месяцев', 11900, 6, 180, 'Полное сопровождение взросления собаки', 3);
     insertTariff.run('lifetime', 'VIP Бессрочный', 14900, 999, 9999, 'Вечный доступ к базе знаний школы', 4);
     insertTariff.run('free', 'Базовый (Free)', 0, 0, 0, 'Ознакомительный доступ без видео и без кинолога', 5);
+  }
+
+  // 12. Инициализация шаблонов автосообщений
+  try {
+    const autoMsgCount = db.prepare('SELECT COUNT(*) as count FROM auto_messages').get()?.count || 0;
+    if (autoMsgCount === 0) {
+      const insertMsg = db.prepare(`
+        INSERT INTO auto_messages (id, title, description, message_template, placeholders)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      insertMsg.run(
+        'sub_warning_3d',
+        'Напоминание за 3 дня до окончания лицензии',
+        'Отправляется клиенту в Telegram за 3 дня до завершения доступа',
+        '⏳ <b>Напоминание о подписке</b>\n\nЗдравствуйте, {name}!\n\nСрок действия вашей подписки на видеоплатформу «Высшей школы собак» завершается <b>{expiry_date}</b> (через 3 дня).\n\nДля продления доступа, пожалуйста, свяжитесь с вашим менеджером школы.',
+        '{name}, {expiry_date}'
+      );
+      insertMsg.run(
+        'sub_expired',
+        'Уведомление в момент окончания лицензии',
+        'Отправляется клиенту в Telegram в день истечения срока подписки',
+        '⏳ <b>Срок подписки истёк</b>\n\nЗдравствуйте, {name}!\n\nСрок действия вашей подписки на видеоплатформу «Высшей школы собак» подошёл к концу (<b>{expiry_date}</b>).\n\nДля продления доступа, пожалуйста, обратитесь к вашему менеджеру школы.',
+        '{name}, {expiry_date}'
+      );
+    }
+  } catch (err) {
+    console.error('Ошибка инициализации auto_messages:', err);
   }
 }
 

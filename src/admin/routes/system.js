@@ -98,12 +98,11 @@ router.get('/', requireAuth, requireOwner, (req, res) => {
               <th>Действие</th>
               <th>Клиент</th>
               <th>Подробности</th>
-              <th>IP адрес</th>
             </tr>
           </thead>
           <tbody>
             ${logs.length === 0 ? `
-              <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 32px;">Записей в журнале пока нет</td></tr>
+              <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 32px;">Записей в журнале пока нет</td></tr>
             ` : logs.map(l => {
               const actionLabel = ACTION_NAMES[l.action] || l.action;
               let badgeClass = 'badge-free';
@@ -135,9 +134,6 @@ router.get('/', requireAuth, requireOwner, (req, res) => {
                   </td>
                   <td style="font-size: 13px; color: #1e293b; max-width: 360px;">
                     ${l.details || '—'}
-                  </td>
-                  <td style="font-size: 12px; color: var(--text-muted); font-family: monospace;">
-                    ${l.ip_address || '—'}
                   </td>
                 </tr>
               `;

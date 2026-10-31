@@ -466,12 +466,11 @@ router.get('/:id', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) 
               <th>Сотрудник</th>
               <th>Действие</th>
               <th>Подробности</th>
-              <th>IP</th>
             </tr>
           </thead>
           <tbody>
             ${clientAuditLogs.length === 0 ? `
-              <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">Записей в журнале по клиенту пока нет</td></tr>
+              <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">Записей в журнале по клиенту пока нет</td></tr>
             ` : clientAuditLogs.map(log => {
               const actionLabel = ACTION_NAMES[log.action] || log.action;
               let badgeClass = 'badge-free';
@@ -486,7 +485,6 @@ router.get('/:id', requireAuth, requireRole(['MANAGER', 'TRAINER']), (req, res) 
                   <td><strong>${log.admin_name}</strong></td>
                   <td><span class="badge ${badgeClass}" style="font-size: 11px;">${actionLabel}</span></td>
                   <td style="font-size: 12.5px; max-width: 400px;">${log.details || '—'}</td>
-                  <td style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${log.ip_address || '—'}</td>
                 </tr>
               `;
             }).join('')}

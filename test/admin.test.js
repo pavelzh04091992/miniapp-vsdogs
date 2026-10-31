@@ -26,7 +26,7 @@ test('Проверка доступности разделов по ролям (
   await t.test('Владелец (Дарья) имеет доступ ко всем разделам', async () => {
     const cookie = `${SESSION_COOKIE_NAME}=${createSessionToken(daria.id)}`;
     
-    for (const path of ['/admin', '/admin/users', '/admin/tickets', '/admin/payments', '/admin/tariffs', '/admin/team', '/admin/system']) {
+    for (const path of ['/admin', '/admin/users', '/admin/tickets', '/admin/payments', '/admin/tariffs', '/admin/team', '/admin/system', '/admin/broadcasts']) {
       const res = await fetch(`${baseUrl}${path}`, {
         headers: { Cookie: cookie }
       });
@@ -45,18 +45,21 @@ test('Проверка доступности разделов по ролям (
     assert.strictEqual(teamRes.status, 403);
   });
 
-  // 4. Мультироль Елена (Менеджер + Кинолог) видит и клиентов, и тикеты, и тарифы
-  await t.test('Мультироль имеет доступ к разделам менеджера и кинолога', async () => {
+  // 4. Менеджер видит только Клиенты и Оплаты (закрыты Тарифы, Рассылки, Команда)
+  await t.test('Менеджер видит только разделы Клиенты и Оплаты', async () => {
     const cookie = `${SESSION_COOKIE_NAME}=${createSessionToken(elenaMulti.id)}`;
 
     const usersRes = await fetch(`${baseUrl}/admin/users`, { headers: { Cookie: cookie } });
     assert.strictEqual(usersRes.status, 200);
 
-    const ticketsRes = await fetch(`${baseUrl}/admin/tickets`, { headers: { Cookie: cookie } });
-    assert.strictEqual(ticketsRes.status, 200);
+    const paymentsRes = await fetch(`${baseUrl}/admin/payments`, { headers: { Cookie: cookie } });
+    assert.strictEqual(paymentsRes.status, 200);
 
     const tariffsRes = await fetch(`${baseUrl}/admin/tariffs`, { headers: { Cookie: cookie } });
-    assert.strictEqual(tariffsRes.status, 200);
+    assert.strictEqual(tariffsRes.status, 403);
+
+    const broadcastsRes = await fetch(`${baseUrl}/admin/broadcasts`, { headers: { Cookie: cookie } });
+    assert.strictEqual(broadcastsRes.status, 403);
 
     const teamRes = await fetch(`${baseUrl}/admin/team`, { headers: { Cookie: cookie } });
     assert.strictEqual(teamRes.status, 403);
