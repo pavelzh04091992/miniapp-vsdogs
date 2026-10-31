@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.get('/', requireAuth, requireOwner, (req, res) => {
   const team = db.prepare(`
-    SELECT id, login, email, full_name, is_owner, roles, can_answer_tickets_bot, telegram_id, telegram_username, is_active, last_login_at, created_at
+    SELECT id, login, email, phone, full_name, is_owner, roles, can_answer_tickets_bot, telegram_id, telegram_username, is_active, last_login_at, created_at
     FROM admin_users 
     ORDER BY is_owner DESC, id ASC
   `).all();

@@ -176,6 +176,7 @@ const handleFeedback = createFeedbackHandler({
   getSessionUser,
   authDatabase,
   rateLimiter: feedbackRateLimiter,
+  fetchImpl: telegramTransport.fetch,
 });
 
 const server = createServer((request, response) => {

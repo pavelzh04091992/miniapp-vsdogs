@@ -363,6 +363,12 @@ export async function handleTicketBotUpdate(update, customDb = db, callApi = cal
     if (text === '/start' || text.startsWith('/start ')) {
       const trainer = isTrainerAuthorizedForBot(msg.from, customDb);
       if (trainer) {
+        if (!trainer.telegram_id && msg.from?.id) {
+          try {
+            customDb.prepare('UPDATE admin_users SET telegram_id = ? WHERE id = ?').run(String(msg.from.id), trainer.id);
+            trainer.telegram_id = String(msg.from.id);
+          } catch {}
+        }
         await callApi(TICKET_BOT_TOKEN, 'sendMessage', {
           chat_id: msg.chat.id,
           text: `👋 <b>Добро пожаловать в тикет-центр школы VS Dogs!</b>\n\n` +
@@ -398,12 +404,46 @@ export async function handleTicketBotUpdate(update, customDb = db, callApi = cal
     // Ответ на тикет через Reply в группе или личке
     if (msg.reply_to_message) {
       const repliedMessageId = msg.reply_to_message.message_id;
-      const ticket = customDb.prepare(`
-        SELECT t.*, u.telegram_id as student_telegram_id, u.first_name, u.last_name, u.username as student_username
-        FROM trainer_tickets t
-        JOIN users u ON (u.telegram_id = t.user_id OR CAST(u.rowid AS TEXT) = CAST(t.user_id AS TEXT) OR u.id = t.user_id)
-        WHERE t.tg_message_id = ?
-      `).get(repliedMessageId);
+      const repliedChatId = String(msg.chat.id);
+
+      let ticket = null;
+      try {
+        const hasMsgTable = Boolean(customDb.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_ticket_messages'").get());
+        if (hasMsgTable) {
+          ticket = customDb.prepare(`
+            SELECT t.*, u.telegram_id as student_telegram_id, u.first_name, u.last_name, u.username as student_username
+            FROM trainer_ticket_messages m
+            JOIN trainer_tickets t ON t.id = m.ticket_id
+            JOIN users u ON (u.telegram_id = t.user_id OR CAST(u.rowid AS TEXT) = CAST(t.user_id AS TEXT) OR u.id = t.user_id)
+            WHERE m.chat_id = ? AND m.message_id = ?
+          `).get(repliedChatId, repliedMessageId);
+        }
+      } catch {
+        // fallback
+      }
+
+      if (!ticket) {
+        ticket = customDb.prepare(`
+          SELECT t.*, u.telegram_id as student_telegram_id, u.first_name, u.last_name, u.username as student_username
+          FROM trainer_tickets t
+          JOIN users u ON (u.telegram_id = t.user_id OR CAST(u.rowid AS TEXT) = CAST(t.user_id AS TEXT) OR u.id = t.user_id)
+          WHERE t.tg_message_id = ?
+        `).get(repliedMessageId);
+      }
+
+      if (!ticket) {
+        const textToCheck = `${msg.reply_to_message.text || ''} ${msg.reply_to_message.caption || ''}`;
+        const match = textToCheck.match(/(?:тикет|вопрос)\s*#?(\d+)|\[#(\d+)\]/i);
+        const extractedId = match ? Number(match[1] || match[2]) : null;
+        if (extractedId) {
+          ticket = customDb.prepare(`
+            SELECT t.*, u.telegram_id as student_telegram_id, u.first_name, u.last_name, u.username as student_username
+            FROM trainer_tickets t
+            JOIN users u ON (u.telegram_id = t.user_id OR CAST(u.rowid AS TEXT) = CAST(t.user_id AS TEXT) OR u.id = t.user_id)
+            WHERE t.id = ?
+          `).get(extractedId);
+        }
+      }
 
       if (ticket) {
         if (ticket.status === 'answered') {

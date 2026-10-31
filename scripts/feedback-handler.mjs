@@ -103,24 +103,67 @@ export function createFeedbackHandler(options) {
         }
       }
 
-      const targetTelegramId = process.env.TICKET_CHAT_ID || adminTelegramId;
-      if (deliver && targetTelegramId) {
+      if (deliver) {
         let deliveryApi = api;
         if (process.env.TICKET_BOT_TOKEN && deliver === deliverFeedback) {
-          deliveryApi = createTelegramApi(process.env.TICKET_BOT_TOKEN);
+          deliveryApi = createTelegramApi(process.env.TICKET_BOT_TOKEN, {
+            fetchImpl: options.fetchImpl || api?.fetchImpl,
+            uploadTimeoutMs: options.uploadTimeoutMs,
+          });
         }
 
-        const deliveryResult = await deliver({
-          api: deliveryApi,
-          adminTelegramId: targetTelegramId,
-          submission,
-          user,
-          ticketId,
-        });
+        const recipients = new Set();
+        if (process.env.TICKET_CHAT_ID) {
+          recipients.add(String(process.env.TICKET_CHAT_ID).trim());
+        }
 
-        if (deliveryResult?.rootMessageId && ticketId && authDatabase?.setTrainerTicketTelegramMessage) {
+        if (authDatabase?.getAuthorizedBotTrainers) {
           try {
-            authDatabase.setTrainerTicketTelegramMessage(ticketId, deliveryResult.rootMessageId, String(targetTelegramId));
+            const trainers = authDatabase.getAuthorizedBotTrainers();
+            for (const trainer of trainers) {
+              if (trainer.telegram_id) {
+                recipients.add(String(trainer.telegram_id).trim());
+              }
+            }
+          } catch (trainerErr) {
+            logError(`[feedback] Failed to get authorized bot trainers: ${trainerErr?.message}`);
+          }
+        }
+
+        if (recipients.size === 0 && adminTelegramId) {
+          recipients.add(String(adminTelegramId).trim());
+        }
+
+        let firstSuccess = null;
+        for (const targetId of recipients) {
+          try {
+            const deliveryResult = await deliver({
+              api: deliveryApi,
+              adminTelegramId: targetId,
+              submission,
+              user,
+              ticketId,
+            });
+
+            if (deliveryResult?.rootMessageId && ticketId) {
+              if (!firstSuccess) {
+                firstSuccess = { rootMessageId: deliveryResult.rootMessageId, chatId: targetId };
+              }
+              if (authDatabase?.saveTicketTelegramMessage) {
+                authDatabase.saveTicketTelegramMessage(ticketId, deliveryResult.rootMessageId, targetId);
+              }
+            }
+          } catch (delivErr) {
+            if (!ticketId && recipients.size === 1) {
+              throw delivErr;
+            }
+            logError(`[feedback] Failed to deliver ticket to Telegram recipient ${targetId}: ${delivErr?.message}`);
+          }
+        }
+
+        if (firstSuccess && ticketId && authDatabase?.setTrainerTicketTelegramMessage) {
+          try {
+            authDatabase.setTrainerTicketTelegramMessage(ticketId, firstSuccess.rootMessageId, String(firstSuccess.chatId));
           } catch (linkErr) {
             logError(`[feedback] Failed to associate ticket with telegram message: ${linkErr?.message}`);
           }
@@ -135,6 +178,7 @@ export function createFeedbackHandler(options) {
       }
 
       respondJson(response, 200, { ok: true });
+      return;
     } catch (error) {
       if (error instanceof RequestError) {
         respondJson(response, error.statusCode, { ok: false, error: error.publicCode });

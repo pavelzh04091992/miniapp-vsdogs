@@ -81,6 +81,7 @@ export function createTelegramApi(botToken, options = {}) {
   }
 
   return {
+    fetchImpl,
     request,
     answerCallbackQuery: (callbackQueryId, extra = {}) => request('answerCallbackQuery', {
       callback_query_id: callbackQueryId,

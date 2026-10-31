@@ -691,3 +691,98 @@ test('deliverFeedback with ticketId adds direct admin attachment link and does n
   assert.equal(buttons[1][0].text, '📎 Посмотреть вложения в админке (4)');
   assert.equal(buttons[1][0].url, 'https://admin.miniapp-vsdogs.ru/admin/tickets?tab=new#ticket-77');
 });
+
+test('feedback handler delivers to authorized bot trainers and handles individual recipient failure gracefully', async () => {
+  const { tempDir, dbPath, database: authDb } = createTestHarness();
+  const rawDb = new DatabaseSync(dbPath);
+
+  rawDb.exec(`
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      login TEXT NOT NULL,
+      full_name TEXT NOT NULL,
+      is_owner INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      can_answer_tickets_bot INTEGER DEFAULT 0,
+      telegram_id TEXT
+    );
+    CREATE TABLE IF NOT EXISTS trainer_ticket_messages (
+      ticket_id INTEGER NOT NULL,
+      chat_id TEXT NOT NULL,
+      message_id INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (chat_id, message_id)
+    );
+
+    INSERT INTO admin_users (login, full_name, is_owner, can_answer_tickets_bot, telegram_id)
+    VALUES
+      ('daria', 'Дарья', 1, 1, '1358189044'),
+      ('pavel', 'Павел', 1, 1, '308085078');
+  `);
+
+  authDb.ensureAdmin('10001');
+  authDb.grantUser('12345', '10001', 2000000000);
+  authDb.touchTelegramUser({ id: 12345, firstName: 'Тест', username: 'testuser' });
+
+  try {
+    const deliveredChats = [];
+    const errorsLogged = [];
+
+    const fakeDeliver = async ({ adminTelegramId, ticketId }) => {
+      // Simulate Daria not having started the bot
+      if (adminTelegramId === '1358189044') {
+        throw new Error('Bad Request: chat not found');
+      }
+      deliveredChats.push(adminTelegramId);
+      return { rootMessageId: 888 };
+    };
+
+    const handler = createFeedbackHandler({
+      adminTelegramId: '1358189044',
+      allowedOrigins: new Set(['https://example.com']),
+      api: {},
+      getSessionUser: () => ({ telegramId: '12345' }),
+      authDatabase: authDb,
+      authDatabasePath: dbPath,
+      rateLimiter: { consume: () => ({ allowed: true }) },
+      parseForm: async () => ({ question: 'Вопрос resilience test', attachments: [] }),
+      deliver: fakeDeliver,
+      removeFiles: async () => {},
+      logError: (msg) => errorsLogged.push(msg),
+    });
+
+    const mockReq = {
+      method: 'POST',
+      headers: { origin: 'https://example.com' },
+      resume: () => {},
+    };
+
+    let statusCode = null;
+    let responseBody = null;
+    const mockRes = {
+      writeHead(code) { statusCode = code; },
+      end(body) { responseBody = JSON.parse(body); },
+    };
+
+    await handler(mockReq, mockRes);
+
+    // Response must be 200 OK because ticket is safely saved in DB
+    assert.equal(statusCode, 200);
+    assert.deepStrictEqual(responseBody, { ok: true });
+
+    // Pavel must have received the ticket notification
+    assert.ok(deliveredChats.includes('308085078'));
+
+    // Daria's failure was logged but did not crash the submission
+    assert.ok(errorsLogged.some(e => e.includes('1358189044') && e.includes('chat not found')));
+
+    // Message association was recorded in trainer_ticket_messages
+    const savedMsg = rawDb.prepare("SELECT * FROM trainer_ticket_messages WHERE ticket_id = 1").get();
+    assert.ok(savedMsg);
+    assert.equal(savedMsg.chat_id, '308085078');
+    assert.equal(savedMsg.message_id, 888);
+  } finally {
+    rawDb.close();
+    try { rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {}
+  }
+});

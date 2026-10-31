@@ -118,6 +118,66 @@ export function createAuthDatabase(databasePath, options = {}) {
     setTrainerTicketTelegramMessage(ticketId, tgMessageId, tgChatId) {
       if (!statements.setTrainerTicketTelegramMessage) return;
       statements.setTrainerTicketTelegramMessage.run(tgMessageId, String(tgChatId), ticketId);
+      try {
+        const hasMsgTable = Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_ticket_messages'").get());
+        if (!hasMsgTable) {
+          database.exec(`
+            CREATE TABLE IF NOT EXISTS trainer_ticket_messages (
+              ticket_id INTEGER NOT NULL,
+              chat_id TEXT NOT NULL,
+              message_id INTEGER NOT NULL,
+              created_at TEXT DEFAULT (datetime('now')),
+              PRIMARY KEY (chat_id, message_id)
+            )
+          `);
+        }
+        database.prepare(`
+          INSERT OR REPLACE INTO trainer_ticket_messages (ticket_id, chat_id, message_id)
+          VALUES (?, ?, ?)
+        `).run(ticketId, String(tgChatId), tgMessageId);
+      } catch {
+        // Non-blocking
+      }
+    },
+
+    saveTicketTelegramMessage(ticketId, messageId, chatId) {
+      try {
+        const hasMsgTable = Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='trainer_ticket_messages'").get());
+        if (!hasMsgTable) {
+          database.exec(`
+            CREATE TABLE IF NOT EXISTS trainer_ticket_messages (
+              ticket_id INTEGER NOT NULL,
+              chat_id TEXT NOT NULL,
+              message_id INTEGER NOT NULL,
+              created_at TEXT DEFAULT (datetime('now')),
+              PRIMARY KEY (chat_id, message_id)
+            )
+          `);
+        }
+        database.prepare(`
+          INSERT OR REPLACE INTO trainer_ticket_messages (ticket_id, chat_id, message_id)
+          VALUES (?, ?, ?)
+        `).run(ticketId, String(chatId), messageId);
+      } catch {
+        // Non-blocking
+      }
+    },
+
+    getAuthorizedBotTrainers() {
+      try {
+        const hasUsersTable = Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='admin_users'").get());
+        if (!hasUsersTable) return [];
+        return database.prepare(`
+          SELECT id, full_name, telegram_id
+          FROM admin_users
+          WHERE is_active = 1
+            AND (can_answer_tickets_bot = 1 OR is_owner = 1)
+            AND telegram_id IS NOT NULL
+            AND telegram_id != ''
+        `).all();
+      } catch {
+        return [];
+      }
     },
 
     getTrainerTicketById(ticketId) {
