@@ -2,7 +2,7 @@ import https from 'node:https';
 import db from '../../db/database.js';
 import { logAudit } from '../auth.js';
 
-const TICKET_BOT_TOKEN = process.env.TICKET_BOT_TOKEN || '9208966722:AAHw2JkQg4FkBPEPifF1CA5kTLu54thCV1s';
+const TICKET_BOT_TOKEN = process.env.TICKET_BOT_TOKEN || '9122750753:AAGIxkk5FutsTRwVTrqDxcMdxi0rh78PaTE';
 const STUDENT_BOT_TOKEN = process.env.BOT_TOKEN;
 const TICKET_CHAT_ID = process.env.TICKET_CHAT_ID;
 const EGRESS_HOST = process.env.TELEGRAM_EGRESS_HOST || 'telegram-egress';
@@ -143,7 +143,7 @@ export async function sendAnswerToStudent({ studentTelegramId, studentName, ques
 }
 
 /**
- * Обработка одного входящего Update от @ticket_centr_bot
+ * Обработка одного входящего Update от @vsdogs_admin_bot
  */
 export async function handleTicketBotUpdate(update, customDb = db, callApi = callTelegramApi) {
   // 1. Нажатие на кнопку (callback_query)
@@ -518,7 +518,7 @@ export async function handleTicketBotUpdate(update, customDb = db, callApi = cal
 }
 
 /**
- * Фоновый цикл Long-Polling для @ticket_centr_bot
+ * Фоновый цикл Long-Polling для @vsdogs_admin_bot
  */
 let pollerActive = false;
 let pollerStopping = false;
@@ -528,7 +528,7 @@ export async function startTicketBotPoller({ botToken = TICKET_BOT_TOKEN, custom
   pollerActive = true;
   pollerStopping = false;
 
-  console.log(`[ticketBotService] Запуск слушателя бота кинологов (@ticket_centr_bot)...`);
+  console.log(`[ticketBotService] Запуск слушателя бота кинологов (@vsdogs_admin_bot)...`);
 
   // Удаляем webhook у служебного бота, если он был установлен
   try {
