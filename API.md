@@ -253,7 +253,73 @@ API поддерживает Cross-Origin Resource Sharing (`Access-Control-Allo
 
 ---
 
-### 5. Сводная статистика (Дашборд)
+### 5. Список вопросов кинологу (Тикеты)
+`GET /api/v1/tickets`
+
+Возвращает список вопросов от учеников с текстом вопроса, прикрепленными медиа, ответом и статусом.
+
+#### Query-параметры:
+| Параметр | Тип | Описание |
+|---|---|---|
+| `status` | string | `unanswered` (неотвеченные новые и в работе), `new` (новые), `in_progress` (в работе), `answered` (отвеченные), `closed` (закрытые), `all` (все) |
+| `page` | integer | Номер страницы (по умолч. 1) |
+| `limit` | integer | Записей на страницу (по умолч. 25, макс 100) |
+
+#### Пример ответа:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 14,
+      "user_id": 15,
+      "client": {
+        "id": 15,
+        "name": "Анна Смирнова",
+        "phone": "+79161234567",
+        "username": "anna_poodle",
+        "telegram_id": 987654321
+      },
+      "question_text": "Щенок не хочет ходить в туалет на пеленку, что делать?",
+      "media_url": null,
+      "status": "new",
+      "is_answered": false,
+      "assigned_trainer_name": null,
+      "answer_text": null,
+      "created_at": "2026-11-02 12:10:00",
+      "answered_at": null
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 25,
+    "total": 1,
+    "total_pages": 1
+  }
+}
+```
+
+---
+
+### 6. Real-time поток событий (SSE)
+`GET /api/v1/events`
+
+Позволяет серверу подключаться по протоколу Server-Sent Events (SSE) и в режиме реального времени получать push-уведомления без необходимости постоянного polling-опроса:
+- `TICKETS_UPDATED`: появление нового вопроса или ответ кинолога;
+- `PAYMENTS_UPDATED`: регистрация новой оплаты;
+- `USERS_UPDATED`: регистрация нового ученика или изменение профиля.
+
+Пример подключения (Node.js / Python):
+```http
+GET /api/v1/events HTTP/1.1
+Host: admin.miniapp-vsdogs.ru
+Authorization: Bearer vsd_live_...
+Accept: text/event-stream
+```
+
+---
+
+### 7. Сводная статистика (Дашборд)
 `GET /api/v1/stats`
 
 Возвращает агрегированные финансовые и клиентские показатели для главного экрана приложения.

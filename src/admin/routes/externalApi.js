@@ -2,6 +2,7 @@ import express from 'express';
 import db from '../../db/database.js';
 import { verifyApiToken } from '../services/apiTokenService.js';
 import { getTariffName } from '../services/licenseService.js';
+import { handleAdminSseConnection } from '../services/realtimeService.js';
 
 const router = express.Router();
 
@@ -461,6 +462,88 @@ router.get('/tariffs', requireApiToken, (req, res) => {
 });
 
 /**
+ * 4.1. Получение списка вопросов кинологу (тикеты)
+ * GET /api/v1/tickets
+ * Фильтры: page, limit, status (unanswered, new, in_progress, answered, closed, all)
+ */
+router.get('/tickets', requireApiToken, (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
+    const offset = (page - 1) * limit;
+    const status = req.query.status || 'all';
+
+    let whereClauses = ['1=1'];
+    const params = [];
+
+    if (status === 'unanswered') {
+      whereClauses.push("t.status IN ('new', 'in_progress')");
+    } else if (status !== 'all') {
+      whereClauses.push('t.status = ?');
+      params.push(status);
+    }
+
+    const whereStr = whereClauses.join(' AND ');
+
+    const total = db.prepare(`SELECT COUNT(*) as c FROM trainer_tickets t WHERE ${whereStr}`).get(...params)?.c || 0;
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    const rows = db.prepare(`
+      SELECT t.*, u.first_name, u.last_name, u.phone, u.username, u.telegram_id
+      FROM trainer_tickets t
+      LEFT JOIN users u ON u.id = t.user_id
+      WHERE ${whereStr}
+      ORDER BY t.id DESC
+      LIMIT ? OFFSET ?
+    `).all(...params, limit, offset);
+
+    const data = rows.map(r => {
+      const clientName = [r.first_name, r.last_name].filter(Boolean).join(' ') || (r.username ? `@${r.username}` : `Клиент #${r.user_id}`);
+      return {
+        id: r.id,
+        user_id: r.user_id,
+        client: {
+          id: r.user_id,
+          name: clientName,
+          phone: r.phone || null,
+          username: r.username || null,
+          telegram_id: r.telegram_id || null
+        },
+        question_text: r.question_text,
+        media_url: r.media_url || null,
+        status: r.status,
+        is_answered: r.status === 'answered' || r.status === 'closed',
+        assigned_trainer_name: r.assigned_trainer_name || null,
+        answer_text: r.answer_text || null,
+        created_at: r.created_at,
+        answered_at: r.answered_at || null
+      };
+    });
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        total_pages: totalPages
+      }
+    });
+  } catch (err) {
+    console.error('API /tickets error:', err);
+    res.status(500).json({ success: false, error: 'Ошибка сервера при получении вопросов' });
+  }
+});
+
+/**
+ * 4.2. Поток событий в реальном времени (Server-Sent Events)
+ * GET /api/v1/events
+ * Позволяет серверу Дарьи получать push-уведомления об изменениях (новые вопросы, оплаты, клиенты)
+ */
+router.get('/events', requireApiToken, handleAdminSseConnection);
+
+/**
  * 5. Сводная статистика (Stats)
  * GET /api/v1/stats
  */
@@ -630,6 +713,28 @@ router.get('/openapi.json', (req, res) => {
           summary: 'Список тарифов и их стоимости',
           responses: {
             '200': { description: 'Список активных тарифных планов' }
+          }
+        }
+      },
+      '/tickets': {
+        get: {
+          summary: 'Список вопросов кинологу (тикеты)',
+          parameters: [
+            { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+            { name: 'limit', in: 'query', schema: { type: 'integer', default: 25 } },
+            { name: 'status', in: 'query', schema: { type: 'string', enum: ['unanswered', 'new', 'in_progress', 'answered', 'closed', 'all'] }, description: 'Фильтр по статусу. Для неотвеченных используйте unanswered' }
+          ],
+          responses: {
+            '200': { description: 'Список вопросов с текстом, медиа и статусом ответа' }
+          }
+        }
+      },
+      '/events': {
+        get: {
+          summary: 'Поток событий в реальном времени (Server-Sent Events / SSE)',
+          description: 'Позволяет получать моментальные push-уведомления при появлении новых оплат, вопросов или пользователей.',
+          responses: {
+            '200': { description: 'Поток событий text/event-stream' }
           }
         }
       },

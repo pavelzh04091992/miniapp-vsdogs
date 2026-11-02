@@ -472,6 +472,53 @@ router.get('/', (req, res) => {
       </div>
     </div>
 
+    <!-- 4.1. GET /tickets -->
+    <div class="endpoint-card">
+      <div class="endpoint-header">
+        <span class="method">GET</span>
+        <span class="path">/tickets</span>
+        <span class="badge-auth">Bearer Auth</span>
+        <span class="desc">Вопросы кинологу (тикеты)</span>
+      </div>
+      <div class="endpoint-body">
+        <p style="color: var(--text-muted); font-size: 13.5px;">
+          Возвращает список вопросов от учеников с фильтрацией по статусу. Чтобы получить только неотвеченные вопросы, передайте <code>?status=unanswered</code> (или <code>?status=new</code>).
+        </p>
+
+        <div class="section-title">Параметры запроса (Query)</div>
+        <table>
+          <thead>
+            <tr><th>Параметр</th><th>Тип</th><th>Описание</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>status</code></td><td>string</td><td>Фильтр статуса: <code>unanswered</code> (неотвеченные), <code>new</code> (новые), <code>in_progress</code> (в работе), <code>answered</code> (отвеченные), <code>all</code></td></tr>
+            <tr><td><code>page</code></td><td>integer</td><td>Номер страницы (по умолч. 1)</td></tr>
+            <tr><td><code>limit</code></td><td>integer</td><td>Количество на страницу (по умолч. 25, макс 100)</td></tr>
+          </tbody>
+        </table>
+
+        <div class="section-title">Пример cURL</div>
+        <pre>curl -X GET "${baseUrl}/tickets?status=unanswered" \
+  -H "Authorization: Bearer YOUR_API_TOKEN"</pre>
+      </div>
+    </div>
+
+    <!-- 4.2. GET /events (Real-Time SSE) -->
+    <div class="endpoint-card">
+      <div class="endpoint-header">
+        <span class="method">GET</span>
+        <span class="path">/events</span>
+        <span class="badge-auth">Bearer Auth</span>
+        <span class="desc">Real-time поток событий (SSE)</span>
+      </div>
+      <div class="endpoint-body">
+        <p style="color: var(--text-muted); font-size: 13.5px;">
+          Постоянное соединение Server-Sent Events (SSE) для получения мгновенных push-уведомлений при изменении данных (новый вопрос, ответ кинолога, оплата, регистрация ученика). Альтернатива периодическому опросу (polling).
+        </p>
+        <pre>curl -N -H "Authorization: Bearer YOUR_API_TOKEN" "${baseUrl}/events"</pre>
+      </div>
+    </div>
+
     <!-- 5. GET /stats -->
     <div class="endpoint-card">
       <div class="endpoint-header">

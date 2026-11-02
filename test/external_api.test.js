@@ -132,6 +132,17 @@ test('Open API & Токены доступа', async (t) => {
     assert.ok(json.data.length > 0);
   });
 
+  await t.test('8.1) Запрос к /api/v1/tickets?status=unanswered', async () => {
+    const res = await fetch(`${baseUrl}/api/v1/tickets?status=unanswered`, {
+      headers: { Authorization: `Bearer ${testToken}` }
+    });
+    assert.strictEqual(res.status, 200);
+    const json = await res.json();
+    assert.strictEqual(json.success, true);
+    assert.ok(Array.isArray(json.data));
+    assert.ok(json.pagination);
+  });
+
   await t.test('9) Запрос к /api/v1/stats', async () => {
     const res = await fetch(`${baseUrl}/api/v1/stats`, {
       headers: { Authorization: `Bearer ${testToken}` }
