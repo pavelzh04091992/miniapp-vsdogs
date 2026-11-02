@@ -8,6 +8,7 @@ export { createTelegramApi } from './telegram-api.mjs';
 const APP_BUTTON_TEXT = '🐶 Открыть видеоплатформу';
 const BROWSER_BUTTON_TEXT = '🌐 Смотреть с компьютера';
 const SUBSCRIPTION_BUTTON_TEXT = '💳 Моя подписка';
+const CONTACT_BUTTON_TEXT = '❓ Связаться с нами';
 
 export function createTelegramBot(options) {
   let directDb = null;
@@ -164,6 +165,19 @@ export function createTelegramBot(options) {
       return;
     }
 
+    if (
+      text === CONTACT_BUTTON_TEXT ||
+      text === '❓связаться с нами' ||
+      text === '❓ Связаться с нами' ||
+      text?.toLowerCase() === '❓связаться с нами' ||
+      text?.toLowerCase() === '❓ связаться с нами' ||
+      command?.name === 'contact' ||
+      command?.name === 'support'
+    ) {
+      await sendContact(chatId);
+      return;
+    }
+
     // На любой другой текст показываем главное меню
     await sendMainMenu(
       chatId,
@@ -204,7 +218,7 @@ export function createTelegramBot(options) {
    */
   async function requestPhone(chatId, sender) {
     const text =
-      `👋 <b>Добро пожаловать в «Высшую школу собак» Дарьи Сахаровой!</b>\n\n` +
+      `👋 <b>Добро пожаловать в «Высшую школу собак»!</b>\n\n` +
       `Для открытия доступа к платформе и связи с вашим личным кабинетом, пожалуйста, подтвердите свой номер телефона.\n\n` +
       `👇 Нажмите кнопку <b>«📱 Поделиться номером телефона»</b> внизу экрана:`;
 
@@ -234,7 +248,7 @@ export function createTelegramBot(options) {
 
     const text =
       `✅ <b>Номер телефона подтверждён!</b>\n\n` +
-      `Добро пожаловать в обучающую видеоплатформу школы щенков Дарьи Сахаровой 🐶\n\n` +
+      `Добро пожаловать в обучающую видеоплатформу «Высшей школы собак» 🐶\n\n` +
       `Все видеоматериалы и уроки доступны по кнопкам ниже:`;
 
     await api.sendMessage(chatId, text, {
@@ -284,6 +298,7 @@ export function createTelegramBot(options) {
       keyboard: [
         [{ text: APP_BUTTON_TEXT }],
         [{ text: BROWSER_BUTTON_TEXT }, { text: SUBSCRIPTION_BUTTON_TEXT }],
+        [{ text: CONTACT_BUTTON_TEXT }],
       ],
       resize_keyboard: true,
     };
@@ -417,12 +432,40 @@ export function createTelegramBot(options) {
   /**
    * Справка /help
    */
+  /**
+   * Контакты для связи с поддержкой и школой
+   */
+  async function sendContact(chatId) {
+    const text =
+      `🐾 <b>Остались вопросы? Мы всегда на связи!</b>\n\n` +
+      `Если у вас возникли вопросы, вы можете обратиться к менеджеру, который ранее с вами связывался.\n` +
+      `Также вы можете связаться с командой «Высшей школы собак» любым удобным способом:\n\n` +
+      `💙 Telegram: https://t.me/Vsdogs\n` +
+      `💚 WhatsApp: https://wa.me/79272658604\n` +
+      `📞 Позвонить нам: +7 (985) 674-23-77\n\n` +
+      `Мы с радостью ответим на ваши вопросы и поможем во всём разобраться! 🐶`;
+
+    await api.sendMessage(chatId, text, {
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '💙 Написать в Telegram', url: 'https://t.me/Vsdogs' },
+            { text: '💚 Написать в WhatsApp', url: 'https://wa.me/79272658604' },
+          ],
+        ],
+      },
+    });
+  }
+
   async function sendHelp(chatId) {
     const text =
-      `🐶 <b>Онлайн-видеоплатформа «Высшей школы собак» Дарьи Сахаровой</b>\n\n` +
+      `🐶 <b>Онлайн-видеоплатформа «Высшей школы собак»</b>\n\n` +
       `• Нажмите <b>«${APP_BUTTON_TEXT}»</b>, чтобы смотреть уроки прямо внутри Telegram.\n` +
       `• Нажмите <b>«${BROWSER_BUTTON_TEXT}»</b>, чтобы получить быструю одноразовую ссылку для просмотра на ноутбуке или компьютере.\n` +
-      `• Нажмите <b>«${SUBSCRIPTION_BUTTON_TEXT}»</b>, чтобы проверить срок действия вашего доступа.\n\n` +
+      `• Нажмите <b>«${SUBSCRIPTION_BUTTON_TEXT}»</b>, чтобы проверить срок действия вашего доступа.\n` +
+      `• Нажмите <b>«${CONTACT_BUTTON_TEXT}»</b>, чтобы связаться с поддержкой и менеджерами школы.\n\n` +
       `Все вопросы по оформлению, оплате и продлению подписки решаются напрямую через вашего менеджера школы.`;
 
     await api.sendMessage(chatId, text, { parse_mode: 'HTML' });

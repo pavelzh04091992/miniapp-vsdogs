@@ -27,6 +27,10 @@ export const ACTION_NAMES = {
   'CREATE_TARIFF': 'Создание тарифа',
   'UPDATE_TARIFF': 'Изменение тарифа',
   'TOGGLE_TARIFF': 'Переключение тарифа',
+  'DELETE_TARIFF': 'Удаление тарифа',
+  'CREATE_API_TOKEN': 'Создание API-токена',
+  'REVOKE_API_TOKEN': 'Отзыв API-токена',
+  'DELETE_API_TOKEN': 'Удаление API-токена',
   'SEND_BROADCAST': 'Рассылка в Telegram'
 };
 

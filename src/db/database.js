@@ -236,6 +236,21 @@ export function initDatabase() {
       placeholders TEXT,
       updated_at TEXT DEFAULT (datetime('now'))
     );
+
+    -- 12. Токены доступа для внешнего API (интеграция сторонних приложений)
+    CREATE TABLE IF NOT EXISTS api_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      permissions TEXT DEFAULT 'all',
+      is_active INTEGER DEFAULT 1,
+      created_by_admin_id INTEGER REFERENCES admin_users(id),
+      created_at TEXT DEFAULT (datetime('now')),
+      last_used_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens(token);
+    CREATE INDEX IF NOT EXISTS idx_api_tokens_active ON api_tokens(is_active);
   `);
 
   // Миграция таблицы вопросов кинологу (trainer_tickets)

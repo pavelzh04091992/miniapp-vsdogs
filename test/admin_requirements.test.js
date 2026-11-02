@@ -116,8 +116,21 @@ test('Комплексная проверка всех 10 пунктов тре�
     assert.ok(created.id.startsWith('tariff_'), `ID тарифа (${created.id}) должен начинаться с tariff_`);
     assert.strictEqual(created.price, 3500);
 
-    // Удаляем тестовую запись
-    db.prepare('DELETE FROM tariffs WHERE id = ?').run(created.id);
+    // Проверяем наличие кнопки удаления в HTML тарифов
+    const tariffsPage = await fetch(`${baseUrl}/admin/tariffs`, { headers: { Cookie: ownerCookie } });
+    const tariffsHtml = await tariffsPage.text();
+    assert.ok(tariffsHtml.includes(`/admin/tariffs/${created.id}/delete`), 'Должна быть ссылка/форма удаления тарифа');
+    assert.ok(tariffsHtml.includes('Удалить'), 'Должна быть кнопка Удалить');
+
+    // Удаляем созданный тариф через POST эндпоинт удаления
+    const delRes = await fetch(`${baseUrl}/admin/tariffs/${created.id}/delete`, {
+      method: 'POST',
+      headers: { Cookie: ownerCookie },
+      redirect: 'manual'
+    });
+    assert.strictEqual(delRes.status, 302);
+    const afterDelete = db.prepare('SELECT * FROM tariffs WHERE id = ?').get(created.id);
+    assert.strictEqual(afterDelete, undefined, 'Тариф должен быть удален из базы');
   });
 
   // 6. Рассылки и автонапоминания

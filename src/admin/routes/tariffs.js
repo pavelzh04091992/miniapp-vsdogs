@@ -63,9 +63,12 @@ router.get('/', requireAuth, requireOwner, (req, res) => {
                     <div style="display: flex; gap: 6px;">
                       <a href="/admin/tariffs?edit=${t.id}" class="btn btn-secondary btn-sm">Изменить</a>
                       <form method="POST" action="/admin/tariffs/${t.id}/toggle" style="display: inline;">
-                        <button type="submit" class="btn btn-sm ${t.is_active ? 'btn-danger' : 'btn-secondary'}">
-                          ${t.is_active ? 'Выкл' : 'Вкл'}
+                        <button type="submit" class="btn btn-secondary btn-sm" title="${t.is_active ? 'Отключить тариф' : 'Включить тариф'}">
+                          ${t.is_active ? 'Отключить' : 'Включить'}
                         </button>
+                      </form>
+                      <form method="POST" action="/admin/tariffs/${t.id}/delete" style="display: inline;" onsubmit="return confirm('Вы действительно хотите удалить тариф «${t.name}»?');">
+                        <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
                       </form>
                     </div>
                   </td>
@@ -195,6 +198,21 @@ router.post('/:id/toggle', requireAuth, requireOwner, (req, res) => {
     const newStatus = t.is_active ? 0 : 1;
     db.prepare('UPDATE tariffs SET is_active = ? WHERE id = ?').run(newStatus, id);
     logAudit(req.admin.id, req.admin.full_name, 'TOGGLE_TARIFF', null, `Тариф ${id} статус: ${newStatus}`);
+  }
+  res.redirect('/admin/tariffs');
+});
+
+// Удаление тарифа (только Владелец)
+router.post('/:id/delete', requireAuth, requireOwner, (req, res) => {
+  const id = req.params.id;
+  try {
+    const tariff = db.prepare('SELECT * FROM tariffs WHERE id = ?').get(id);
+    if (tariff) {
+      db.prepare('DELETE FROM tariffs WHERE id = ?').run(id);
+      logAudit(req.admin.id, req.admin.full_name, 'DELETE_TARIFF', null, `Удален тариф ${id} (${tariff.name})`);
+    }
+  } catch (err) {
+    console.error('Ошибка удаления тарифа:', err);
   }
   res.redirect('/admin/tariffs');
 });

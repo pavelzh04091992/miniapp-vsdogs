@@ -664,6 +664,9 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
         <a href="/admin/team" class="nav-link ${activeNav === 'team' ? 'active' : ''}">
           <span>🛡️</span> Команда & Доступы
         </a>
+        <a href="/admin/api-tokens" class="nav-link ${activeNav === 'api_tokens' ? 'active' : ''}">
+          <span>🔑</span> API & Токены
+        </a>
         <a href="/admin/system" class="nav-link ${activeNav === 'system' ? 'active' : ''}">
           <span>📜</span> Логи & Копия базы
         </a>
@@ -709,7 +712,7 @@ export function renderLayout({ title, activeNav, admin, content, alert = null })
         <h2 class="page-title">${title}</h2>
       </div>
       <div style="font-size: 13px; color: var(--text-muted);">
-        Школа дрессировки Дарьи Сахаровой
+        Высшая школа собак
       </div>
     </header>
 

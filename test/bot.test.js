@@ -144,6 +144,34 @@ test('Telegram Bot: Полный клиентский сценарий онбо�
     assert.equal(keyboard[0][0].text, '🐶 Открыть видеоплатформу');
     assert.equal(keyboard[1][0].text, '🌐 Смотреть с компьютера');
     assert.equal(keyboard[1][1].text, '💳 Моя подписка');
+    assert.equal(keyboard[2][0].text, '❓ Связаться с нами');
+
+    // Проверяем нажатие на кнопку "❓ Связаться с нами"
+    sentMessages.length = 0;
+    await bot.handleUpdate({
+      message: {
+        chat: { id: 1001, type: 'private' },
+        from: { id: 1001, first_name: 'Ольга', username: 'olga_dog' },
+        text: '❓ Связаться с нами',
+      },
+    });
+    assert.equal(sentMessages.length, 1);
+    assert.match(sentMessages[0].text, /🐾 <b>Остались вопросы\? Мы всегда на связи!<\/b>/);
+    assert.match(sentMessages[0].text, /https:\/\/t\.me\/Vsdogs/);
+    assert.match(sentMessages[0].text, /https:\/\/wa\.me\/79272658604/);
+    assert.match(sentMessages[0].text, /\+7 \(985\) 674-23-77/);
+
+    // Проверяем нажатие без пробела "❓связаться с нами"
+    sentMessages.length = 0;
+    await bot.handleUpdate({
+      message: {
+        chat: { id: 1001, type: 'private' },
+        from: { id: 1001, first_name: 'Ольга', username: 'olga_dog' },
+        text: '❓связаться с нами',
+      },
+    });
+    assert.equal(sentMessages.length, 1);
+    assert.match(sentMessages[0].text, /🐾 <b>Остались вопросы\? Мы всегда на связи!<\/b>/);
 
     // Проверяем нажатие на кнопку "Открыть видеоплатформу"
     sentMessages.length = 0;

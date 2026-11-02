@@ -42,6 +42,9 @@ import tariffsRoutes from './routes/tariffs.js';
 import teamRoutes from './routes/team.js';
 import broadcastsRoutes from './routes/broadcasts.js';
 import systemRoutes from './routes/system.js';
+import apiTokensRoutes from './routes/apiTokens.js';
+import externalApiRoutes from './routes/externalApi.js';
+import apiDocsRoutes from './routes/apiDocs.js';
 
 // Инициализация БД
 initDatabase();
@@ -64,6 +67,13 @@ app.use(authMiddleware);
 app.get('/admin/api/events', requireAuth, handleAdminSseConnection);
 
 // Подключение роутов
+// 1. Открытый REST API для интеграций и документация (доступ по Bearer-токену)
+app.use('/api/v1', externalApiRoutes);
+app.use('/admin/api/v1', externalApiRoutes);
+app.use('/api/docs', apiDocsRoutes);
+app.use('/admin/api/docs', apiDocsRoutes);
+
+// 2. Внутренние разделы бэкофиса
 app.use('/admin', authRoutes);
 app.use('/admin', dashboardRoutes);
 app.use('/admin/users', usersRoutes);
@@ -73,6 +83,7 @@ app.use('/admin/tariffs', tariffsRoutes);
 app.use('/admin/team', teamRoutes);
 app.use('/admin/broadcasts', broadcastsRoutes);
 app.use('/admin/system', systemRoutes);
+app.use('/admin/api-tokens', apiTokensRoutes);
 
 // Редирект с корня на /admin
 app.get('/', (req, res) => {
