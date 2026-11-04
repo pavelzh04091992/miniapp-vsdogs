@@ -273,8 +273,8 @@ async function handleRequest(request, response) {
     return;
   }
 
-  if (pathname === '/auth/magic') {
-    handleMagicLink(request, response);
+  if (pathname === '/auth/magic' || pathname === '/auth/login') {
+    handleMagicLink(request, response, pathname);
     return;
   }
 
@@ -508,7 +508,7 @@ function handleAuthConfig(request, response) {
   });
 }
 
-function handleMagicLink(request, response) {
+function handleMagicLink(request, response, pathname = '/auth/magic') {
   if (request.method !== 'GET' && request.method !== 'POST') {
     respondJson(response, 405, { ok: false, error: 'method_not_allowed' }, { Allow: 'GET, POST' });
     return;
@@ -531,7 +531,7 @@ function handleMagicLink(request, response) {
 
     respondMagicLinkConfirmation(response, token, {
       'Set-Cookie': serializeMagicConfirmationCookie(hashOpaqueToken(token), magicLinkTtlSeconds),
-    });
+    }, pathname);
     return;
   }
 
@@ -564,8 +564,8 @@ function handleMagicLink(request, response) {
   });
 }
 
-function respondMagicLinkConfirmation(response, token, extraHeaders = {}) {
-  const action = `/auth/magic?token=${encodeURIComponent(token)}`;
+function respondMagicLinkConfirmation(response, token, extraHeaders = {}, pathname = '/auth/magic') {
+  const action = `${pathname}?token=${encodeURIComponent(token)}`;
   const payload = Buffer.from(`<!doctype html>
 <html lang="ru">
 <head>
